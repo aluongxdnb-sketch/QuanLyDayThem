@@ -18,6 +18,44 @@ try:
 except ImportError:
     HAS_REPORTLAB = False
 
+# --- CẤU HÌNH TRANG WEB ---
+st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
+
+# =========================================================
+# 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ỨNG DỤNG
+# =========================================================
+def check_password():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if st.session_state.logged_in:
+        return True
+
+    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà</h2>", unsafe_allow_html=True)
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.subheader("🔐 Đăng Nhập Hệ Thống")
+        username_input = st.text_input("👤 Tên đăng nhập:", value="admin")
+        password_input = st.text_input("🔑 Mật khẩu:", type="password")
+        
+        if st.button("🚀 Đăng Nhập", type="primary", use_container_width=True):
+            # Mật khẩu thiết lập: admin / 120809
+            valid_user = st.secrets.get("USERNAME", "admin")
+            valid_pass = st.secrets.get("PASSWORD", "120809")
+            
+            if username_input == valid_user and password_input == valid_pass:
+                st.session_state.logged_in = True
+                st.success("✅ Đăng nhập thành công!")
+                st.rerun()
+            else:
+                st.error("❌ Mật khẩu hoặc Tên đăng nhập không chính xác!")
+    return False
+
+# Dừng chương trình nếu chưa đăng nhập đúng
+if not check_password():
+    st.stop()
+
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
 def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
@@ -79,9 +117,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
         today = date.today()
         end_date = today + timedelta(days=days_ahead)
 
-        # -------------------------------------------------------------
         # 🧹 BƯỚC 1: XÓA CÁC LỊCH DẠY CŨ TRONG 7 NGÀY TỚI ĐỂ TRÁNH TRÙNG LẶP
-        # -------------------------------------------------------------
         time_min = f"{today.strftime('%Y-%m-%d')}T00:00:00Z"
         time_max = f"{end_date.strftime('%Y-%m-%d')}T23:59:59Z"
 
@@ -100,9 +136,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                 except Exception:
                     pass
 
-        # -------------------------------------------------------------
         # 📤 BƯỚC 2: ĐẨY LỊCH MỚI NHẤT CỦA 7 NGÀY TỚI LÊN GOOGLE CALENDAR
-        # -------------------------------------------------------------
         conn_sync = sqlite3.connect('quan_ly_hoc_sinh.db')
         count_events = 0
 
@@ -430,8 +464,12 @@ except:
 conn.commit()
 
 # --- 2. GIAO DIỆN CHÍNH ---
-st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà")
+
+# NÚT ĐĂNG XUẤT TRÊN SIDEBAR
+if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
+    st.session_state.logged_in = False
+    st.rerun()
 
 menu = [
     "1. Điểm danh & Nhận xét", 
