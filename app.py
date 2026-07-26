@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 import os
 import io
 import re
+import json
 
 # Thử import thư viện ReportLab xuất PDF
 try:
@@ -17,44 +18,6 @@ try:
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
-
-# --- CẤU HÌNH TRANG WEB ---
-st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
-
-# =========================================================
-# 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ỨNG DỤNG
-# =========================================================
-def check_password():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-
-    if st.session_state.logged_in:
-        return True
-
-    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.subheader("🔐 Đăng Nhập Hệ Thống")
-        username_input = st.text_input("👤 Tên đăng nhập:", value="admin")
-        password_input = st.text_input("🔑 Mật khẩu:", type="password")
-        
-        if st.button("🚀 Đăng Nhập", type="primary", use_container_width=True):
-            # Mật khẩu thiết lập: admin / 120809
-            valid_user = st.secrets.get("USERNAME", "admin")
-            valid_pass = st.secrets.get("PASSWORD", "120809")
-            
-            if username_input == valid_user and password_input == valid_pass:
-                st.session_state.logged_in = True
-                st.success("✅ Đăng nhập thành công!")
-                st.rerun()
-            else:
-                st.error("❌ Mật khẩu hoặc Tên đăng nhập không chính xác!")
-    return False
-
-# Dừng chương trình nếu chưa đăng nhập đúng
-if not check_password():
-    st.stop()
 
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
 def get_vietnamese_weekday(dt):
@@ -103,21 +66,30 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
         from google.oauth2.service_account import Credentials
         from googleapiclient.discovery import build
     except ImportError:
-        return False, "⚠️ Chưa cài đặt thư viện Google. Vui lòng mở CMD gõ: pip install google-api-python-client google-auth"
+        return False, "⚠️ Chưa cài đặt thư viện Google. Vui lòng thêm google-api-python-client và google-auth vào requirements.txt"
 
     service_account_file = 'credentials.json'
-    if not os.path.exists(service_account_file):
-        return False, "⚠️ Không tìm thấy file `credentials.json` trong thư mục."
 
     try:
         scopes = ['https://www.googleapis.com/auth/calendar']
-        creds = Credentials.from_service_account_file(service_account_file, scopes=scopes)
+        
+        # Cấu hình linh hoạt: Ưu tiên đọc từ Streamlit Secrets (trên Web), nếu không có mới đọc file local
+        if "GOOGLE_CREDENTIALS_JSON" in st.secrets:
+            info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
+            creds = Credentials.from_service_account_info(info, scopes=scopes)
+        elif os.path.exists(service_account_file):
+            creds = Credentials.from_service_account_file(service_account_file, scopes=scopes)
+        else:
+            return False, "⚠️ Không tìm thấy cấu hình Google Credentials trong Secrets hoặc file credentials.json."
+
         service = build('calendar', 'v3', credentials=creds)
 
         today = date.today()
         end_date = today + timedelta(days=days_ahead)
 
+        # -------------------------------------------------------------
         # 🧹 BƯỚC 1: XÓA CÁC LỊCH DẠY CŨ TRONG 7 NGÀY TỚI ĐỂ TRÁNH TRÙNG LẶP
+        # -------------------------------------------------------------
         time_min = f"{today.strftime('%Y-%m-%d')}T00:00:00Z"
         time_max = f"{end_date.strftime('%Y-%m-%d')}T23:59:59Z"
 
@@ -136,7 +108,9 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                 except Exception:
                     pass
 
+        # -------------------------------------------------------------
         # 📤 BƯỚC 2: ĐẨY LỊCH MỚI NHẤT CỦA 7 NGÀY TỚI LÊN GOOGLE CALENDAR
+        # -------------------------------------------------------------
         conn_sync = sqlite3.connect('quan_ly_hoc_sinh.db')
         count_events = 0
 
@@ -252,7 +226,7 @@ def check_schedule_conflicts(conn, thu, ca_hoc, exclude_lop=None, exclude_hs_id=
     query += " GROUP BY h.lop_hoc"
     return pd.read_sql_query(query, conn, params=params)
 
-# --- HÀM HiỂN THỊ MA TRẬN LỊCH HỌC KÈM CỘT BUỔI SÁNG/CHIỀU/TỐI ---
+# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC KÈM CỘT BUỔI SÁNG/CHIỀU/TỐI ---
 def render_schedule_matrix(conn):
     query_mindmap = '''
         SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
@@ -464,12 +438,8 @@ except:
 conn.commit()
 
 # --- 2. GIAO DIỆN CHÍNH ---
+st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà")
-
-# NÚT ĐĂNG XUẤT TRÊN SIDEBAR
-if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
-    st.session_state.logged_in = False
-    st.rerun()
 
 menu = [
     "1. Điểm danh & Nhận xét", 
@@ -1255,7 +1225,7 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
                 st.markdown("#### 📄 Xuất Phiếu Báo Học Phí PDF (Kèm Mã QR)")
                 
                 if not HAS_REPORTLAB:
-                    st.error("Chưa cài đặt `reportlab`. Hãy gõ `py -m pip install reportlab pillow` trong CMD.")
+                    st.error("Chưa cài đặt reportlab.")
                 else:
                     col_pdf1, col_pdf2 = st.columns([2, 2])
                     with col_pdf1:
