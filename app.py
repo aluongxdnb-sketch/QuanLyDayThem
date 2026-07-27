@@ -5,6 +5,17 @@ from datetime import date, datetime, timedelta
 import os
 import json
 import re
+import io
+import textwrap
+
+# Thử import Matplotlib để xuất lịch học & phiếu học phí dạng ảnh PNG
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('Agg')
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
 
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
@@ -309,6 +320,121 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
+def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
+    if ref_date is None:
+        ref_date = date.today()
+        
+    fig, ax = plt.subplots(figsize=(20, len(df_matrix) * 1.2 + 4.5))
+    ax.axis('off')
+    ax.axis('tight')
+    
+    start_w = ref_date - timedelta(days=ref_date.weekday())
+    end_w = start_w + timedelta(days=6)
+    week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
+    
+    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
+    cleaned_data = []
+    for row in table_data:
+        cleaned_row = []
+        for col_idx, cell in enumerate(row):
+            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
+            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
+            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
+            
+            if col_idx >= 2 and len(clean_cell) > 14:
+                parts = clean_cell.split(', ')
+                wrapped_parts = []
+                for p in parts:
+                    wrapped_parts.append('\n'.join(textwrap.wrap(p, width=15)))
+                clean_cell = '\n'.join(wrapped_parts)
+            elif col_idx == 1 and len(clean_cell) > 12:
+                clean_cell = '\n'.join(textwrap.wrap(clean_cell, width=12))
+                
+            cleaned_row.append(clean_cell)
+        cleaned_data.append(cleaned_row)
+        
+    col_widths = [0.08, 0.12, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11]
+    
+    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
+    table.auto_set_font_size(False)
+    table.set_fontsize(9.5)
+    table.scale(1, 2.6)
+    
+    ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
+            fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+    ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
+            fontsize=12.5, fontweight='bold', color='#0F172A', ha='center', va='bottom')
+    ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
+            fontsize=10.5, fontweight='normal', color='#475569', ha='center', va='bottom')
+    
+    plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
+    
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor('#CBD5E1')
+        if row == 0:
+            cell.set_facecolor('#1E3A8A')
+            cell.set_text_props(color='white', weight='bold', size=11)
+        else:
+            cell.set_text_props(color='#1E293B', size=9.5)
+            if col == 0 or col == 1:
+                cell.set_facecolor('#F1F5F9')
+                cell.set_text_props(weight='bold', color='#1E3A8A')
+            else:
+                if row % 2 == 0:
+                    cell.set_facecolor('#F8FAFC')
+                else:
+                    cell.set_facecolor('white')
+                    
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (PNG) ---
+def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path):
+    fig, ax = plt.subplots(figsize=(8, 10))
+    ax.axis('off')
+    
+    ax.text(0.5, 0.93, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.88, f"Tháng / Năm: {month_year}", fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    
+    details = [
+        f"Họ và tên học sinh: {student_name}",
+        f"Lớp / Nhóm học: {lop_hoc}",
+        f"Môn học: {subject}",
+        f"Học phí / ca: {price_per_lesson:,.0f} VNĐ",
+        f"Tổng số ca học: {total_lessons} ca",
+        f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ",
+        f"Trạng thái thanh toán: {status}"
+    ]
+    
+    y_pos = 0.78
+    for line in details:
+        fontweight = 'bold' if 'TỔNG CỘNG' in line or 'Họ và tên' in line else 'normal'
+        color = '#B91C1C' if 'TỔNG CỘNG' in line else '#1E293B'
+        ax.text(0.1, y_pos, line, fontsize=12, fontweight=fontweight, color=color, transform=ax.transAxes)
+        y_pos -= 0.06
+        
+    if qr_path and os.path.exists(qr_path):
+        try:
+            img_arr = plt.imread(qr_path)
+            ax_inset = fig.add_axes([0.35, 0.15, 0.3, 0.3])
+            ax_inset.imshow(img_arr)
+            ax_inset.axis('off')
+            ax.text(0.5, 0.48, "Mã QR Thanh Toán Chuyển Khoản", fontsize=11, fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
+        except Exception:
+            pass
+            
+    ax.text(0.5, 0.05, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
+    
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
 # --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
 with engine.begin() as conn:
     conn.execute(text('''
@@ -375,7 +501,7 @@ menu = [
     "0. 📊 Trang Chủ Dashboard",
     "1. Điểm danh & Nhận xét", 
     "2. 🗺️ Quản Lý & Ma Trận Lịch Học",
-    "3. 💳 Quản Lý Học Phí & Thống Kê", 
+    "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)", 
     "4. Sửa & Xóa dữ liệu"
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
@@ -603,10 +729,11 @@ elif choice == "1. Điểm danh & Nhận xét":
 elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
     st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
 
-    tab_matrix, tab_goc, tab_tam = st.tabs([
+    tab_matrix, tab_goc, tab_tam, tab_export = st.tabs([
         "🗺️ Ma Trận Tổng Quan", 
         "📅 1. Lịch Gốc Hàng Tuần", 
-        "⏳ 2. Lịch Học Tạm Thời"
+        "⏳ 2. Lịch Học Tạm Thời", 
+        "📥 Xuất Ảnh Lịch Học"
     ])
 
     with tab_matrix:
@@ -637,6 +764,21 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 target_hs_ids = [hs_dict_goc[selected_hs_label]]
                 target_name_label = selected_hs_label
 
+            # --- TÍNH NĂNG TỰ ĐỘNG BỎ TÍCH KHI ĐỔI LỚP / HỌC SINH MỚI ---
+            if "last_goc_target" not in st.session_state:
+                st.session_state.last_goc_target = target_name_label
+
+            if st.session_state.last_goc_target != target_name_label:
+                st.session_state.last_goc_target = target_name_label
+                cac_thu_reset = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
+                for t_res in cac_thu_reset:
+                    st.session_state[f"chk_goc_lop_{t_res}"] = False
+                    st.session_state[f"multi_ca_{t_res}"] = []
+                    st.session_state[f"custom_ca_multi_{t_res}"] = ""
+                st.rer0un = getattr(st, "rerun", None)
+                if st.rerun:
+                    st.rerun()
+
             cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
             
             schedule_dict_to_save = {}
@@ -645,8 +787,15 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     has_class = st.checkbox(f"Có lịch học vào {t}", key=f"chk_goc_lop_{t}")
                     if has_class:
                         cas_chon = st.multiselect(f"Chọn các ca chuẩn vào {t}:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"] if t != "Chủ Nhật" else [], key=f"multi_ca_{t}")
-                        if cas_chon:
-                            schedule_dict_to_save[t] = cas_chon
+                        custom_ca_them = st.text_input(f"Thêm ca giờ tùy chỉnh vào {t} (nếu có, cách nhau bằng dấu phẩy):", placeholder="VD: 08h00 - 10h00", key=f"custom_ca_multi_{t}")
+                        
+                        all_cas_for_day = list(cas_chon)
+                        if custom_ca_them.strip():
+                            extra_cas = [c_item.strip() for c_item in custom_ca_them.split(",") if c_item.strip()]
+                            all_cas_for_day.extend(extra_cas)
+                        
+                        if all_cas_for_day:
+                            schedule_dict_to_save[t] = list(set(all_cas_for_day))
 
             if st.button(f"💾 Lưu Lịch Học Gốc Cho {target_name_label}", type="primary"):
                 with engine.begin() as conn:
@@ -720,11 +869,58 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     st.success("✅ Đã xóa thành công!")
                     st.rerun()
 
+    with tab_export:
+        st.markdown("### 🖼️ Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
+        df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
+
+        if df_hs_all.empty:
+            st.warning("Chưa có dữ liệu học sinh.")
+        else:
+            sel_date_export = st.date_input("🗓️ Chọn tuần để xuất ảnh:", date.today(), key="sel_date_export_img_m")
+            filter_mode = st.radio("Chọn phạm vi xuất lịch học:", ["Toàn bộ các Lớp", "Theo Lớp cụ thể", "Theo Học sinh cụ thể"], horizontal=True, key="filter_mode_exp_m")
+            
+            target_title = "Tất Cả Các Lớp"
+            selected_lop_exp = None
+            selected_hs_exp = None
+            prefix_label = "Học sinh / Lớp: "
+
+            if filter_mode == "Toàn bộ các Lớp":
+                target_title = "Tất Cả Các Lớp"
+                prefix_label = "Phạm vi: "
+            elif filter_mode == "Theo Lớp cụ thể":
+                lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
+                selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list, key="sel_lop_exp_m")
+                target_title = f"Lớp {selected_lop_exp}"
+                prefix_label = "Học sinh / Lớp: "
+            elif filter_mode == "Theo Học sinh cụ thể":
+                hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
+                sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()), key="sel_hs_label_exp_m")
+                selected_hs_row = hs_dict_exp[sel_hs_label]
+                selected_hs_exp = selected_hs_row['id']
+                target_title = f"{selected_hs_row['ho_ten']} ({selected_hs_row['lop_hoc']})"
+                prefix_label = "Học sinh / Lớp: "
+
+            df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
+
+            if df_export_matrix.empty:
+                st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
+            else:
+                if HAS_MATPLOTLIB:
+                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
+                    file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
+                    st.download_button(
+                        label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
+                        data=img_bytes,
+                        file_name=f"Lich_Hoc_Tuan_{file_name_prefix}.png",
+                        mime="image/png",
+                        type="primary"
+                    )
+
 # =========================================================
 # --- CHỨC NĂNG 3: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
 # =========================================================
-elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê":
-    st.subheader("💳 Thống Kê Điểm Danh & Quản Lý Học Phí")
+elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
+    st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Xuất Hóa Đơn Ảnh PNG")
     
     col_y, col_m = st.columns([1, 3])
     with col_y:
@@ -738,6 +934,8 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê":
     if not selected_thangs:
         st.warning("⚠️ Vui lòng chọn ít nhất một tháng.")
     else:
+        qr_path = "qr_code.png" if os.path.exists("qr_code.png") else None
+        
         all_dfs = []
         for th in selected_thangs:
             thang_nam_query = f"{nam_selected}-{th:02d}"
@@ -769,16 +967,17 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê":
             st.info("ℹ️ Không tìm thấy dữ liệu học phí phù hợp.")
         else:
             for idx, row in combined_df.iterrows():
-                c1, c2, c3, c4, c5, c6 = st.columns([2.5, 1.2, 1.5, 1.5, 1.8, 2.0])
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
                 c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
-                c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
+                c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
+                c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
                 
                 is_paid = (row['Trạng Thái'] == 'Đã đóng')
-                c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
+                c5.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
                 
                 btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
-                if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"):
+                if c6.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"):
                     new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
                     t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
                     with engine.begin() as conn:
@@ -789,6 +988,27 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê":
                             DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
                         '''), {"hs_id": row['hoc_sinh_id'], "thang": row['Tháng/Năm'], "stt": new_stt, "ngay": t_str})
                     st.rerun()
+
+                with c7:
+                    if HAS_MATPLOTLIB:
+                        img_bytes = create_tuition_slip_image(
+                            student_name=row['Họ và Tên'],
+                            lop_hoc=row['Lớp'],
+                            subject=row['Môn Học'] or 'Chung',
+                            price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
+                            month_year=row['Tháng/Năm'],
+                            total_lessons=row['Số Ca Có Mặt'],
+                            total_fee=row['Tổng Tiền (VNĐ)'],
+                            status=row['Trạng Thái'],
+                            qr_path=qr_path
+                        )
+                        st.download_button(
+                            label="🖼️ Tải Ảnh Phiếu",
+                            data=img_bytes,
+                            file_name=f"Hoa_Don_{row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            mime="image/png",
+                            key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
+                        )
                 st.divider()
 
 # =========================================================
