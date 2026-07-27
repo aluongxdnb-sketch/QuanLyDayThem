@@ -575,3 +575,10 @@ elif choice == "7. Sửa & Xóa dữ liệu":
         
         if st.form_submit_button("Thêm mới"):
             if ten:
+                with engine.begin() as conn:
+                    conn.execute(
+                        text("INSERT INTO hoc_sinh (ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi) VALUES (:ten, :lop, :mon, :hp)"),
+                        {"ten": ten, "lop": lop, "mon": mon, "hp": hoc_phi}
+                    )
+                st.success(f"✅ Đã thêm học sinh {ten}!")
+                st.rerun()
