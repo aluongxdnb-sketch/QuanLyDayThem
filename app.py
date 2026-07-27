@@ -118,35 +118,54 @@ def register_vietnamese_fonts():
 
     return reg_font_name, bold_font_name
 
-# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY ---
+# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (CÓ XỬ LÝ LỊCH TẠM THỜI) ---
 def get_active_schedule_for_date(conn, check_date):
     target_day_str = get_vietnamese_weekday(check_date)
     date_str = check_date.strftime("%Y-%m-%d")
 
+    # 1. Kiểm tra các thay đổi tạm thời trong ngày này
     query_temp = f'''
-        SELECT t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.thu, t.ca_hoc, t.loai_thay_doi
+        SELECT t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.thu, t.ca_hoc, t.loai_thay_doi, t.ngay_bat_dau, t.ngay_ket_thuc
         FROM lich_hoc_tam_thoi t
         JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
         WHERE t.ngay_bat_dau <= '{date_str}' AND t.ngay_ket_thuc >= '{date_str}'
     '''
     df_temp = pd.read_sql_query(query_temp, conn)
-    temp_hs_ids = df_temp['hoc_sinh_id'].unique() if not df_temp.empty else []
+    
+    # Lọc học sinh đang trong diện "Nghỉ tạm thời trong khoảng thời gian này"
+    nghidai_ids = []
+    doica_ids = []
+    if not df_temp.empty:
+        nghidai_df = df_temp[df_temp['loai_thay_doi'] == 'Nghỉ tạm thời trong khoảng thời gian này']
+        nghidai_ids = nghidai_df['hoc_sinh_id'].unique().tolist()
+        
+        doica_df = df_temp[df_temp['loai_thay_doi'] == 'Đổi ca / Học bù']
+        doica_ids = doica_df['hoc_sinh_id'].unique().tolist()
 
+    # 2. Lấy lịch gốc
     query_base = f'''
-        SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc
+        SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
         WHERE l.thu = '{target_day_str}'
     '''
     df_base = pd.read_sql_query(query_base, conn)
-    if not df_base.empty and len(temp_hs_ids) > 0:
-        df_base = df_base[~df_base['hoc_sinh_id'].isin(temp_hs_ids)]
+    
+    # Loại bỏ học sinh nghỉ dài hạn hoặc đổi ca khỏi lịch gốc trong ngày đó
+    exclude_ids = list(set(nghidai_ids + doica_ids))
+    if not df_base.empty and len(exclude_ids) > 0:
+        df_base = df_base[~df_base['hoc_sinh_id'].isin(exclude_ids)]
 
+    # 3. Lấy lịch thêm buổi hoặc đổi ca (nếu có trong ngày)
     df_temp_today = pd.DataFrame()
     if not df_temp.empty:
-        df_temp_today = df_temp[(df_temp['thu'] == target_day_str) & (df_temp['loai_thay_doi'] != 'Nghỉ tạm thời')]
+        # Lọc các thay đổi đúng thứ trong tuần hoặc có lịch phát sinh
+        valid_temp = df_temp[(df_temp['thu'] == target_day_str) & (df_temp['loai_thay_doi'] != 'Nghỉ tạm thời trong khoảng thời gian này')]
+        if not valid_temp.empty:
+            df_temp_today = valid_temp[['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'loai_thay_doi']].copy()
+            df_temp_today.rename(columns={'loai_thay_doi': 'nguon'}, inplace=True)
 
-    cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc']
+    cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     df_combined = pd.concat([
         df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols),
         df_temp_today[cols] if not df_temp_today.empty else pd.DataFrame(columns=cols)
@@ -366,7 +385,6 @@ def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượn
     table.set_fontsize(10)
     table.scale(1, 2.2)
     
-    # Tiêu đề và thông tin căn chỉnh nhiều dòng bằng ax.text để phân biệt cỡ chữ & độ đậm
     ax.text(0.5, 1.14, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
             fontsize=14, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
     ax.text(0.5, 1.07, f"{prefix}{title_target}", transform=ax.transAxes, 
@@ -374,7 +392,6 @@ def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượn
     ax.text(0.5, 1.01, week_text, transform=ax.transAxes, 
             fontsize=10, fontweight='normal', color='#475569', ha='center', va='bottom')
     
-    # Ghi chú chân trang trong ảnh
     plt.figtext(0.5, 0.02, "Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
@@ -489,6 +506,7 @@ c.execute('''
         ca_hoc TEXT DEFAULT '7h00 - 9h00',
         trang_thai TEXT DEFAULT 'Có mặt',
         nhan_xet TEXT,
+        UNIQUE(hoc_sinh_id, ngay, ca_hoc),
         FOREIGN KEY (hoc_sinh_id) REFERENCES hoc_sinh (id)
     )
 ''')
@@ -525,6 +543,17 @@ c.execute('''
         ca_hoc TEXT,
         loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù',
         FOREIGN KEY (hoc_sinh_id) REFERENCES hoc_sinh (id)
+    )
+''')
+
+# Thêm bảng quản lý trạng thái nghỉ dài hạn (cho phép bật/tắt đi học trở lại)
+c.execute('''
+    CREATE TABLE IF NOT EXISTS trang_thai_nghi_dai_han (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        hoc_sinh_id INTEGER,
+        ngay_ket_thuc DATE,
+        trang_thai_xu_ly TEXT DEFAULT 'Đang chờ xử lý',
+        UNIQUE(hoc_sinh_id, ngay_ket_thuc)
     )
 ''')
 
@@ -580,6 +609,14 @@ if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
 # =========================================================
+# --- KIỂM TRA CẢNH BÁO HẠT GIỐNG TẠM THỜI (HẾT HẠN) ---
+# =========================================================
+today_date_str = date.today().strftime("%Y-%m-%d")
+expired_temp_df = pd.read_sql_query(f"SELECT * FROM lich_hoc_tam_thoi WHERE ngay_ket_thuc < '{today_date_str}'", conn)
+if not expired_temp_df.empty:
+    st.sidebar.warning(f"⚠️ Có {len(expired_temp_df)} thiết lập lịch tạm thời/nghỉ dài hạn đã hết thời gian hiệu lực! Vui lòng kiểm tra mục Lên Lịch Học.")
+
+# =========================================================
 # --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
 # =========================================================
 if choice == "1. Điểm danh & Nhận xét":
@@ -589,7 +626,32 @@ if choice == "1. Điểm danh & Nhận xét":
     date_str = ngay_hoc.strftime("%Y-%m-%d")
     st.caption(f"Ngày được chọn: **{ngay_hoc.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
     
+    # Lấy danh sách học sinh có lịch active trong ngày (đã loại trừ nghỉ dài hạn)
     df_active_today = get_active_schedule_for_date(conn, ngay_hoc)
+    
+    # Kiểm tra xem có học sinh nào đang trong thời gian hết hạn nghỉ dài hạn cần xử lý không
+    pending_nghi = pd.read_sql_query(f"SELECT * FROM lich_hoc_tam_thoi WHERE loai_thay_doi = 'Nghỉ tạm thời trong khoảng thời gian này' AND ngay_ket_thuc < '{date_str}'", conn)
+    if not pending_nghi.empty:
+        st.error("⚠️ **CẢNH BÁO QUÁ HẠN NGHỈ DÀI HẠN!**")
+        for _, r_p in pending_nghi.iterrows():
+            hs_info = pd.read_sql_query(f"SELECT ho_ten, lop_hoc FROM hoc_sinh WHERE id = {r_p['hoc_sinh_id']}", conn)
+            if not hs_info.empty:
+                name_p = hs_info.iloc[0]['ho_ten']
+                lop_p = hs_info.iloc[0]['lop_hoc']
+                st.write(f"Học sinh **{name_p}** (Lớp {lop_p}) đã hết hạn thời gian xin nghỉ (từ {r_p['ngay_bat_dau']} đến {r_p['ngay_ket_thuc']}).")
+                col_b1, col_b2 = st.columns(2)
+                if col_b1.button(f"✅ Cho học sinh {name_p} TRỞ LẠI HỌC", key=f"back_{r_p['id']}"):
+                    c.execute("DELETE FROM lich_hoc_tam_thoi WHERE id = ?", (r_p['id'],))
+                    conn.commit()
+                    st.success(f"Đã cập nhật học sinh {name_p} đi học trở lại bình thường!")
+                    st.rerun()
+                if col_b2.button(f"🛑 Tiếp tục VẪN NGHỈ", key=f"keep_{r_p['id']}"):
+                    new_end_ext = (datetime.strptime(r_p['ngay_ket_thuc'], "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
+                    c.execute("UPDATE lich_hoc_tam_thoi SET ngay_ket_thuc = ? WHERE id = ?", (new_end_ext, r_p['id']))
+                    conn.commit()
+                    st.warning(f"Đã gia hạn thời gian nghỉ cho học sinh {name_p} thêm 1 tuần!")
+                    st.rerun()
+
     df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
     
     type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
@@ -608,7 +670,7 @@ if choice == "1. Điểm danh & Nhận xét":
             if selected_class_opt.startswith("🌟 All Lớp"):
                 target_students = df_active_today
             else:
-                target_students = df_all_hs[df_all_hs['lop_hoc'] == selected_class_opt]
+                target_students = df_active_today[df_active_today['lop_hoc'] == selected_class_opt] if not df_active_today.empty else pd.DataFrame()
 
         else:
             student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
@@ -619,43 +681,52 @@ if choice == "1. Điểm danh & Nhận xét":
                 target_students = df_active_today
             else:
                 selected_hs_id = student_dict[selected_hs_opt]
-                target_students = df_all_hs[df_all_hs['hoc_sinh_id'] == selected_hs_id]
+                target_students = df_active_today[df_active_today['hoc_sinh_id'] == selected_hs_id] if not df_active_today.empty else pd.DataFrame()
 
         if target_students.empty:
-            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hoặc phù hợp với bộ lọc đã chọn.")
+            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hoặc phù hợp với bộ lọc trong ngày hôm nay.")
         else:
-            st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} học sinh)")
+            st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học)")
             with st.form("form_diem_danh_execution"):
                 danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
-                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}]")
+                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Nguồn: {row.get('nguon', 'Lịch gốc')}*")
                     c1, c2, c3 = st.columns([2.5, 3, 3.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
 
                     with c1:
-                        ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}")
+                        ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}_{idx}")
                         if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
-                            custom_ca = st.text_input("Nhập giờ (VD: 08h30 - 10h30)", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}")
+                            custom_ca = st.text_input("Nhập giờ (VD: 08h30 - 10h30)", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}_{idx}")
                             ca_final = custom_ca.strip()
                         else:
                             ca_final = ca_val
 
                     with c2:
-                        stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}", horizontal=True)
+                        stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=True)
                     with c3:
-                        nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}", placeholder="Nhận xét bài học...")
+                        nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học...")
 
                     danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_final, stt_val, nx_val))
                     st.divider()
 
-                if st.form_submit_button(f"💾 LƯU ĐIỂM DANH ({len(target_students)} HS)", type="primary", use_container_width=True):
+                if st.form_submit_button(f"💾 LƯU ĐIỂM DANH", type="primary", use_container_width=True):
+                    success_count = 0
+                    duplicate_count = 0
                     for item in danh_sach_luu:
-                        c.execute("INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) VALUES (?, ?, ?, ?, ?)", item)
+                        try:
+                            c.execute("INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) VALUES (?, ?, ?, ?, ?)", item)
+                            success_count += 1
+                        except sqlite3.IntegrityError:
+                            duplicate_count += 1
                     conn.commit()
-                    st.success("✅ Đã lưu dữ liệu điểm danh thành công!")
+                    if success_count > 0:
+                        st.success(f"✅ Đã lưu thành công {success_count} bản ghi điểm danh!")
+                    if duplicate_count > 0:
+                        st.warning(f"⚠️ Có {duplicate_count} bản ghi bị bỏ qua do học sinh đã được điểm danh trong cùng 1 ca/1 ngày trước đó.")
                     st.rerun()
 
     st.markdown("---")
@@ -755,7 +826,7 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
                     st.warning("⚠️ Thư viện Matplotlib chưa được cài đặt để xuất ảnh.")
 
 # =========================================================
-# --- CHỨC NĂNG 3: LÊN LỊCH HỌC ---
+# --- CHỨC NĂNG 3: LÊN LỊCH HỌC (GỘP LUÔN MA TRẬN TỔNG QUAN) ---
 # =========================================================
 elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
     tab_goc, tab_tam = st.tabs(["📅 1. Lịch Học Gốc Hàng Tuần", "⏳ 2. Lịch Học Tạm Thời"])
@@ -800,18 +871,38 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
                 st.success(f"✅ Đã lưu lịch gốc cho Lớp {selected_lop}!")
                 st.rerun()
 
+        st.markdown("---")
+        st.subheader("🗺️ Ma Trận Lịch Học Tổng Quan (Cập nhật thời gian thực)")
+        render_schedule_matrix(conn)
+
     with tab_tam:
-        st.subheader("⏳ Lịch Học Tạm Thời")
+        st.subheader("⏳ Lịch Học Tạm Thời (Học Bù / Đổi Ca / Học Thêm / Nghỉ Dài Hạn)")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", conn)
         if not df_hs.empty:
             all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
-            sel_lop_tam = st.selectbox("Chọn Lớp", all_lops)
-            target_hs_ids_tam = df_hs[df_hs['lop_hoc'] == sel_lop_tam]['id'].tolist()
+            sel_lop_tam = st.selectbox("Chọn Lớp / Nhóm", all_lops, key="sel_lop_tam_key")
             
+            # Chọn học sinh cụ thể hoặc áp dụng cho cả lớp
+            hs_in_lop = df_hs[df_hs['lop_hoc'] == sel_lop_tam]
+            hs_dict_tam = {f"{row['ho_ten']} - ID:{row['id']}": row['id'] for _, row in hs_in_lop.iterrows()}
+            
+            chon_doi_tuong = st.radio("Áp dụng cho:", ["Toàn bộ lớp", "Từng học sinh cụ thể"], horizontal=True)
+            target_hs_ids_tam = []
+            if chon_doi_tuong == "Toàn bộ lớp":
+                target_hs_ids_tam = hs_in_lop['id'].tolist()
+            else:
+                sel_hs_lbl = st.selectbox("Chọn học sinh:", list(hs_dict_tam.keys()))
+                target_hs_ids_tam = [hs_dict_tam[sel_hs_lbl]]
+
             with st.form("form_lich_tam_thoi"):
                 d_start = st.date_input("🗓️ Hiệu lực TỪ ngày", date.today())
                 d_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", date.today())
-                loai_td = st.radio("Loại thay đổi", ["Đổi ca / Học bù", "Nghỉ tạm thời trong khoảng thời gian này"], horizontal=True)
+                loai_td = st.selectbox("Loại thay đổi", [
+                    "Đổi ca / Học bù", 
+                    "Học thêm buổi", 
+                    "Nghỉ tạm thời trong khoảng thời gian này"
+                ])
+                
                 thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'])
                 ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau)
                 custom_ca_tam_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây (VD: 08h30 - 10h30):", placeholder="08h30 - 10h30")
@@ -824,7 +915,7 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
                             VALUES (?, ?, ?, ?, ?, ?)
                         ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_tam_final, loai_td))
                     conn.commit()
-                    st.success("✅ Đã lưu lịch tạm thời!")
+                    st.success("✅ Đã lưu thiết lập lịch tạm thời thành công!")
                     st.rerun()
 
 # --- CHỨC NĂNG 4: GỢI Ý SMART ASSISTANT ---
@@ -834,21 +925,22 @@ elif choice == "4. 💡 Gợi ý Smart Assistant":
 
 # --- CHỨC NĂNG 5: THỐNG KÊ & XUẤT EXCEL ---
 elif choice == "5. Thống kê & Học phí (Lọc Tháng / Xuất Excel)":
-    st.subheader("📊 Thống Kê Điểm Danh & Tính Học Phí Theo Tháng")
+    st.subheader("📊 Thống Kê Điểm Danh & Tính Học Phí Theo Tháng (Học phí = Số ca có mặt x Đơn giá)")
     col_t, col_n = st.columns(2)
     with col_t: thang_selected = st.selectbox("Chọn Tháng", list(range(1, 13)), index=datetime.now().month - 1)
     with col_n: nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year)
     
     thang_nam_query = f"{nam_selected}-{thang_selected:02d}"
     
+    # Tính số ca thực tế có mặt (bao gồm cả ca học bù/học thêm đã điểm danh)
     query_thang = f'''
         SELECT 
             h.id AS 'Mã HS',
             h.ho_ten AS 'Họ tên',
             h.lop_hoc AS 'Lớp',
             h.mon_hoc AS 'Môn học',
-            h.hoc_phi_buoi AS 'Đơn giá/Buổi (VNĐ)',
-            SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS 'Số buổi có mặt',
+            h.hoc_phi_buoi AS 'Đơn giá/Ca (VNĐ)',
+            SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS 'Tổng số ca có mặt',
             SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS 'Vắng có phép',
             SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS 'Vắng không phép',
             (SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) * h.hoc_phi_buoi) AS 'Tổng học phí (VNĐ)'
@@ -886,7 +978,7 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
     for _, row in df_status.iterrows():
         c1, c2, c3, c4, c5, c6 = st.columns([2, 1, 2, 1.5, 2, 2])
         c1.write(f"**{row['ho_ten']}**")
-        c2.write(f"{row['so_buoi']} buổi")
+        c2.write(f"{row['so_buoi']} ca")
         c3.write(f"**{row['tong_tien']:,.0f} VNĐ**")
         is_paid = (row['trang_thai_dong'] == 'Đã đóng')
         c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
@@ -949,7 +1041,7 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                     lop_new = st.text_input("Lớp / Nhóm học", value="Toán 9")
                     mon_new = st.text_input("Môn học", value="Toán")
                 with c2:
-                    hoc_phi_new = st.number_input("Học phí mỗi buổi (VNĐ)", min_value=0, step=10000, value=150000)
+                    hoc_phi_new = st.number_input("Học phí mỗi ca (VNĐ)", min_value=0, step=10000, value=150000)
                     sdt_new = st.text_input("Số điện thoại phụ huynh", placeholder="0912345678")
                     ngay_sinh_new = st.date_input("Ngày sinh nhật học sinh", value=date(2010, 1, 1))
                 
@@ -982,7 +1074,7 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                         lop_edit = st.text_input("Lớp / Nhóm học", value=selected_hs_row['lop_hoc'] or "")
                         mon_edit = st.text_input("Môn học", value=selected_hs_row['mon_hoc'] or "")
                     with c2:
-                        hoc_phi_edit = st.number_input("Học phí mỗi buổi (VNĐ)", min_value=0, step=10000, value=int(selected_hs_row['hoc_phi_buoi'] or 150000))
+                        hoc_phi_edit = st.number_input("Học phí mỗi ca (VNĐ)", min_value=0, step=10000, value=int(selected_hs_row['hoc_phi_buoi'] or 150000))
                         sdt_edit = st.text_input("Số điện thoại phụ huynh", value=selected_hs_row['sdt_phu_huynh'] or "")
                         
                         default_ns = date(2010, 1, 1)
@@ -1037,7 +1129,7 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                 ho_ten AS "Họ và tên", 
                 lop_hoc AS "Lớp", 
                 mon_hoc AS "Môn", 
-                hoc_phi_buoi AS "Học phí/Buổi (VNĐ)", 
+                hoc_phi_buoi AS "Học phí/Ca (VNĐ)", 
                 sdt_phu_huynh AS "SĐT Phụ huynh", 
                 ngay_sinh AS "Ngày sinh" 
             FROM hoc_sinh 
