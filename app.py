@@ -649,7 +649,6 @@ elif choice == "1. Điểm danh & Nhận xét":
     df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
     df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
     
-    # 🌟 TÍNH NĂNG MỚI: TÙY CHỌN MỞ RỘNG ĐIỂM DANH CẢ HỌC SINH KHÔNG CÓ LỊCH
     mo_rong_hs = st.checkbox("➕ Cho phép điểm danh cả học sinh KHÔNG CÓ LỊCH HỌC trong ngày (Học bù, phát sinh,...)", value=False)
     
     if mo_rong_hs:
@@ -1166,7 +1165,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
