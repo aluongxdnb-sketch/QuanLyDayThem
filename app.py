@@ -340,8 +340,8 @@ def render_schedule_matrix(conn):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CHỐNG LỖI FONT TUYỆT ĐỐI) ---
-def create_weekly_schedule_image(title_target, df_matrix):
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
+def create_weekly_schedule_image(title_target, df_matrix, is_student=False):
     fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3))
     ax.axis('off')
     ax.axis('tight')
@@ -361,7 +361,8 @@ def create_weekly_schedule_image(title_target, df_matrix):
     table.set_fontsize(10)
     table.scale(1, 2.2)
     
-    plt.title(f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\nĐối tượng / Lớp: {title_target}", fontsize=14, fontweight='bold', pad=25, color='#1E3A8A')
+    prefix = "Học sinh / Lớp: " if is_student else "Đối tượng / Lớp: "
+    plt.title(f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\n{prefix}{title_target}", fontsize=14, fontweight='bold', pad=25, color='#1E3A8A')
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
@@ -385,7 +386,7 @@ def create_weekly_schedule_image(title_target, df_matrix):
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE PDF PHIẾU HỌC PHÍ (GIỮ NGUYÊN HOẠT ĐỘNG TỐT) ---
+# --- HÀM TẠO FILE PDF PHIẾU HỌC PHÍ ---
 def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -693,17 +694,21 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
             target_title = "Tất Cả Các Lớp"
             selected_lop_exp = None
             selected_hs_exp = None
+            is_student_mode = False
 
             if filter_mode == "Theo Lớp cụ thể":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                 selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list)
                 target_title = f"Lớp {selected_lop_exp}"
+                is_student_mode = False
 
             elif filter_mode == "Theo Học sinh cụ thể":
-                hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all.iterrows()}
+                hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()))
-                selected_hs_exp = hs_dict_exp[sel_hs_label]
-                target_title = f"Học sinh {sel_hs_label.split(' - ')[0]}"
+                selected_hs_row = hs_dict_exp[sel_hs_label]
+                selected_hs_exp = selected_hs_row['id']
+                target_title = f"{selected_hs_row['ho_ten']}, {selected_hs_row['lop_hoc']}"
+                is_student_mode = True
 
             df_export_matrix = get_schedule_matrix_df(conn, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp)
 
@@ -715,11 +720,11 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
                 st.divider()
 
                 if HAS_MATPLOTLIB:
-                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix)
+                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, is_student=is_student_mode)
                     st.download_button(
                         label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
                         data=img_bytes,
-                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_')}.png",
+                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_').replace(',', '')}.png",
                         mime="image/png",
                         type="primary"
                     )
