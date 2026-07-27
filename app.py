@@ -9,7 +9,7 @@ import io
 import textwrap
 import zipfile
 
-# Thử import Matplotlib để xuất lịch học & phiếu học phí dạng ảnh PNG
+# Thử import Matplotlib để xuất lịch học, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
     import matplotlib.pyplot as plt
     import matplotlib
@@ -446,6 +446,40 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH THÁNG (PNG) ---
+def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
+    fig, ax = plt.subplots(figsize=(10, max(4, len(df_history) * 0.5 + 3.5)))
+    ax.axis('off')
+    ax.axis('tight')
+    
+    ax.text(0.5, 0.94, "LỊCH SỬ ĐIỂM DANH & NHẬN XÉT HỌC SINH", fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.89, f"Học sinh: {student_name} - Lớp: {lop_hoc} (Tháng/Năm: {month_year})", fontsize=12, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.84, f"Tổng số buổi đi học (Có mặt): {total_present} buổi", fontsize=11, fontweight='bold', color='#B91C1C', ha='center', va='center', transform=ax.transAxes)
+    
+    table_data = [df_history.columns.tolist()] + df_history.values.tolist()
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=[0.18, 0.22, 0.22, 0.38])
+    table.auto_set_font_size(False)
+    table.set_fontsize(9.5)
+    table.scale(1, 2.2)
+    
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor('#CBD5E1')
+        if row == 0:
+            cell.set_facecolor('#1E3A8A')
+            cell.set_text_props(color='white', weight='bold', size=11)
+        else:
+            cell.set_text_props(color='#1E293B', size=9.5)
+            if row % 2 == 0:
+                cell.set_facecolor('#F8FAFC')
+            else:
+                cell.set_facecolor('white')
+                
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
 # --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) & TỰ ĐỘNG BỔ SUNG CỘT ---
 with engine.begin() as conn:
     conn.execute(text('''
@@ -499,7 +533,6 @@ with engine.begin() as conn:
             loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù'
         )
     '''))
-    # Đổi cột sdt_phu_huynh thành thong_tin_phu_huynh nếu bảng cũ đã tồn tại
     try:
         conn.execute(text("ALTER TABLE hoc_sinh RENAME COLUMN sdt_phu_huynh TO thong_tin_phu_huynh"))
     except Exception:
@@ -995,7 +1028,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
 # --- CHỨC NĂNG 3: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
 # =========================================================
 elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
-    st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Xuất Hóa Đơn Ảnh PNG")
+    st.subheader("💳 Thống Kê Điểm Danh & Quản Lý Học Phí")
     
     col_y, col_m = st.columns([1, 3])
     with col_y:
@@ -1195,13 +1228,99 @@ elif choice == "4. Sửa & Xóa dữ liệu":
         st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Thông tin phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
 
     with tab_diemdanh:
-        st.subheader("🗑️ Xóa Buổi Điểm Danh Nhầm")
-        df_logs = pd.read_sql_query('SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái" FROM diem_danh d JOIN hoc_sinh h ON d.hoc_sinh_id = h.id ORDER BY d.ngay DESC, d.id DESC', engine)
-        if not df_logs.empty:
-            st.dataframe(df_logs, use_container_width=True)
-            log_to_delete = st.selectbox("Chọn 'Mã Lịch' cần xóa nhầm", df_logs['Mã Lịch'].tolist())
-            if st.button("❌ Xóa dòng điểm danh này"):
-                with engine.begin() as conn:
-                    conn.execute(text("DELETE FROM diem_danh WHERE id = :id"), {"id": log_to_delete})
-                st.success(f"Đã xóa Mã Lịch {log_to_delete}")
-                st.rerun()
+        sub_tab_log_manage, sub_tab_student_history = st.tabs(["⚙️ Sửa/Xóa Từng Lịch Điểm Danh", "📊 Lịch Sử Điểm Danh Tháng & Xuất Ảnh"])
+        
+        with sub_tab_log_manage:
+            st.subheader("⚙️ Quản Lý, Sửa Hoặc Xóa Nhật Ký Điểm Danh")
+            df_logs = pd.read_sql_query('SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" FROM diem_danh d JOIN hoc_sinh h ON d.hoc_sinh_id = h.id ORDER BY d.ngay DESC, d.id DESC', engine)
+            if not df_logs.empty:
+                st.dataframe(df_logs, use_container_width=True)
+                log_to_edit_del = st.selectbox("Chọn 'Mã Lịch' cần sửa hoặc xóa", df_logs['Mã Lịch'].tolist(), key="log_sel_id_main")
+                row_log_item = df_logs[df_logs['Mã Lịch'] == log_to_edit_del].iloc[0]
+                
+                with st.form("form_edit_delete_diem_danh_record"):
+                    st.write(f"Đang thao tác Mã Lịch **{log_to_edit_del}**: {row_log_item['Họ Tên']} [{row_log_item['Lớp']}] - Ngày: {row_log_item['Ngày']} - Ca: {row_log_item['Ca Học']}")
+                    stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
+                    default_stt_idx = stt_options.index(row_log_item['Trạng Thái']) if row_log_item['Trạng Thái'] in stt_options else 0
+                    edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
+                    edit_nx_val = st.text_input("Nhận xét mới:", value=row_log_item['Nhận Xét'] or "", key="edit_log_nx")
+                    
+                    col_eb1, col_eb2 = st.columns(2)
+                    with col_eb1:
+                        submit_update_log = st.form_submit_button("💾 Cập Nhật Điểm Danh", type="primary")
+                    with col_eb2:
+                        submit_delete_log = st.form_submit_button("❌ Xóa Bản Ghi Này", type="secondary")
+                        
+                    if submit_update_log:
+                        with engine.begin() as conn:
+                            conn.execute(text('''
+                                UPDATE diem_danh 
+                                SET trang_thai = :stt, nhan_xet = :nx 
+                                WHERE id = :id
+                            '''), {"stt": edit_stt_val, "nx": edit_nx_val.strip(), "id": log_to_edit_del})
+                        st.success(f"✅ Đã cập nhật thành công Mã Lịch {log_to_edit_del}!")
+                        st.rerun()
+                        
+                    if submit_delete_log:
+                        with engine.begin() as conn:
+                            conn.execute(text("DELETE FROM diem_danh WHERE id = :id"), {"id": log_to_edit_del})
+                        st.success(f"✅ Đã xóa thành công Mã Lịch {log_to_edit_del}!")
+                        st.rerun()
+            else:
+                st.info("💡 Chưa có bản ghi điểm danh nào trong hệ thống.")
+                
+        with sub_tab_student_history:
+            st.subheader("📊 Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
+            df_hs_ls = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
+            if df_hs_ls.empty:
+                st.warning("Chưa có học sinh nào trong hệ thống.")
+            else:
+                c_y_ls, c_m_ls, c_hs_ls = st.columns([1, 1, 2])
+                with c_y_ls:
+                    nam_ls = st.number_input("Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="nam_ls_pick")
+                with c_m_ls:
+                    thang_ls = st.selectbox("Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="thang_ls_pick")
+                with c_hs_ls:
+                    hs_dict_ls = {f"{r['ho_ten']} [{r['lop_hoc']}] - ID:{r['id']}": r['id'] for _, r in df_hs_ls.iterrows()}
+                    sel_hs_ls_lbl = st.selectbox("Chọn học sinh", list(hs_dict_ls.keys()), key="sel_hs_ls_key")
+                    sel_hs_id_ls = hs_dict_ls[sel_hs_ls_lbl]
+                    sel_hs_row_ls = df_hs_ls[df_hs_ls['id'] == sel_hs_id_ls].iloc[0]
+                
+                thang_nam_q = f"{nam_ls}-{thang_ls:02d}"
+                thang_nam_k = f"{thang_ls:02d}/{nam_ls}"
+                
+                df_hs_att_history = pd.read_sql_query(f'''
+                    SELECT 
+                        TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                        d.ca_hoc AS "Ca học",
+                        d.trang_thai AS "Trạng thái",
+                        COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                    FROM diem_danh d
+                    WHERE d.hoc_sinh_id = {sel_hs_id_ls} AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
+                    ORDER BY d.ngay ASC, d.id ASC
+                ''', engine)
+                
+                if df_hs_att_history.empty:
+                    st.info(f"ℹ️ Học sinh {sel_hs_row_ls['ho_ten']} chưa có lịch sử điểm danh trong Tháng {thang_nam_k}.")
+                else:
+                    total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
+                    st.metric("🟢 Tổng số buổi đi học (Có mặt)", f"{total_co_mat} buổi", f"Tổng số bản ghi: {len(df_hs_att_history)} buổi")
+                    st.dataframe(df_hs_att_history, use_container_width=True)
+                    
+                    if HAS_MATPLOTLIB:
+                        img_ls_bytes = create_student_attendance_history_image(
+                            student_name=sel_hs_row_ls['ho_ten'],
+                            lop_hoc=sel_hs_row_ls['lop_hoc'],
+                            month_year=thang_nam_k,
+                            df_history=df_hs_att_history,
+                            total_present=total_co_mat
+                        )
+                        safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{sel_hs_row_ls['ho_ten']}_{sel_hs_row_ls['lop_hoc']}".replace(" ", "_"))
+                        st.download_button(
+                            label=f"🖼️ Tải Ảnh Lịch Sử Điểm Danh ({sel_hs_row_ls['ho_ten']})",
+                            data=img_ls_bytes,
+                            file_name=f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png",
+                            mime="image/png",
+                            type="primary",
+                            key="btn_download_student_att_img"
+                        )
