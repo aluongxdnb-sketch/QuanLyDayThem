@@ -1254,10 +1254,29 @@ elif choice == "4. Sửa & Xóa dữ liệu":
         
         with sub_tab_log_manage:
             st.subheader("⚙️ Quản Lý, Sửa Hoặc Xóa Nhật Ký Điểm Danh")
-            df_logs = pd.read_sql_query('SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" FROM diem_danh d JOIN hoc_sinh h ON d.hoc_sinh_id = h.id ORDER BY d.ngay DESC, d.id DESC', engine)
+            
+            # 1. Lọc theo ngày trước
+            sel_date_filter = st.date_input("🗓️ Chọn ngày cần sửa/xóa điểm danh", date.today(), key="filter_log_date_picker")
+            date_filter_str = sel_date_filter.strftime("%Y-%m-%d")
+            
+            df_logs = pd.read_sql_query(f'''
+                SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" 
+                FROM diem_danh d 
+                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id 
+                WHERE d.ngay = '{date_filter_str}'
+                ORDER BY d.id DESC
+            ''', engine)
+            
             if not df_logs.empty:
-                st.dataframe(df_logs, use_container_width=True)
-                log_to_edit_del = st.selectbox("Chọn 'Mã Lịch' cần sửa hoặc xóa", df_logs['Mã Lịch'].tolist(), key="log_sel_id_main")
+                st.write(f"📋 Danh sách điểm danh trong ngày **{sel_date_filter.strftime('%d/%m/%Y')}** ({len(df_logs)} bản ghi):")
+                st.dataframe(df_logs[['Mã Lịch', 'Họ Tên', 'Lớp', 'Ca Học', 'Trạng Thái', 'Nhận Xét']], use_container_width=True)
+                
+                # Tạo dictionary để chọn mã lịch theo ngày đã chọn
+                log_dict = {f"Mã ID: {row['Mã Lịch']} - {row['Họ Tên']} [{row['Lớp']}] (Ca: {row['Ca Học']} - {row['Trạng Thái']})": row['Mã Lịch'] for _, row in df_logs.iterrows()}
+                
+                selected_log_label = st.selectbox("Chọn bản ghi (Mã Lịch) cần sửa hoặc xóa trong ngày:", list(log_dict.keys()), key="log_sel_id_by_date")
+                log_to_edit_del = log_dict[selected_log_label]
+                
                 row_log_item = df_logs[df_logs['Mã Lịch'] == log_to_edit_del].iloc[0]
                 
                 with st.form("form_edit_delete_diem_danh_record"):
@@ -1289,7 +1308,7 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                         st.success(f"✅ Đã xóa thành công Mã Lịch {log_to_edit_del}!")
                         st.rerun()
             else:
-                st.info("💡 Chưa có bản ghi điểm danh nào trong hệ thống.")
+                st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
                 
         with sub_tab_student_history:
             st.subheader("📊 Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
