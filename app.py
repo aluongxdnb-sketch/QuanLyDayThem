@@ -524,16 +524,26 @@ if choice == "0. 📊 Trang Chủ Dashboard":
     st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
     
     df_today = get_active_schedule_for_date(engine, today)
-    current_thang_nam = f"{datetime.now().month:02d}/{datetime.now().year}"
+    current_thang_query = f"{datetime.now().year}-{datetime.now().month:02d}"
+    current_thang_key = f"{datetime.now().month:02d}/{datetime.now().year}"
     
-    query_unpaid = f'''
-        SELECT COUNT(*) as cnt 
-        FROM hoc_sinh h 
-        LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{current_thang_nam}'
-        WHERE COALESCE(t.trang_thai, 'Chưa đóng') = 'Chưa đóng'
+    # Truy vấn học sinh có đi học trong tháng này nhưng chưa đóng học phí
+    query_unpaid_details = f'''
+        SELECT h.id, h.ho_ten, h.lop_hoc 
+        FROM hoc_sinh h
+        WHERE h.id IN (
+            SELECT DISTINCT d.hoc_sinh_id 
+            FROM diem_danh d 
+            WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_thang_query}' AND d.trang_thai = 'Có mặt'
+        )
+        AND h.id NOT IN (
+            SELECT t.hoc_sinh_id 
+            FROM thanh_toan t 
+            WHERE t.thang_nam = '{current_thang_key}' AND t.trang_thai = 'Đã đóng'
+        )
     '''
-    df_unpaid = pd.read_sql_query(query_unpaid, engine)
-    unpaid_count = df_unpaid.iloc[0]['cnt'] if not df_unpaid.empty else 0
+    df_unpaid_details = pd.read_sql_query(query_unpaid_details, engine)
+    unpaid_count = len(df_unpaid_details)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -541,7 +551,12 @@ if choice == "0. 📊 Trang Chủ Dashboard":
         total_hs_today = len(df_today) if not df_today.empty else 0
         st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
-        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Tháng {current_thang_nam}")
+        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Tháng {current_thang_key}")
+        if not df_unpaid_details.empty:
+            unpaid_names = ", ".join([f"{r['ho_ten']} ({r['lop_hoc']})" for _, r in df_unpaid_details.iterrows()])
+            st.caption(f"⚠️ Chưa đóng: {unpaid_names}")
+        else:
+            st.caption("✅ Tất cả học sinh đi học trong tháng đã hoàn thành học phí!")
         
     st.markdown("---")
     st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay:")
@@ -1050,7 +1065,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
