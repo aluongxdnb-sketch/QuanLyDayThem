@@ -534,9 +534,10 @@ if qr_file is not None:
 if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
-# --- THÊM TÍNH NĂNG SAO LƯU DATABASE (BACKUP) TRỰC TIẾP TRÊN SIDEBAR ---
+# --- SAO LƯU & KHÔI PHỤC DỮ LIỆU TRỰC TIẾP TRÊN SIDEBAR ---
 st.sidebar.markdown("---")
-st.sidebar.subheader("💾 Sao Lưu Dữ Liệu (Backup)")
+st.sidebar.subheader("💾 Sao Lưu & Khôi Phục Dữ Liệu")
+
 if os.path.exists("quan_ly_hoc_sinh.db"):
     with open("quan_ly_hoc_sinh.db", "rb") as f:
         st.sidebar.download_button(
@@ -546,6 +547,17 @@ if os.path.exists("quan_ly_hoc_sinh.db"):
             mime="application/octet-stream",
             use_container_width=True
         )
+
+uploaded_backup_file = st.sidebar.file_uploader("📤 Tải lên file backup để khôi phục (.db)", type=["db"])
+if uploaded_backup_file is not None:
+    if st.sidebar.button("⚠️ Xác nhận khôi phục database", type="primary", use_container_width=True):
+        try:
+            with open("quan_ly_hoc_sinh.db", "wb") as f:
+                f.write(uploaded_backup_file.getbuffer())
+            st.sidebar.success("✅ Khôi phục thành công! Đang tải lại ứng dụng...")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"❌ Lỗi khôi phục: {e}")
 
 # =========================================================
 # --- KIỂM TRA CẢNH BÁO QUÁ HẠN LỊCH TẠM THỜI / NGHỈ DÀI HẠN ---
