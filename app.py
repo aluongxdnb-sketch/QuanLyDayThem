@@ -74,7 +74,7 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (CÓ XỬ LÝ LỊCH TẠM THỜI MỚI) ---
+# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (CÓ XỬ LÝ LỊCH TẠM THỜI) ---
 def get_active_schedule_for_date(engine, check_date):
     target_day_str = get_vietnamese_weekday(check_date)
     date_str = check_date.strftime("%Y-%m-%d")
@@ -98,8 +98,8 @@ def get_active_schedule_for_date(engine, check_date):
     '''
     df_temp = pd.read_sql_query(query_temp, engine)
 
-    exclude_pairs = set() # (hoc_sinh_id, ca_hoc) bị nghỉ hoặc đổi đi trong ngày này
-    additional_rows = [] # Các ca học đổi đến / học bù trong ngày này
+    exclude_pairs = set() 
+    additional_rows = [] 
 
     if not df_temp.empty:
         for _, r in df_temp.iterrows():
@@ -107,22 +107,11 @@ def get_active_schedule_for_date(engine, check_date):
             loai = r['loai_thay_doi']
             
             if loai == 'Nghỉ tạm thời':
-                # Nếu nghỉ đúng ngày này (hoặc nếu là lịch gốc trùng thứ trong khoảng thời gian)
-                # Ta check xem ngày này có đúng là thứ của ca gốc bị nghỉ không
-                # Hoặc nếu cấu hình đơn giản theo ngày cụ thể:
-                pass
-            
-            # Xử lý chi tiết lịch tạm thời theo bảng mới
-            if loai == 'Nghỉ tạm thời':
-                # Kiểm tra nếu ngày check_date khớp với thứ của ca gốc bị nghỉ
-                # Hoặc kiểm tra trực tiếp nếu t.ngay_bat_dau == date_str (nghỉ ngày cụ thể)
                 if r['ca_goc'] and str(r['ngay_bat_dau']) == date_str:
                     exclude_pairs.add((hs_id, r['ca_goc']))
             elif loai == 'Đổi ca':
-                # Nếu đúng ngày gốc bị đổi đi -> ẩn ca gốc
                 if r['ca_goc'] and str(r['ngay_bat_dau']) == date_str:
                     exclude_pairs.add((hs_id, r['ca_goc']))
-                # Nếu đúng ngày mới chuyển tới -> thêm ca mới
                 if r['ca_doi_den'] and str(r['ngay_doi_den']) == date_str:
                     additional_rows.append({
                         'hoc_sinh_id': hs_id,
@@ -133,7 +122,6 @@ def get_active_schedule_for_date(engine, check_date):
                         'nguon': 'Đổi ca'
                     })
 
-    # Lọc bỏ các ca bị nghỉ/đổi đi trong lịch gốc
     if not df_base.empty and len(exclude_pairs) > 0:
         mask = df_base.apply(lambda row: (row['hoc_sinh_id'], row['ca_hoc']) not in exclude_pairs, axis=1)
         df_base = df_base[mask]
@@ -456,7 +444,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
+# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) & TỰ ĐỘNG BỔ SUNG CỘT ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -499,7 +487,6 @@ with engine.begin() as conn:
             UNIQUE(hoc_sinh_id, thu, ca_hoc)
         )
     '''))
-    # Nâng cấp cấu trúc bảng lich_hoc_tam_thoi hỗ trợ đổi ca cụ thể
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS lich_hoc_tam_thoi (
             id SERIAL PRIMARY KEY,
@@ -513,6 +500,18 @@ with engine.begin() as conn:
             ca_doi_den TEXT
         )
     '''))
+    # Tự động thêm cột mới nếu bảng cũ đã tồn tại trên Supabase nhưng thiếu cột
+    for col_sql in [
+        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS loai_thay_doi TEXT DEFAULT 'Nghỉ tạm thời'",
+        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS thu_goc TEXT",
+        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ca_goc TEXT",
+        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ngay_doi_den DATE",
+        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ca_doi_den TEXT"
+    ]:
+        try:
+            conn.execute(text(col_sql))
+        except Exception:
+            pass
 
 # --- 2. GIAO DIỆN CHÍNH ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
@@ -852,7 +851,6 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 selected_hs_label_add = st.selectbox("Chọn học sinh:", list(hs_dict_tam.keys()), key="sel_hs_add_tam")
                 sel_hs_id = hs_dict_tam[selected_hs_label_add]
 
-                # --- HIỂN THỊ GHI CHÚ LỊCH GỐC CỦA HỌC SINH ĐƯỢC CHỌN ---
                 st.markdown("---")
                 st.markdown("##### 📌 Ghi Chú Lịch Gốc Hiện Tại Của Học Sinh Này:")
                 df_hs_goc = pd.read_sql_query(f"SELECT thu, ca_hoc FROM lich_hoc_tuan WHERE hoc_sinh_id = {sel_hs_id}", engine)
@@ -870,7 +868,6 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     
                     d_start = st.date_input("🗓️ Ngày áp dụng (Ngày diễn ra ca học gốc bị ảnh hưởng)", date.today(), key="d_start_tam_new")
                     
-                    # Lấy các ca học gốc tương ứng với thứ của ngày áp dụng
                     thu_ngay_chon = get_vietnamese_weekday(d_start)
                     df_goc_ngay = pd.read_sql_query(f"SELECT ca_hoc FROM lich_hoc_tuan WHERE hoc_sinh_id = {sel_hs_id} AND thu = '{thu_ngay_chon}'", engine)
                     danh_sach_ca_goc_hs = df_goc_ngay['ca_hoc'].tolist() if not df_goc_ngay.empty else DANH_SACH_CA_MAU
@@ -879,7 +876,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
 
                     ngay_doi_den_val = None
                     ca_doi_den_val = None
-                    d_end_val = d_start # Mặc định hiệu lực trong ngày
+                    d_end_val = d_start 
 
                     if loai_td == "Đổi ca":
                         st.markdown("#### 🔄 Thông tin đổi đến (Học bù sang ca mới):")
