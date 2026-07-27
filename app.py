@@ -649,6 +649,19 @@ elif choice == "1. Điểm danh & Nhận xét":
     df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
     df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
     
+    # 🌟 TÍNH NĂNG MỚI: TÙY CHỌN MỞ RỘNG ĐIỂM DANH CẢ HỌC SINH KHÔNG CÓ LỊCH
+    mo_rong_hs = st.checkbox("➕ Cho phép điểm danh cả học sinh KHÔNG CÓ LỊCH HỌC trong ngày (Học bù, phát sinh,...)", value=False)
+    
+    if mo_rong_hs:
+        if not df_all_hs.empty:
+            df_source = df_all_hs.copy()
+            df_source['ca_hoc'] = "17h30 - 19h30"
+            df_source['nguon'] = "Ngoài lịch"
+        else:
+            df_source = pd.DataFrame(columns=['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon'])
+    else:
+        df_source = df_active_today
+
     type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
     st.divider()
 
@@ -659,26 +672,26 @@ elif choice == "1. Điểm danh & Nhận xét":
     else:
         if type_mode == "🏫 Điểm danh theo LỚP":
             available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
-            options_class = ["🌟 All Lớp (Tất cả học sinh có lịch học hôm nay)"] + available_classes
+            options_class = ["🌟 All Lớp (Tất cả học sinh)"] + available_classes if mo_rong_hs else ["🌟 All Lớp (Tất cả học sinh có lịch học hôm nay)"] + available_classes
             selected_class_opt = st.selectbox("Chọn Lớp cần điểm danh", options_class)
 
             if selected_class_opt.startswith("🌟 All Lớp"):
-                target_students = df_active_today
+                target_students = df_source
             else:
-                target_students = df_active_today[df_active_today['lop_hoc'] == selected_class_opt] if not df_active_today.empty else pd.DataFrame()
+                target_students = df_source[df_source['lop_hoc'] == selected_class_opt] if not df_source.empty else pd.DataFrame()
         else:
             student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
-            options_hs = ["🌟 All Học sinh (Tất cả học sinh có lịch học hôm nay)"] + list(student_dict.keys())
+            options_hs = ["🌟 All Học sinh (Tất cả học sinh)"] + list(student_dict.keys()) if mo_rong_hs else ["🌟 All Học sinh (Tất cả học sinh có lịch học hôm nay)"] + list(student_dict.keys())
             selected_hs_opt = st.selectbox("Chọn học sinh điểm danh", options_hs)
 
             if selected_hs_opt.startswith("🌟 All Học sinh"):
-                target_students = df_active_today
+                target_students = df_source
             else:
                 selected_hs_id = student_dict[selected_hs_opt]
-                target_students = df_active_today[df_active_today['hoc_sinh_id'] == selected_hs_id] if not df_active_today.empty else pd.DataFrame()
+                target_students = df_source[df_source['hoc_sinh_id'] == selected_hs_id] if not df_source.empty else pd.DataFrame()
 
         if target_students.empty:
-            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hợp lệ trong ngày hôm nay.")
+            st.info("ℹ️ Không tìm thấy học sinh nào phù hợp trong danh sách.")
         else:
             st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
             with st.form("form_diem_danh_execution"):
@@ -686,7 +699,7 @@ elif choice == "1. Điểm danh & Nhận xét":
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
-                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')}*")
+                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', '17h30 - 19h30')}*")
                     c1, c2, c3 = st.columns([2, 2.5, 4.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in DANH_SACH_CA_MAU) else "17h30 - 19h30"
@@ -723,21 +736,18 @@ elif choice == "1. Điểm danh & Nhận xét":
                     with engine.begin() as conn:
                         for item in danh_sach_luu:
                             try:
-                                # Kiểm tra xem đã tồn tại bản ghi điểm danh cho học sinh này vào ngày và ca này chưa
                                 existing_record = conn.execute(text('''
                                     SELECT id FROM diem_danh 
                                     WHERE hoc_sinh_id = :hs_id AND ngay = :ngay AND ca_hoc = :ca
                                 '''), {"hs_id": item[0], "ngay": item[1], "ca": item[2]}).fetchone()
 
                                 if existing_record:
-                                    # Nếu có rồi thì Cập nhật
                                     conn.execute(text('''
                                         UPDATE diem_danh 
                                         SET trang_thai = :stt, nhan_xet = :nx 
                                         WHERE id = :id
                                     '''), {"stt": item[3], "nx": item[4], "id": existing_record[0]})
                                 else:
-                                    # Nếu chưa có thì Thêm mới
                                     conn.execute(text('''
                                         INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) 
                                         VALUES (:hs_id, :ngay, :ca, :stt, :nx)
@@ -1156,7 +1166,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
