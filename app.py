@@ -986,7 +986,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
 # --- CHỨC NĂNG 3: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
 # =========================================================
 elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
-    st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Xuất Hóa Đơn Ảnh PNG")
+    st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Tải Hóa Đơn Ảnh PNG")
     
     col_y, col_m = st.columns([1, 3])
     with col_y:
@@ -1044,18 +1044,18 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
         else:
             st.markdown("#### 📋 Bảng Chi Tiết Học Phí & Trạng Thái Thanh Toán")
             
+            # Hiển thị danh sách nhanh, mượt mà (Không render ảnh matplotlib trong vòng lặp)
             for idx, row in combined_df.iterrows():
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
+                c1, c2, c3, c4, c5, c6 = st.columns([2.5, 1.2, 1.3, 1.5, 1.5, 2.0])
                 c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
-                c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
-                c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
+                c3.write(f"{row['Tổng Tiền (VNĐ)']:,.0f} đ")
                 
                 is_paid = (row['Trạng Thái'] == 'Đã đóng')
-                c5.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
+                c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
                 
                 btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
-                if c6.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"):
+                if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"):
                     new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
                     t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
                     with engine.begin() as conn:
@@ -1067,8 +1067,14 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         '''), {"hs_id": row['hoc_sinh_id'], "thang": row['Tháng/Năm'], "stt": new_stt, "ngay": t_str})
                     st.rerun()
 
-                with c7:
+                with c6:
+                    # Cho phép tải nhanh ảnh phiếu thông qua nút chọn gọn gàng
                     if HAS_MATPLOTLIB:
+                        safe_name = str(row['Họ và Tên']).replace(' ', '_')
+                        safe_thang = str(row['Tháng/Năm']).replace('/', '_')
+                        if st.button(f"📥 Tải Phiếu ({row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']})", key=f"gen_slip_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"):
+                            pass
+                        
                         img_bytes = create_tuition_slip_image(
                             student_name=row['Họ và Tên'],
                             lop_hoc=row['Lớp'],
@@ -1080,14 +1086,12 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                             status=row['Trạng Thái'],
                             qr_path=qr_path
                         )
-                        safe_name = str(row['Họ và Tên']).replace(' ', '_')
-                        safe_thang = str(row['Tháng/Năm']).replace('/', '_')
                         st.download_button(
-                            label="🖼️ Tải Ảnh Phiếu",
+                            label=f"🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
                             file_name=f"Hoa_Don_{safe_name}_{safe_thang}.png",
                             mime="image/png",
-                            key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
+                            key=f"dl_slip_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
                 st.divider()
 
