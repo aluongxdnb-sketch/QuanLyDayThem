@@ -2,7 +2,7 @@ streamlit
 pandas
 sqlalchemy
 psycopg2-binary
-google-api-python-client
-google-auth
 reportlab
-pillow
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
