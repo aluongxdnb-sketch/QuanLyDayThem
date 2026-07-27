@@ -342,15 +342,14 @@ def render_schedule_matrix(conn):
 
 # --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
 def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượng / Lớp: "):
-    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3.5))
+    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 4.0))
     ax.axis('off')
     ax.axis('tight')
     
-    # Tính toán tuần hiện tại (Thứ 2 đến Chủ Nhật)
     today = date.today()
     start_w = today - timedelta(days=today.weekday())
     end_w = start_w + timedelta(days=6)
-    week_text = f"Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')}"
+    week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
     
     table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
     cleaned_data = []
@@ -367,10 +366,15 @@ def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượn
     table.set_fontsize(10)
     table.scale(1, 2.2)
     
-    full_title = f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\n{prefix}{title_target}\n{week_text}"
-    plt.title(full_title, fontsize=13, fontweight='bold', pad=20, color='#1E3A8A', linespacing=1.5)
+    # Tiêu đề và thông tin căn chỉnh nhiều dòng bằng ax.text để phân biệt cỡ chữ & độ đậm
+    ax.text(0.5, 1.14, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
+            fontsize=14, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+    ax.text(0.5, 1.07, f"{prefix}{title_target}", transform=ax.transAxes, 
+            fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+    ax.text(0.5, 1.01, week_text, transform=ax.transAxes, 
+            fontsize=10, fontweight='normal', color='#475569', ha='center', va='bottom')
     
-    # Thêm ghi chú chân trang trong ảnh
+    # Ghi chú chân trang trong ảnh
     plt.figtext(0.5, 0.02, "Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
@@ -726,14 +730,13 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
             if df_export_matrix.empty:
                 st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
             else:
-                # Tính tuần hiện tại để xem trước
                 today = date.today()
                 start_w = today - timedelta(days=today.weekday())
                 end_w = start_w + timedelta(days=6)
-                week_text = f"Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')}"
+                week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
 
                 st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({prefix_label} {target_title})")
-                st.info(f"📅 **{week_text}**")
+                st.markdown(f"<p style='font-size: 14px; color: #475569; margin-bottom: 5px;'>{week_text}</p>", unsafe_allow_html=True)
                 st.write(df_export_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
                 st.markdown("<p style='font-style: italic; color: #475569; font-size: 14px;'>Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi</p>", unsafe_allow_html=True)
                 st.divider()
