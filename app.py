@@ -936,15 +936,18 @@ elif choice == "3. 📝 Quản Lý Điểm Kiểm Tra":
 
     with tab_ds_dt:
         st.markdown("##### 📋 Danh Sách Điểm Kiểm Tra Đã Nhập")
-        df_all_kt = pd.read_sql_query('''
-            SELECT d.id AS "Mã KT", h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ten_bai_kiem_tra AS "Bài Kiểm Tra", d.ngay_kiem_tra AS "Ngày", d.diem AS "Điểm", d.nhan_xet AS "Nhận Xét"
-            FROM diem_kiem_tra d
-            JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-            ORDER BY d.ngay_kiem_tra DESC, d.id DESC
-        ''', engine)
+        try:
+            df_all_kt = pd.read_sql_query('''
+                SELECT d.id AS "Mã KT", h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ten_bai_kiem_tra AS "Bài Kiểm Tra", d.ngay_kiem_tra AS "Ngày", d.diem AS "Điểm", d.nhan_xet AS "Nhận Xét"
+                FROM diem_kiem_tra d
+                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+                ORDER BY d.ngay_kiem_tra DESC, d.id DESC
+            ''', engine)
+        except Exception:
+            df_all_kt = pd.DataFrame()
         
         if df_all_kt.empty:
-            st.info("💡 Chưa có điểm kiểm tra nào được ghi nhận.")
+            st.info("💡 Chưa có điểm kiểm tra nào được ghi nhận hoặc bảng dữ liệu đang được đồng bộ.")
         else:
             st.dataframe(df_all_kt, use_container_width=True)
             
@@ -974,20 +977,19 @@ elif choice == "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI":
         selected_hs_id_ai = hs_dict_ai[selected_hs_ai_label]
         
         if st.button("✨ Kích hoạt AI phân tích và viết nhận xét", type="primary"):
-            # Lấy thông tin học sinh
             hs_info_row = df_hs_ai[df_hs_ai['id'] == selected_hs_id_ai].iloc[0]
             
-            # Lấy lịch sử điểm danh và nhận xét
             df_dd_ai = pd.read_sql_query(f'''
                 SELECT ngay, trang_thai, nhan_xet FROM diem_danh WHERE hoc_sinh_id = {selected_hs_id_ai} ORDER BY ngay DESC
             ''', engine)
             
-            # Lấy lịch sử điểm kiểm tra
-            df_kt_ai = pd.read_sql_query(f'''
-                SELECT ten_bai_kiem_tra, ngay_kiem_tra, diem, nhan_xet FROM diem_kiem_tra WHERE hoc_sinh_id = {selected_hs_id_ai} ORDER BY ngay_kiem_tra DESC
-            ''', engine)
+            try:
+                df_kt_ai = pd.read_sql_query(f'''
+                    SELECT ten_bai_kiem_tra, ngay_kiem_tra, diem, nhan_xet FROM diem_kiem_tra WHERE hoc_sinh_id = {selected_hs_id_ai} ORDER BY ngay_kiem_tra DESC
+                ''', engine)
+            except Exception:
+                df_kt_ai = pd.DataFrame()
             
-            # Thu thập thông số
             total_buoi = len(df_dd_ai)
             co_mat_cnt = len(df_dd_ai[df_dd_ai['trang_thai'] == 'Có mặt']) if total_buoi > 0 else 0
             vang_phep_cnt = len(df_dd_ai[df_dd_ai['trang_thai'] == 'Vắng có phép']) if total_buoi > 0 else 0
@@ -996,15 +998,11 @@ elif choice == "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI":
             avg_score = df_kt_ai['diem'].mean() if not df_kt_ai.empty else 0.0
             total_tests = len(df_kt_ai)
             
-            # Thu thập các nhận xét buổi học gần đây
             recent_notes = [n for n in df_dd_ai['nhan_xet'].dropna().tolist() if n.strip()]
-            recent_test_notes = [n for n in df_kt_ai['nhan_xet'].dropna().tolist() if n.strip()]
             
-            # Xây dựng văn phong AI tổng hợp chuyên nghiệp
             ai_greeting = f"### 📋 Báo Cáo Đánh Giá Học Tập Từ Trợ Lý AI"
             ai_intro = f"**Học sinh:** {hs_info_row['ho_ten']} — **Lớp:** {hs_info_row['lop_hoc']}"
             
-            # Đánh giá chuyên cần
             if total_buoi > 0:
                 att_rate = (co_mat_cnt / total_buoi) * 100
                 if att_rate >= 90:
@@ -1016,7 +1014,6 @@ elif choice == "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI":
             else:
                 att_eval = "Chưa có dữ liệu điểm danh ghi nhận trong hệ thống."
                 
-            # Đánh giá năng lực / điểm kiểm tra
             if total_tests > 0:
                 if avg_score >= 8.5:
                     score_eval = f"Kết quả kiểm tra rất xuất sắc (Điểm trung bình các bài: **{avg_score:.2f}**). Em nắm vững kiến thức chuyên sâu và có tư duy làm bài rất tốt."
@@ -1029,7 +1026,6 @@ elif choice == "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI":
             else:
                 score_eval = "Chưa có bài kiểm tra nào được ghi nhận điểm số trong giai đoạn này."
                 
-            # Tổng hợp nhận xét chi tiết dạng đoạn văn hoàn chỉnh
             ai_paragraph = f"""
             {ai_greeting}
             {ai_intro}
@@ -1117,7 +1113,7 @@ elif choice == "5. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
             
             for idx, row in combined_df.iterrows():
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
-                c1.write(f"**{row['Họ and Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
+                c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
                 c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
                 c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -1141,7 +1137,7 @@ elif choice == "5. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                 with c7:
                     if HAS_MATPLOTLIB:
                         img_bytes = create_tuition_slip_image(
-                            student_name=row['Họ and Tên'],
+                            student_name=row['Họ và Tên'],
                             lop_hoc=row['Lớp'],
                             subject=row['Môn Học'] or 'Chung',
                             price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
@@ -1154,7 +1150,7 @@ elif choice == "5. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
