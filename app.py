@@ -8,17 +8,26 @@ import re
 import urllib.request
 import shutil
 
-# Thử import thư viện ReportLab xuất PDF
+# Thử import thư viện ReportLab cho phiếu học phí A5
 try:
-    from reportlab.lib.pagesizes import A5, A4, portrait, landscape
+    from reportlab.lib.pagesizes import A5, portrait
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as RLTable, TableStyle, Image as RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
+
+# Thử import Matplotlib để xuất lịch học dạng ảnh PNG
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('Agg')
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
 
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
@@ -61,7 +70,7 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM ĐĂNG KÝ FONT TIẾNG VIỆT (TRÁNH LỖI KHÓA FILE TRÊN WINDOWS) ---
+# --- HÀM ĐĂNG KÝ FONT CHO PHIẾU HỌC PHÍ PDF ---
 def register_vietnamese_fonts():
     reg_font_name = 'Helvetica'
     bold_font_name = 'Helvetica-Bold'
@@ -69,7 +78,6 @@ def register_vietnamese_fonts():
     local_reg = "arial_local.ttf"
     local_bold = "arialbd_local.ttf"
     
-    # 1. Sao chép font Arial từ Windows sang thư mục làm việc để tránh lỗi khóa file hệ thống
     try:
         win_arial = "C:\\Windows\\Fonts\\arial.ttf"
         win_arialbd = "C:\\Windows\\Fonts\\arialbd.ttf"
@@ -80,7 +88,6 @@ def register_vietnamese_fonts():
     except Exception:
         pass
         
-    # 2. Dự phòng tải từ GitHub nếu máy không có sẵn hoặc lỗi copy
     if not os.path.exists(local_reg) or os.path.getsize(local_reg) < 50000:
         try:
             urllib.request.urlretrieve("https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf", local_reg)
@@ -93,7 +100,6 @@ def register_vietnamese_fonts():
         except Exception:
             pass
 
-    # 3. Đăng ký vào ReportLab
     if os.path.exists(local_reg) and os.path.getsize(local_reg) > 50000:
         try:
             pdfmetrics.registerFont(TTFont('VNRegular', local_reg))
@@ -334,60 +340,52 @@ def render_schedule_matrix(conn):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE PDF LỊCH HỌC THEO TUẦN (A4 LANDSCAPE) ---
-def create_weekly_schedule_pdf(title_target, df_matrix):
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CHỐNG LỖI FONT TUYỆT ĐỐI) ---
+def create_weekly_schedule_image(title_target, df_matrix):
+    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3))
+    ax.axis('off')
+    ax.axis('tight')
+    
+    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
+    cleaned_data = []
+    for row in table_data:
+        cleaned_row = []
+        for cell in row:
+            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
+            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
+            cleaned_row.append(clean_cell)
+        cleaned_data.append(cleaned_row)
+        
+    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2.2)
+    
+    plt.title(f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\nĐối tượng / Lớp: {title_target}", fontsize=14, fontweight='bold', pad=25, color='#1E3A8A')
+    
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor('#CBD5E1')
+        if row == 0:
+            cell.set_facecolor('#1E3A8A')
+            cell.set_text_props(color='white', weight='bold', size=11)
+        else:
+            cell.set_text_props(color='#1E293B', size=10)
+            if col == 0 or col == 1:
+                cell.set_facecolor('#F1F5F9')
+                cell.set_text_props(weight='bold', color='#1E3A8A')
+            else:
+                if row % 2 == 0:
+                    cell.set_facecolor('#F8FAFC')
+                else:
+                    cell.set_facecolor('white')
+                    
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=landscape(A4),
-        rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20
-    )
-    story = []
-    
-    font_reg, font_bold = register_vietnamese_fonts()
-    
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('VN_Title', parent=styles['Normal'], fontName=font_bold, fontSize=15, leading=18, alignment=1, textColor=colors.HexColor('#1E3A8A'))
-    sub_style = ParagraphStyle('VN_Sub', parent=styles['Normal'], fontName=font_reg, fontSize=11, leading=15, alignment=1)
-    cell_style = ParagraphStyle('VN_Cell', parent=styles['Normal'], fontName=font_reg, fontSize=9, leading=12)
-    header_style = ParagraphStyle('VN_Header', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=13, alignment=1, textColor=colors.white)
-    footer_style = ParagraphStyle('VN_Footer', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=14, alignment=1, textColor=colors.HexColor('#1E3A8A'))
-
-    story.append(Paragraph("THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", title_style))
-    story.append(Spacer(1, 4))
-    story.append(Paragraph(f"Đối tượng / Lớp: <b>{title_target}</b>", sub_style))
-    story.append(Spacer(1, 10))
-    
-    headers = [Paragraph(f"<b>{col}</b>", header_style) for col in df_matrix.columns]
-    table_data = [headers]
-
-    for _, row in df_matrix.iterrows():
-        row_cells = []
-        for col in df_matrix.columns:
-            val = str(row[col]).replace("<br>", "\n").replace("<b>", "").replace("</b>", "")
-            val_clean = val.replace("\n", "<br/>")
-            row_cells.append(Paragraph(val_clean, cell_style))
-        table_data.append(row_cells)
-
-    col_widths = [55, 85, 90, 90, 90, 90, 90, 90, 90]
-    t = Table(table_data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('BACKGROUND', (0,1), (1,-1), colors.HexColor('#F1F5F9')),
-    ]))
-    
-    story.append(t)
-    story.append(Spacer(1, 12))
-    story.append(Paragraph("Chúc các em học sinh học tập tốt và đạt kết quả cao!", footer_style))
-    
-    doc.build(story)
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+    plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE PDF PHIẾU HỌC PHÍ ---
+# --- HÀM TẠO FILE PDF PHIẾU HỌC PHÍ (GIỮ NGUYÊN HOẠT ĐỘNG TỐT) ---
 def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -419,7 +417,7 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
         [Paragraph("<b>Trạng thái thanh toán:</b>", normal_style), Paragraph(f"<b>{status}</b>", bold_style)]
     ]
     
-    info_table = Table(info_data, colWidths=[130, 230])
+    info_table = RLTable(info_data, colWidths=[130, 230])
     info_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
@@ -516,7 +514,6 @@ c.execute('''
     )
 ''')
 
-# Nâng cấp bảng nếu thiếu cột
 try: c.execute("ALTER TABLE hoc_sinh ADD COLUMN lop_hoc TEXT DEFAULT 'Lớp chung'")
 except: pass
 try: c.execute("ALTER TABLE diem_danh ADD COLUMN trang_thai TEXT DEFAULT 'Có mặt'")
@@ -533,7 +530,6 @@ conn.commit()
 # --- 2. GIAO DIỆN CHÍNH ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà")
 
-# NÚT ĐĂNG XUẤT TRÊN SIDEBAR
 if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
     st.session_state.logged_in = False
     st.rerun()
@@ -549,7 +545,6 @@ menu = [
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
-# --- SIDEBAR: ĐỒNG BỘ LỊCH SANG IPHONE ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("📲 Đồng Bộ Lịch Sang iPhone")
 user_gmail = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
@@ -560,7 +555,6 @@ if st.sidebar.button("🔄 Đồng Bộ Lịch 7 Ngày Tới Sang iPhone", type=
     if success: st.sidebar.success(msg)
     else: st.sidebar.error(msg)
 
-# --- SIDEBAR: CÀI ĐẶT MÃ QR ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("📷 Cài đặt Mã QR Thanh Toán")
 qr_file = st.sidebar.file_uploader("Tải lên ảnh Mã QR (VietQR/STK)", type=["png", "jpg", "jpeg"])
@@ -650,7 +644,6 @@ if choice == "1. Điểm danh & Nhận xét":
                     st.success("✅ Đã lưu dữ liệu điểm danh thành công!")
                     st.rerun()
 
-    # HIỂN THỊ TỔNG QUAN & KẾT QUẢ ĐIỂM DANH TRONG NGÀY
     st.markdown("---")
     st.subheader(f"📊 Kết quả & Thống kê điểm danh ngày {ngay_hoc.strftime('%d/%m/%Y')}")
 
@@ -678,18 +671,18 @@ if choice == "1. Điểm danh & Nhận xét":
         st.info("ℹ️ Chưa có dữ liệu điểm danh nào được ghi nhận cho ngày này.")
 
 # =========================================================
-# --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC & XUẤT FILE PDF ---
+# --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC & XUẤT FILE ẢNH PNG ---
 # =========================================================
 elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
-    st.subheader("🗺️ Thời Khóa Biểu Tuần & Xuất File Lịch Học")
+    st.subheader("🗺️ Thời Khóa Biểu Tuần & Xuất File Ảnh Lịch Học")
     
-    tab_matrix, tab_export = st.tabs(["🗺️ Ma Trận Lịch Học Tổng Quan", "📥 Xuất Lịch Học Theo Lớp / Học Sinh (PDF)"])
+    tab_matrix, tab_export = st.tabs(["🗺️ Ma Trận Lịch Học Tổng Quan", "📥 Xuất Lịch Học Theo Lớp / Học Sinh (Ảnh PNG)"])
 
     with tab_matrix:
         render_schedule_matrix(conn)
 
     with tab_export:
-        st.markdown("### 📄 Xuất File Lịch Học Hàng Tuần Dạng PDF")
+        st.markdown("### 🖼️ Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG (Không Lỗi Font)")
         df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", conn)
 
         if df_hs_all.empty:
@@ -721,17 +714,17 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
                 st.write(df_export_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
                 st.divider()
 
-                if HAS_REPORTLAB:
-                    pdf_matrix_bytes = create_weekly_schedule_pdf(target_title, df_export_matrix)
+                if HAS_MATPLOTLIB:
+                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix)
                     st.download_button(
-                        label=f"📄 Tải File PDF Lịch Học ({target_title})",
-                        data=pdf_matrix_bytes,
-                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_')}.pdf",
-                        mime="application/pdf",
+                        label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
+                        data=img_bytes,
+                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_')}.png",
+                        mime="image/png",
                         type="primary"
                     )
                 else:
-                    st.warning("⚠️ Chưa cài đặt thư viện ReportLab để xuất file PDF.")
+                    st.warning("⚠️ Thư viện Matplotlib chưa được cài đặt để xuất ảnh.")
 
 # =========================================================
 # --- CHỨC NĂNG 3: LÊN LỊCH HỌC ---
@@ -919,7 +912,6 @@ elif choice == "7. Sửa & Xóa dữ liệu":
             "❌ 3. Xóa Học Sinh"
         ])
         
-        # ---------------- 1. THÊM HỌC SINH MỚI ----------------
         with sub_tab_them:
             st.markdown("##### ➕ Nhập Thông Tin Học Sinh Mới")
             with st.form("form_add_student_full"):
@@ -945,7 +937,6 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                     else:
                         st.error("⚠️ Vui lòng nhập Họ và tên học sinh!")
 
-        # ---------------- 2. SỬA THÔNG TIN HỌC SINH ----------------
         with sub_tab_sua:
             st.markdown("##### ✏️ Sửa Thông Tin Học Sinh")
             df_hs_edit = pd.read_sql_query("SELECT * FROM hoc_sinh ORDER BY id DESC", conn)
@@ -984,7 +975,6 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                         st.success(f"✅ Đã cập nhật xong thông tin học sinh **{ten_edit}**!")
                         st.rerun()
 
-        # ---------------- 3. XÓA HỌC SINH ----------------
         with sub_tab_xoa:
             st.markdown("##### ❌ Xóa Học Sinh Khỏi Hệ Thống")
             df_hs_del = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", conn)
@@ -1011,7 +1001,6 @@ elif choice == "7. Sửa & Xóa dữ liệu":
                     else:
                         st.error("⚠️ Bạn cần tích vào ô 'Tôi xác nhận...' trước khi xóa.")
 
-        # ---------------- DANH SÁCH HỌC SINH ĐÃ THÊM ----------------
         st.divider()
         st.markdown("### 📋 Danh Sách Tất Cả Học Sinh Hiện Có")
         df_all_students = pd.read_sql_query('''
