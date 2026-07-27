@@ -446,7 +446,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
+# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) & TỰ ĐỘNG BỔ SUNG CỘT ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -455,8 +455,7 @@ with engine.begin() as conn:
             lop_hoc TEXT DEFAULT 'Lớp chung',
             mon_hoc TEXT,
             hoc_phi_buoi REAL NOT NULL,
-            sdt_phu_huynh TEXT,
-            ngay_sinh DATE
+            thong_tin_phu_huynh TEXT
         )
     '''))
     conn.execute(text('''
@@ -500,6 +499,15 @@ with engine.begin() as conn:
             loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù'
         )
     '''))
+    # Đổi cột sdt_phu_huynh thành thong_tin_phu_huynh nếu bảng cũ đã tồn tại
+    try:
+        conn.execute(text("ALTER TABLE hoc_sinh RENAME COLUMN sdt_phu_huynh TO thong_tin_phu_huynh"))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("ALTER TABLE hoc_sinh ADD COLUMN IF NOT EXISTS thong_tin_phu_huynh TEXT"))
+    except Exception:
+        pass
 
 # --- 2. GIAO DIỆN CHÍNH ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
@@ -584,31 +592,17 @@ if choice == "0. 📊 Trang Chủ Dashboard":
             st.caption("✅ Tất cả học sinh đi học trong tháng đã hoàn thành học phí!")
         
     st.markdown("---")
-    st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay:")
+    st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
     if df_today.empty:
         st.info("💡 Hôm nay không có ca dạy nào được lên lịch.")
     else:
-        for ca, group_ca in df_today.groupby('ca_hoc'):
+        sorted_cas_today = sorted(df_today['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
+        for ca in sorted_cas_today:
+            group_ca = df_today[df_today['ca_hoc'] == ca]
             with st.expander(f"⏰ Ca: {ca} ({len(group_ca)} học sinh)", expanded=True):
                 for lop, g_lop in group_ca.groupby('lop_hoc'):
                     ds_names = ", ".join(g_lop['ho_ten'].tolist())
                     st.write(f"• **Lớp {lop}:** {ds_names}")
-
-    st.markdown("---")
-    st.markdown("#### 🎂 Học Sinh Có Sinh Nhật Trong Tháng Này:")
-    current_month_int = datetime.now().month
-    df_all_hs = pd.read_sql_query("SELECT ho_ten, lop_hoc, ngay_sinh FROM hoc_sinh WHERE ngay_sinh IS NOT NULL", engine)
-    if not df_all_hs.empty:
-        df_all_hs['ngay_sinh_dt'] = pd.to_datetime(df_all_hs['ngay_sinh'], errors='coerce')
-        bday_this_month = df_all_hs[df_all_hs['ngay_sinh_dt'].dt.month == current_month_int]
-        if not bday_this_month.empty:
-            for _, r_b in bday_this_month.iterrows():
-                b_date_str = r_b['ngay_sinh_dt'].strftime('%d/%m')
-                st.success(f"🎉 **{r_b['ho_ten']}** (Lớp {r_b['lop_hoc']}) có sinh nhật vào ngày **{b_date_str}**")
-        else:
-            st.info("💡 Không có học sinh nào sinh nhật trong tháng này.")
-    else:
-        st.info("💡 Chưa có dữ liệu ngày sinh học sinh.")
 
 # =========================================================
 # --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
@@ -1116,7 +1110,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
@@ -1141,16 +1135,15 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                     mon_new = st.text_input("Môn học", value="Toán")
                 with c2:
                     hoc_phi_new = st.number_input("Học phí mỗi ca (VNĐ)", min_value=0, step=10000, value=150000)
-                    sdt_new = st.text_input("Số điện thoại phụ huynh")
-                    ngay_sinh_new = st.date_input("Ngày sinh", value=date(2010, 1, 1))
+                    thong_tin_phu_huynh_new = st.text_input("Thông tin phụ huynh")
                 
                 if st.form_submit_button("💾 Thêm Học Sinh Mới", type="primary"):
                     if ten_new.strip():
                         with engine.begin() as conn:
                             conn.execute(text('''
-                                INSERT INTO hoc_sinh (ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, sdt_phu_huynh, ngay_sinh)
-                                VALUES (:ten, :lop, :mon, :hp, :sdt, :ns)
-                            '''), {"ten": ten_new.strip(), "lop": lop_new.strip(), "mon": mon_new.strip(), "hp": hoc_phi_new, "sdt": sdt_new.strip(), "ns": ngay_sinh_new.strftime("%Y-%m-%d")})
+                                INSERT INTO hoc_sinh (ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh)
+                                VALUES (:ten, :lop, :mon, :hp, :ttph)
+                            '''), {"ten": ten_new.strip(), "lop": lop_new.strip(), "mon": mon_new.strip(), "hp": hoc_phi_new, "ttph": thong_tin_phu_huynh_new.strip()})
                         st.success(f"✅ Đã thêm học sinh **{ten_new}** thành công!")
                         st.rerun()
 
@@ -1169,16 +1162,15 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                         mon_edit = st.text_input("Môn", value=selected_hs_row['mon_hoc'] or "")
                     with c2:
                         hoc_phi_edit = st.number_input("Học phí mỗi ca", min_value=0, step=10000, value=int(selected_hs_row['hoc_phi_buoi'] or 150000))
-                        sdt_edit = st.text_input("SĐT", value=selected_hs_row['sdt_phu_huynh'] or "")
-                        ngay_sinh_edit = st.date_input("Ngày sinh", value=datetime.strptime(str(selected_hs_row['ngay_sinh']), "%Y-%m-%d").date() if selected_hs_row['ngay_sinh'] else date(2010, 1, 1))
+                        thong_tin_phu_huynh_edit = st.text_input("Thông tin phụ huynh", value=selected_hs_row['thong_tin_phu_huynh'] or "")
                     
                     if st.form_submit_button("💾 Lưu Thay Đổi", type="primary"):
                         with engine.begin() as conn:
                             conn.execute(text('''
                                 UPDATE hoc_sinh 
-                                SET ho_ten = :ten, lop_hoc = :lop, mon_hoc = :mon, hoc_phi_buoi = :hp, sdt_phu_huynh = :sdt, ngay_sinh = :ns
+                                SET ho_ten = :ten, lop_hoc = :lop, mon_hoc = :mon, hoc_phi_buoi = :hp, thong_tin_phu_huynh = :ttph
                                 WHERE id = :id
-                            '''), {"ten": ten_edit.strip(), "lop": lop_edit.strip(), "mon": mon_edit.strip(), "hp": hoc_phi_edit, "sdt": sdt_edit.strip(), "ns": ngay_sinh_edit.strftime("%Y-%m-%d"), "id": int(selected_hs_row['id'])})
+                            '''), {"ten": ten_edit.strip(), "lop": lop_edit.strip(), "mon": mon_edit.strip(), "hp": hoc_phi_edit, "ttph": thong_tin_phu_huynh_edit.strip(), "id": int(selected_hs_row['id'])})
                         st.success("✅ Đã cập nhật!")
                         st.rerun()
 
@@ -1200,7 +1192,7 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                     st.rerun()
 
         st.markdown("### 📋 Danh Sách Học Sinh")
-        st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
+        st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Thông tin phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
 
     with tab_diemdanh:
         st.subheader("🗑️ Xóa Buổi Điểm Danh Nhầm")
