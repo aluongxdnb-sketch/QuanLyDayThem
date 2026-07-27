@@ -480,75 +480,106 @@ if qr_file is not None:
 if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
-# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
+# =========================================================
+# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT (ĐÃ CẢI TIẾN) ---
+# =========================================================
 if choice == "1. Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     ngay_hoc = st.date_input("🗓️ Chọn ngày điểm danh", date.today())
     thu_hom_nay = get_vietnamese_weekday(ngay_hoc)
+    date_str = ngay_hoc.strftime("%Y-%m-%d")
     st.caption(f"Ngày được chọn: **{ngay_hoc.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
     
     df_active_today = get_active_schedule_for_date(conn, ngay_hoc)
-    type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP (Tự động mặc định Có Mặt)", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
-    st.divider()
+    df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
     
-    if type_mode.startswith("🏫"):
-        sub_mode_class = st.radio("Tùy chọn danh sách Lớp:", ["🏫 Lớp có lịch hôm nay", "📚 Tất cả các lớp trong hệ thống"], horizontal=True)
-        df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
-        
-        if df_all_hs.empty:
-            st.warning("⚠️ Chưa có học sinh nào! Hãy sang mục '7. Sửa & Xóa dữ liệu' để thêm học sinh mới.")
-        else:
-            available_classes = df_active_today['lop_hoc'].unique().tolist() if (sub_mode_class == "🏫 Lớp có lịch hôm nay" and not df_active_today.empty) else df_all_hs['lop_hoc'].unique().tolist()
-            if available_classes:
-                selected_class = st.selectbox("Chọn Lớp cần điểm danh", available_classes)
-                target_students = df_active_today[df_active_today['lop_hoc'] == selected_class] if sub_mode_class == "🏫 Lớp có lịch hôm nay" else df_all_hs[df_all_hs['lop_hoc'] == selected_class]
-                
-                st.markdown(f"#### 📋 Bảng Điểm Danh Lớp: **{selected_class}** ({len(target_students)} HS)")
-                
-                with st.form("mass_class_attendance"):
-                    danh_sach_luu = []
-                    danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
-                    
-                    for idx, row in target_students.iterrows():
-                        st.markdown(f"**👤 {row['ho_ten']}**")
-                        c1, c2, c3 = st.columns([2, 3, 4])
-                        default_ca = row['ca_hoc'] if 'ca_hoc' in row and row['ca_hoc'] in danh_sach_ca_mau else "17h30 - 19h30"
-                        
-                        with c1: ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}")
-                        with c2: stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}", horizontal=True)
-                        with c3: nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}", placeholder="Nhận xét bài học...")
-                        
-                        danh_sach_luu.append((row['hoc_sinh_id'], ngay_hoc.strftime("%Y-%m-%d"), ca_val, stt_val, nx_val))
-                        st.divider()
-                        
-                    if st.form_submit_button(f"💾 LƯU ĐIỂM DANH CHO CẢ LỚP ({len(target_students)} HS)", type="primary"):
-                        for item in danh_sach_luu:
-                            c.execute("INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) VALUES (?, ?, ?, ?, ?)", item)
-                        conn.commit()
-                        st.success(f"✅ Đã lưu điểm danh Lớp {selected_class}!")
-                        st.rerun()
+    type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
+    st.divider()
 
+    target_students = pd.DataFrame()
+
+    if df_all_hs.empty:
+        st.warning("⚠️ Chưa có học sinh nào trong hệ thống! Hãy sang mục '7. Sửa & Xóa dữ liệu' để thêm học sinh mới.")
     else:
-        df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
-        if not df_all_hs.empty:
+        if type_mode == "🏫 Điểm danh theo LỚP":
+            available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
+            options_class = ["🌟 All Lớp (Tất cả học sinh có lịch học hôm nay)"] + available_classes
+            selected_class_opt = st.selectbox("Chọn Lớp cần điểm danh", options_class)
+
+            if selected_class_opt.startswith("🌟 All Lớp"):
+                target_students = df_active_today
+            else:
+                target_students = df_all_hs[df_all_hs['lop_hoc'] == selected_class_opt]
+
+        else: # "👤 Điểm danh từng HỌC SINH"
             student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
-            selected_label = st.selectbox("Chọn học sinh điểm danh", list(student_dict.keys()))
-            selected_hs_id = student_dict[selected_label]
-            
-            with st.form("single_student_attendance"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    danh_sach_ca = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
-                    ca_hoc_final = st.selectbox("Chọn ca học", danh_sach_ca, index=4)
-                with col2:
-                    trang_thai = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], horizontal=True)
-                    nhan_xet_text = st.text_area("Nhận xét", placeholder="Nhận xét bài làm...", height=80)
+            options_hs = ["🌟 All Học sinh (Tất cả học sinh có lịch học hôm nay)"] + list(student_dict.keys())
+            selected_hs_opt = st.selectbox("Chọn học sinh điểm danh", options_hs)
+
+            if selected_hs_opt.startswith("🌟 All Học sinh"):
+                target_students = df_active_today
+            else:
+                selected_hs_id = student_dict[selected_hs_opt]
+                target_students = df_all_hs[df_all_hs['hoc_sinh_id'] == selected_hs_id]
+
+        # FORM ĐIỂM DANH
+        if target_students.empty:
+            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hoặc phù hợp với bộ lọc đã chọn.")
+        else:
+            st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} học sinh)")
+            with st.form("form_diem_danh_execution"):
+                danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
+                danh_sach_luu = []
+
+                for idx, row in target_students.iterrows():
+                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}]")
+                    c1, c2, c3 = st.columns([2, 3, 4])
                     
-                if st.form_submit_button("💾 Lưu Điểm Danh Học Sinh Này", type="primary"):
-                    c.execute("INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) VALUES (?, ?, ?, ?, ?)",
-                              (selected_hs_id, ngay_hoc.strftime("%Y-%m-%d"), ca_hoc_final, trang_thai, nhan_xet_text))
+                    default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
+
+                    with c1:
+                        ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}")
+                    with c2:
+                        stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}", horizontal=True)
+                    with c3:
+                        nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}", placeholder="Nhận xét bài học...")
+
+                    danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_val, stt_val, nx_val))
+                    st.divider()
+
+                if st.form_submit_button(f"💾 LƯU ĐIỂM DANH ({len(target_students)} HS)", type="primary", use_container_width=True):
+                    for item in danh_sach_luu:
+                        c.execute("INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) VALUES (?, ?, ?, ?, ?)", item)
                     conn.commit()
-                    st.success("✅ Đã ghi nhận thành công!")
+                    st.success("✅ Đã lưu dữ liệu điểm danh thành công!")
+                    st.rerun()
+
+    # HIỂN THỊ TỔNG QUAN & KẾT QUẢ ĐIỂM DANH TRONG NGÀY
+    st.markdown("---")
+    st.subheader(f"📊 Kết quả & Thống kê điểm danh ngày {ngay_hoc.strftime('%d/%m/%Y')}")
+
+    df_dd_today = pd.read_sql_query(f'''
+        SELECT d.id, h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét"
+        FROM diem_danh d
+        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+        WHERE d.ngay = '{date_str}'
+        ORDER BY d.id DESC
+    ''', conn)
+
+    if not df_dd_today.empty:
+        co_mat = len(df_dd_today[df_dd_today['Trạng Thái'] == 'Có mặt'])
+        vang_phep = len(df_dd_today[df_dd_today['Trạng Thái'] == 'Vắng có phép'])
+        vang_khong_phep = len(df_dd_today[df_dd_today['Trạng Thái'] == 'Vắng không phép'])
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("🟢 Tổng đi học (Có mặt)", f"{co_mat} HS")
+        m2.metric("🟡 Vắng có phép", f"{vang_phep} HS")
+        m3.metric("🔴 Vắng không phép", f"{vang_khong_phep} HS")
+
+        st.caption("📋 Danh sách chi tiết học sinh đã được điểm danh trong ngày:")
+        st.dataframe(df_dd_today[['Họ và Tên', 'Lớp', 'Ca Học', 'Trạng Thái', 'Nhận Xét']], use_container_width=True)
+    else:
+        st.info("ℹ️ Chưa có dữ liệu điểm danh nào được ghi nhận cho ngày này.")
 
 # --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC TỔNG QUAN & MINDMAP ---
 elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
