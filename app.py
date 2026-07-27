@@ -60,30 +60,71 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM TẢI VÀ ĐĂNG KÝ FONT UNICODE CHUẨN (CHỐNG LỖI 100%) ---
+# --- HÀM ĐĂNG KÝ FONT TIẾNG VIỆT SIÊU BỀN VỮNG (ƯU TIÊN WINDOWS ARIAL) ---
 def register_vietnamese_fonts():
-    font_reg_path = "DejaVuSans.ttf"
-    
-    # Tự động tải font chuẩn Unicode từ kho lưu trữ nếu chưa có
-    if not os.path.exists(font_reg_path):
+    reg_path = None
+    bold_path = None
+
+    # 1. Ưu tiên tuyệt đối font chuẩn Windows (Arial & Arial Bold)
+    if os.path.exists("C:\\Windows\\Fonts\\arial.ttf"):
+        reg_path = "C:\\Windows\\Fonts\\arial.ttf"
+    if os.path.exists("C:\\Windows\\Fonts\\arialbd.ttf"):
+        bold_path = "C:\\Windows\\Fonts\\arialbd.ttf"
+
+    # 2. Nếu không có Windows, kiểm tra Linux system fonts
+    if not reg_path:
+        for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"]:
+            if os.path.exists(p):
+                reg_path = p
+                break
+    if not bold_path:
+        for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"]:
+            if os.path.exists(p):
+                bold_path = p
+                break
+
+    # 3. Tải dự phòng file local nếu chưa có
+    local_reg = "DejaVuSans.ttf"
+    local_bold = "DejaVuSans-Bold.ttf"
+
+    if not reg_path or not os.path.exists(reg_path):
+        if not os.path.exists(local_reg) or os.path.getsize(local_reg) < 50000:
+            try:
+                urllib.request.urlretrieve("https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf", local_reg)
+            except Exception:
+                pass
+        if os.path.exists(local_reg) and os.path.getsize(local_reg) > 50000:
+            reg_path = local_reg
+
+    if not bold_path or not os.path.exists(bold_path):
+        if not os.path.exists(local_bold) or os.path.getsize(local_bold) < 50000:
+            try:
+                urllib.request.urlretrieve("https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf", local_bold)
+            except Exception:
+                pass
+        if os.path.exists(local_bold) and os.path.getsize(local_bold) > 50000:
+            bold_path = local_bold
+
+    reg_font_name = 'Helvetica'
+    bold_font_name = 'Helvetica-Bold'
+
+    if reg_path and os.path.exists(reg_path):
         try:
-            urllib.request.urlretrieve(
-                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf", 
-                font_reg_path
-            )
+            pdfmetrics.registerFont(TTFont('VNRegular', reg_path))
+            reg_font_name = 'VNRegular'
         except Exception:
             pass
 
-    font_name = 'Helvetica'
-    if os.path.exists(font_reg_path):
+    if bold_path and os.path.exists(bold_path):
         try:
-            pdfmetrics.registerFont(TTFont('UnicodeFont', font_reg_path))
-            font_name = 'UnicodeFont'
+            pdfmetrics.registerFont(TTFont('VNBold', bold_path))
+            bold_font_name = 'VNBold'
         except Exception:
-            pass
+            bold_font_name = reg_font_name
+    else:
+        bold_font_name = reg_font_name
 
-    # Sử dụng chung một font Unicode cho cả Regular và Bold để tránh bị lỗi ô vuông đen
-    return font_name, font_name
+    return reg_font_name, bold_font_name
 
 # --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY ---
 def get_active_schedule_for_date(conn, check_date):
