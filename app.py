@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 import os
 import io
 import re
+import textwrap
 
 # Thử import Matplotlib để xuất lịch học & phiếu học phí dạng ảnh PNG
 try:
@@ -297,14 +298,14 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
                             name_str = row_item['ho_ten']
                             nguon = row_item.get('nguon', 'Lịch gốc')
                             if nguon != 'Lịch gốc':
-                                name_str += f" <span style='color: #B91C1C; font-size: 11px;'>({nguon})</span>"
+                                name_str += f" ({nguon})"
                             names_list.append(name_str)
                         names_str = ", ".join(names_list)
                         if filter_lop or filter_hs_id:
                             items.append(names_str)
                         else:
-                            items.append(f"<b>[{lop}]</b>: {names_str}")
-                    row_dict[t] = "<br>".join(items)
+                            items.append(f"[{lop}]: {names_str}")
+                    row_dict[t] = "\n".join(items)
         matrix_rows.append(row_dict)
 
     df_matrix = pd.DataFrame(matrix_rows)
@@ -318,11 +319,12 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
-def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Đối tượng / Lớp: "):
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (ĐÃ TỐI ƯU KÍCH THƯỚC & XUỐNG DÒNG) ---
+def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
         ref_date = date.today()
-    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 4.0))
+        
+    fig, ax = plt.subplots(figsize=(20, len(df_matrix) * 1.2 + 4.5))
     ax.axis('off')
     ax.axis('tight')
     
@@ -334,26 +336,41 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     cleaned_data = []
     for row in table_data:
         cleaned_row = []
-        for cell in row:
+        for col_idx, cell in enumerate(row):
             clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
             clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
             clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
+            
+            # Tự động ngắt dòng thông minh để không bị đè chữ trong bảng
+            if col_idx >= 2 and len(clean_cell) > 14:
+                parts = clean_cell.split(', ')
+                wrapped_parts = []
+                for p in parts:
+                    wrapped_parts.append('\n'.join(textwrap.wrap(p, width=15)))
+                clean_cell = '\n'.join(wrapped_parts)
+            elif col_idx == 1 and len(clean_cell) > 12:
+                clean_cell = '\n'.join(textwrap.wrap(clean_cell, width=12))
+                
             cleaned_row.append(clean_cell)
         cleaned_data.append(cleaned_row)
         
-    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center')
+    # Cấu hình chiều rộng cột cân đối (9 cột: Buổi, Ca học, 7 ngày trong tuần)
+    col_widths = [0.08, 0.12, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11]
+    
+    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 2.2)
+    table.set_fontsize(9.5)
+    table.scale(1, 2.6)
     
-    ax.text(0.5, 1.14, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
-            fontsize=14, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
-    ax.text(0.5, 1.07, f"{prefix}{title_target}", transform=ax.transAxes, 
-            fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
-    ax.text(0.5, 1.01, week_text, transform=ax.transAxes, 
-            fontsize=10, fontweight='normal', color='#475569', ha='center', va='bottom')
+    # Tiêu đề bảng lịch học rõ ràng, màu sắc chuyên nghiệp
+    ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
+            fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+    ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
+            fontsize=12.5, fontweight='bold', color='#0F172A', ha='center', va='bottom')
+    ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
+            fontsize=10.5, fontweight='normal', color='#475569', ha='center', va='bottom')
     
-    plt.figtext(0.5, 0.02, "Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
+    plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
@@ -361,7 +378,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
             cell.set_facecolor('#1E3A8A')
             cell.set_text_props(color='white', weight='bold', size=11)
         else:
-            cell.set_text_props(color='#1E293B', size=10)
+            cell.set_text_props(color='#1E293B', size=9.5)
             if col == 0 or col == 1:
                 cell.set_facecolor('#F1F5F9')
                 cell.set_text_props(weight='bold', color='#1E3A8A')
@@ -527,7 +544,6 @@ if choice == "0. 📊 Trang Chủ Dashboard":
     current_thang_query = f"{datetime.now().year}-{datetime.now().month:02d}"
     current_thang_key = f"{datetime.now().month:02d}/{datetime.now().year}"
     
-    # Truy vấn học sinh có đi học trong tháng này nhưng chưa đóng học phí
     query_unpaid_details = f'''
         SELECT h.id, h.ho_ten, h.lop_hoc 
         FROM hoc_sinh h
@@ -933,20 +949,23 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
             target_title = "Tất Cả Các Lớp"
             selected_lop_exp = None
             selected_hs_exp = None
-            prefix_label = "Đối tượng / Lớp: "
+            prefix_label = "Học sinh / Lớp: "
 
             if filter_mode == "Toàn bộ các Lớp":
                 target_title = "Tất Cả Các Lớp"
+                prefix_label = "Phạm vi: "
             elif filter_mode == "Theo Lớp cụ thể":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                 selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list, key="sel_lop_exp_m")
-                target_title = f"{selected_lop_exp}"
+                target_title = f"Lớp {selected_lop_exp}"
+                prefix_label = "Học sinh / Lớp: "
             elif filter_mode == "Theo Học sinh cụ thể":
                 hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()), key="sel_hs_label_exp_m")
                 selected_hs_row = hs_dict_exp[sel_hs_label]
                 selected_hs_exp = selected_hs_row['id']
                 target_title = f"{selected_hs_row['ho_ten']} ({selected_hs_row['lop_hoc']})"
+                prefix_label = "Học sinh / Lớp: "
 
             df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
 
@@ -1028,7 +1047,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
             
             for idx, row in combined_df.iterrows():
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
-                c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
+                c1.write(f"**{row['Họ and Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
                 c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
                 c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -1052,7 +1071,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                 with c7:
                     if HAS_MATPLOTLIB:
                         img_bytes = create_tuition_slip_image(
-                            student_name=row['Họ và Tên'],
+                            student_name=row['Họ and Tên'],
                             lop_hoc=row['Lớp'],
                             subject=row['Môn Học'] or 'Chung',
                             price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
