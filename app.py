@@ -35,14 +35,11 @@ def get_clean_db_url():
     if not url:
         return None
 
-    # Tự động lọc bỏ ký tự xuống dòng và khoảng trắng thừa
     url = str(url).replace("\n", "").replace("\r", "").replace(" ", "").strip()
 
-    # Chuẩn hóa tiền tố driver psycopg2
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-    # Thêm tham số sslmode=require bắt buộc cho Supabase
     if "sslmode" not in url:
         url += "?sslmode=require" if "?" not in url else "&sslmode=require"
 
@@ -55,8 +52,8 @@ def get_db_engine():
     if db_url:
         return create_engine(
             db_url,
-            pool_pre_ping=True,  # Kiểm tra kết nối trước khi truy vấn
-            pool_recycle=300,    # Reset kết nối sau 5 phút tránh bị rớt mạng
+            pool_pre_ping=True,
+            pool_recycle=300,
             connect_args={"connect_timeout": 15}
         )
     else:
@@ -64,7 +61,7 @@ def get_db_engine():
 
 engine = get_db_engine()
 
-# --- TỰ ĐỘNG KHỞI TẠO CẤU TRÚC BẢNG TRÊN SUPABASE NẾU CHƯA CÓ ---
+# --- TỰ ĐỘNG KHỞI TẠO CẤU TRÚC BẢNG TRÊN SUPABASE / SQLITE NẾU CHƯA CÓ ---
 def init_db():
     db_url = get_clean_db_url()
     is_postgres = db_url is not None
@@ -77,7 +74,9 @@ def init_db():
                 ho_ten VARCHAR(255) NOT NULL,
                 lop_hoc VARCHAR(100),
                 mon_hoc VARCHAR(100),
-                hoc_phi_buoi NUMERIC DEFAULT 150000
+                hoc_phi_buoi NUMERIC DEFAULT 150000,
+                sdt_phu_huynh VARCHAR(50),
+                ngay_sinh DATE
             );
         """))
         conn.execute(text(f"""
@@ -119,6 +118,16 @@ def init_db():
                 CONSTRAINT unique_hs_thang UNIQUE(hoc_sinh_id, thang_nam)
             );
         """))
+
+        # Thêm cột bổ sung nếu bảng đã tồn tại từ trước
+        try:
+            conn.execute(text("ALTER TABLE hoc_sinh ADD COLUMN sdt_phu_huynh VARCHAR(50);"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE hoc_sinh ADD COLUMN ngay_sinh DATE;"))
+        except Exception:
+            pass
 
 try:
     init_db()
@@ -210,7 +219,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
     service_account_file = 'credentials.json'
 
     try:
-        scopes = ['https://www.googleapis.com/auth/calendar']
+        scopes = ['[https://www.googleapis.com/auth/calendar](https://www.googleapis.com/auth/calendar)']
         
         if "GOOGLE_CREDENTIALS_JSON" in st.secrets:
             creds_data = st.secrets["GOOGLE_CREDENTIALS_JSON"]
@@ -320,7 +329,6 @@ def ca_hoc_sort_key(ca_str):
         return (1, h * 60 + m)
     return (2, str(ca_str))
 
-# --- HÀM LẤY BUỔI (SÁNG, CHIỀU, TỐI) ---
 def get_buoi_from_ca(ca_str):
     predefined = {
         "7h00 - 9h00": "🌅 Sáng", "9h00 - 11h00": "🌅 Sáng",
@@ -335,7 +343,6 @@ def get_buoi_from_ca(ca_str):
         return "🌅 Sáng" if h < 12 else ("☀️ Chiều" if h < 18 else "🌙 Tối")
     return "☀️ Chiều"
 
-# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC ---
 def render_schedule_matrix():
     query_mindmap = text("""
         SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
@@ -488,22 +495,7 @@ if choice == "1. Điểm danh & Nhận xét":
 # --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC TỔNG QUAN & MINDMAP ---
 elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
     st.subheader("🗺️ Thời Khóa Biểu Tuần & Sơ Đồ Mindmap")
-    df_mindmap = pd.read_sql_query(text("""
-        SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
-        FROM lich_hoc_tuan l
-        JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
-        ORDER BY 
-            CASE l.thu
-                WHEN 'Thứ 2' THEN 1 WHEN 'Thứ 3' THEN 2 WHEN 'Thứ 4' THEN 3
-                WHEN 'Thứ 5' THEN 4 WHEN 'Thứ 6' THEN 5 WHEN 'Thứ 7' THEN 6 WHEN 'Chủ Nhật' THEN 7
-            END, l.ca_hoc, h.lop_hoc
-    """), engine)
-    
-    if df_mindmap.empty:
-        st.info("💡 Chưa có lịch học tuần nào được thiết lập.")
-    else:
-        st.markdown("### 📊 Bảng Thời Khóa Biểu Ma Trận Theo Tuần")
-        render_schedule_matrix()
+    render_schedule_matrix()
 
 # --- CHỨC NĂNG 3: LÊN LỊCH HỌC ---
 elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
@@ -612,57 +604,4 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
     thang_nam_query = f"{nam}-{thang:02d}"
     db_url_check = get_clean_db_url()
     is_postgres = db_url_check is not None
-    date_format_func = "to_char(d.ngay, 'YYYY-MM')" if is_postgres else "strftime('%Y-%m', d.ngay)"
-    
-    query_status = f"""
-        SELECT 
-            h.id AS hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi,
-            SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS so_buoi,
-            (SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) * h.hoc_phi_buoi) AS tong_tien,
-            COALESCE(t.trang_thai, 'Chưa đóng') AS trang_thai_dong
-        FROM hoc_sinh h
-        LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND {date_format_func} = :ym
-        LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = :tn
-        GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-    """
-    df_status = pd.read_sql_query(text(query_status), engine, params={"ym": thang_nam_query, "tn": thang_nam_key})
-    
-    for _, row in df_status.iterrows():
-        c1, c2, c3, c4, c5 = st.columns([2, 1, 2, 2, 2])
-        c1.write(f"**{row['ho_ten']}**")
-        c2.write(f"{row['so_buoi']} buổi")
-        c3.write(f"**{row['tong_tien']:,.0f} VNĐ**")
-        is_paid = (row['trang_thai_dong'] == 'Đã đóng')
-        c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
-        
-        btn_label = "Chuyển sang Chưa đóng" if is_paid else "Xác nhận Đã đóng"
-        if c5.button(btn_label, key=f"btn_{row['hoc_sinh_id']}"):
-            new_status = 'Chưa đóng' if is_paid else 'Đã đóng'
-            today_str = date.today().strftime("%Y-%m-%d") if new_status == 'Đã đóng' else ""
-            with engine.begin() as conn:
-                conn.execute(text("""
-                    INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
-                    VALUES (:hs_id, :tn, :st, :nt)
-                    ON CONFLICT(hoc_sinh_id, thang_nam) 
-                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                """), {"hs_id": int(row['hoc_sinh_id']), "tn": thang_nam_key, "st": new_status, "nt": today_str})
-            st.rerun()
-
-# --- CHỨC NĂNG 7: SỬA & XÓA DỮ LIỆU ---
-elif choice == "7. Sửa & Xóa dữ liệu":
-    st.subheader("➕ Thêm Học Sinh Mới")
-    with st.form("add_student"):
-        ten = st.text_input("Họ và tên học sinh")
-        lop = st.text_input("Lớp / Nhóm học", value="Toán 9")
-        mon = st.text_input("Môn học", value="Toán")
-        hoc_phi = st.number_input("Học phí mỗi buổi (VNĐ)", min_value=0, step=10000, value=150000)
-        
-        if st.form_submit_button("Thêm mới"):
-            if ten:
-                with engine.begin() as conn:
-                    conn.execute(
-                        text("INSERT INTO hoc_sinh (ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi) VALUES (:ten, :lop, :mon, :hp)"),
-                        {"ten": ten, "lop": lop, "mon": mon, "hp": hoc_phi}
-                    )
-                st.success(f"✅ Đã thêm học sinh {ten}!")
-                st.rerun()
+    date_format_
