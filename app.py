@@ -420,7 +420,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
+# --- 1. KHỞI TẠO TỪNG BẢNG ĐỘC LẬP TRÊN SUPABASE ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -433,6 +433,8 @@ with engine.begin() as conn:
             ngay_sinh DATE
         )
     '''))
+
+with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS diem_danh (
             id SERIAL PRIMARY KEY,
@@ -444,6 +446,8 @@ with engine.begin() as conn:
             UNIQUE(hoc_sinh_id, ngay, ca_hoc)
         )
     '''))
+
+with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS thanh_toan (
             id SERIAL PRIMARY KEY,
@@ -454,6 +458,8 @@ with engine.begin() as conn:
             UNIQUE(hoc_sinh_id, thang_nam)
         )
     '''))
+
+with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS lich_hoc_tuan (
             id SERIAL PRIMARY KEY,
@@ -463,6 +469,8 @@ with engine.begin() as conn:
             UNIQUE(hoc_sinh_id, thu, ca_hoc)
         )
     '''))
+
+with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS lich_hoc_tam_thoi (
             id SERIAL PRIMARY KEY,
@@ -474,6 +482,8 @@ with engine.begin() as conn:
             loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù'
         )
     '''))
+
+with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS diem_kiem_tra (
             id SERIAL PRIMARY KEY,
@@ -947,7 +957,7 @@ elif choice == "3. 📝 Quản Lý Điểm Kiểm Tra":
             df_all_kt = pd.DataFrame()
         
         if df_all_kt.empty:
-            st.info("💡 Chưa có điểm kiểm tra nào được ghi nhận hoặc bảng dữ liệu đang được đồng bộ.")
+            st.info("💡 Chưa có điểm kiểm tra nào được ghi nhận.")
         else:
             st.dataframe(df_all_kt, use_container_width=True)
             
