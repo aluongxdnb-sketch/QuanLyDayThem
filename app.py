@@ -474,6 +474,16 @@ with engine.begin() as conn:
             loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù'
         )
     '''))
+    conn.execute(text('''
+        CREATE TABLE IF NOT EXISTS diem_kiem_tra (
+            id SERIAL PRIMARY KEY,
+            hoc_sinh_id INTEGER,
+            ten_bai_kiem_tra TEXT NOT NULL,
+            ngay_kiem_tra DATE NOT NULL,
+            diem REAL NOT NULL,
+            nhan_xet TEXT
+        )
+    '''))
 
 # --- 2. GIAO DIỆN CHÍNH ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
@@ -485,9 +495,10 @@ if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width
 menu = [
     "1. Điểm danh & Nhận xét", 
     "2. 🗺️ Quản Lý & Ma Trận Lịch Học",
-    "3. 💡 Gợi ý Smart Assistant",
-    "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)", 
-    "5. Sửa & Xóa dữ liệu"
+    "3. 📝 Quản Lý Điểm Kiểm Tra",
+    "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI",
+    "5. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)", 
+    "6. Sửa & Xóa dữ liệu"
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
@@ -883,16 +894,169 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     )
 
 # =========================================================
-# --- CHỨC NĂNG 3: GỢI Ý SMART ASSISTANT ---
+# --- CHỨC NĂNG 3: QUẢN LÝ ĐIỂM KIỂM TRA ---
 # =========================================================
-elif choice == "3. 💡 Gợi ý Smart Assistant":
-    st.subheader("💡 Gợi Ý Smart Assistant")
-    st.info("🤖 Trợ lý thông minh đang hỗ trợ phân tích lịch học và nhắc nhở học phí tự động.")
+elif choice == "3. 📝 Quản Lý Điểm Kiểm Tra":
+    st.subheader("📝 Nhập & Quản Lý Điểm Kiểm Tra Học Sinh")
+    
+    tab_nhap_dt, tab_ds_dt = st.tabs(["➕ Nhập điểm kiểm tra mới", "📋 Danh sách & Xóa điểm kiểm tra"])
+    
+    with tab_nhap_dt:
+        df_hs_kt = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY ho_ten", engine)
+        if df_hs_kt.empty:
+            st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
+        else:
+            with st.form("form_nhap_diem_kt"):
+                hs_dict_kt = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_kt.iterrows()}
+                sel_hs_kt_label = st.selectbox("Chọn học sinh:", list(hs_dict_kt.keys()))
+                sel_hs_id_kt = hs_dict_kt[sel_hs_kt_label]
+                
+                ten_bai = st.text_input("Tên bài kiểm tra / Đề kiểm tra (*):", placeholder="VD: Kiểm tra 15 phút chương 1, Kiểm tra định kỳ...")
+                ngay_kt = st.date_input("🗓️ Ngày kiểm tra:", date.today())
+                diem_so = st.number_input("Điểm số (Thang điểm 10 hoặc 100):", min_value=0.0, max_value=100.0, value=8.5, step=0.25)
+                nhan_xet_kt = st.text_area("Nhận xét của giáo viên về bài kiểm tra:", placeholder="Bài làm tốt, trình bày sạch sẽ...")
+                
+                if st.form_submit_button("💾 Lưu Điểm Kiểm Tra", type="primary"):
+                    if not ten_bai.strip():
+                        st.error("⚠️ Vui lòng nhập tên bài kiểm tra!")
+                    else:
+                        with engine.begin() as conn:
+                            conn.execute(text('''
+                                INSERT INTO diem_kiem_tra (hoc_sinh_id, ten_bai_kiem_tra, ngay_kiem_tra, diem, nhan_xet)
+                                VALUES (:hs_id, :ten, :ngay, :diem, :nx)
+                            '''), {
+                                "hs_id": sel_hs_id_kt,
+                                "ten": ten_bai.strip(),
+                                "ngay": ngay_kt.strftime("%Y-%m-%d"),
+                                "diem": diem_so,
+                                "nx": nhan_xet_kt.strip()
+                            })
+                        st.success("✅ Đã lưu điểm kiểm tra lên Supabase thành công!")
+                        st.rerun()
+
+    with tab_ds_dt:
+        st.markdown("##### 📋 Danh Sách Điểm Kiểm Tra Đã Nhập")
+        df_all_kt = pd.read_sql_query('''
+            SELECT d.id AS "Mã KT", h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ten_bai_kiem_tra AS "Bài Kiểm Tra", d.ngay_kiem_tra AS "Ngày", d.diem AS "Điểm", d.nhan_xet AS "Nhận Xét"
+            FROM diem_kiem_tra d
+            JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+            ORDER BY d.ngay_kiem_tra DESC, d.id DESC
+        ''', engine)
+        
+        if df_all_kt.empty:
+            st.info("💡 Chưa có điểm kiểm tra nào được ghi nhận.")
+        else:
+            st.dataframe(df_all_kt, use_container_width=True)
+            
+            st.markdown("---")
+            st.markdown("##### ⚙️ Xóa điểm kiểm tra nhầm")
+            kt_ids = df_all_kt['Mã KT'].tolist()
+            del_kt_id = st.selectbox("Chọn 'Mã KT' cần xóa:", kt_ids)
+            if st.button("❌ Xóa bản ghi điểm này", type="primary"):
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM diem_kiem_tra WHERE id = :id"), {"id": del_kt_id})
+                st.success(f"✅ Đã xóa bản ghi điểm Mã KT {del_kt_id} thành công!")
+                st.rerun()
 
 # =========================================================
-# --- CHỨC NĂNG 4: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
+# --- CHỨC NĂNG 4: GỢI Ý SMART ASSISTANT & NHẬN XÉT AI ---
 # =========================================================
-elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
+elif choice == "4. 💡 Gợi ý Smart Assistant & Đánh Giá AI":
+    st.subheader("🤖 Trợ Lý Smart Assistant & Viết Nhận Xét Tự Động Bằng AI")
+    st.info("💡 Hệ thống tổng hợp dữ liệu điểm danh, nhận xét buổi học và điểm số kiểm tra để AI tự động phân tích và viết báo cáo đánh giá học tập cho từng học sinh.")
+    
+    df_hs_ai = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY ho_ten", engine)
+    if df_hs_ai.empty:
+        st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
+    else:
+        hs_dict_ai = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_ai.iterrows()}
+        selected_hs_ai_label = st.selectbox("Chọn học sinh cần AI viết nhận xét:", list(hs_dict_ai.keys()))
+        selected_hs_id_ai = hs_dict_ai[selected_hs_ai_label]
+        
+        if st.button("✨ Kích hoạt AI phân tích và viết nhận xét", type="primary"):
+            # Lấy thông tin học sinh
+            hs_info_row = df_hs_ai[df_hs_ai['id'] == selected_hs_id_ai].iloc[0]
+            
+            # Lấy lịch sử điểm danh và nhận xét
+            df_dd_ai = pd.read_sql_query(f'''
+                SELECT ngay, trang_thai, nhan_xet FROM diem_danh WHERE hoc_sinh_id = {selected_hs_id_ai} ORDER BY ngay DESC
+            ''', engine)
+            
+            # Lấy lịch sử điểm kiểm tra
+            df_kt_ai = pd.read_sql_query(f'''
+                SELECT ten_bai_kiem_tra, ngay_kiem_tra, diem, nhan_xet FROM diem_kiem_tra WHERE hoc_sinh_id = {selected_hs_id_ai} ORDER BY ngay_kiem_tra DESC
+            ''', engine)
+            
+            # Thu thập thông số
+            total_buoi = len(df_dd_ai)
+            co_mat_cnt = len(df_dd_ai[df_dd_ai['trang_thai'] == 'Có mặt']) if total_buoi > 0 else 0
+            vang_phep_cnt = len(df_dd_ai[df_dd_ai['trang_thai'] == 'Vắng có phép']) if total_buoi > 0 else 0
+            vang_khong_phep_cnt = len(df_dd_ai[df_dd_ai['trang_thai'] == 'Vắng không phép']) if total_buoi > 0 else 0
+            
+            avg_score = df_kt_ai['diem'].mean() if not df_kt_ai.empty else 0.0
+            total_tests = len(df_kt_ai)
+            
+            # Thu thập các nhận xét buổi học gần đây
+            recent_notes = [n for n in df_dd_ai['nhan_xet'].dropna().tolist() if n.strip()]
+            recent_test_notes = [n for n in df_kt_ai['nhan_xet'].dropna().tolist() if n.strip()]
+            
+            # Xây dựng văn phong AI tổng hợp chuyên nghiệp
+            ai_greeting = f"### 📋 Báo Cáo Đánh Giá Học Tập Từ Trợ Lý AI"
+            ai_intro = f"**Học sinh:** {hs_info_row['ho_ten']} — **Lớp:** {hs_info_row['lop_hoc']}"
+            
+            # Đánh giá chuyên cần
+            if total_buoi > 0:
+                att_rate = (co_mat_cnt / total_buoi) * 100
+                if att_rate >= 90:
+                    att_eval = "Em có tinh thần chuyên cần rất tốt, đi học đều đặn, luôn chấp hành đúng nội quy lớp học."
+                elif att_rate >= 70:
+                    att_eval = "Em đi học tương đối đầy đủ, có một vài buổi vắng có phép cần lưu ý duy trì đều hơn."
+                else:
+                    att_eval = "Tỷ lệ chuyên cần chưa cao, em cần chú ý hạn chế nghỉ học để không bị hổng kiến thức."
+            else:
+                att_eval = "Chưa có dữ liệu điểm danh ghi nhận trong hệ thống."
+                
+            # Đánh giá năng lực / điểm kiểm tra
+            if total_tests > 0:
+                if avg_score >= 8.5:
+                    score_eval = f"Kết quả kiểm tra rất xuất sắc (Điểm trung bình các bài: **{avg_score:.2f}**). Em nắm vững kiến thức chuyên sâu và có tư duy làm bài rất tốt."
+                elif avg_score >= 6.5:
+                    score_eval = f"Kết quả kiểm tra ở mức khá tốt (Điểm trung bình các bài: **{avg_score:.2f}**). Em tiếp thu bài ổn, cần phát huy hơn nữa ở các dạng bài nâng cao."
+                elif avg_score >= 5.0:
+                    score_eval = f"Kết quả kiểm tra đạt yêu cầu trung bình (Điểm trung bình các bài: **{avg_score:.2f}**). Em cần cố gắng tập trung và luyện tập thêm nhiều bài tập tương tự."
+                else:
+                    score_eval = f"Kết quả kiểm tra chưa đạt kỳ vọng (Điểm trung bình các bài: **{avg_score:.2f}**). Giáo viên và gia đình cần phối hợp hỗ trợ thêm cho em trong thời gian tới."
+            else:
+                score_eval = "Chưa có bài kiểm tra nào được ghi nhận điểm số trong giai đoạn này."
+                
+            # Tổng hợp nhận xét chi tiết dạng đoạn văn hoàn chỉnh
+            ai_paragraph = f"""
+            {ai_greeting}
+            {ai_intro}
+            
+            ---
+            
+            **1. Đánh giá về chuyên cần & thái độ học tập:**
+            * Tổng số buổi ghi nhận: **{total_buoi} buổi** (Có mặt: {co_mat_cnt}, Vắng phép: {vang_phep_cnt}, Vắng không phép: {vang_khong_phep_cnt}).
+            * *Nhận xét AI:* {att_eval}
+            
+            **2. Đánh giá về kết quả kiểm tra & năng lực:**
+            * Số lượng bài kiểm tra đã thực hiện: **{total_tests} bài**.
+            * *Nhận xét AI:* {score_eval}
+            
+            **3. Nhận xét định tính từ giáo viên các buổi học gần đây:**
+            * {("• " + "; ".join(recent_notes[:3])) if recent_notes else "Chưa có nhận xét chi tiết từng buổi."}
+            
+            **4. Lời khuyên và định hướng từ Trợ lý AI dành cho Phụ huynh & Học sinh:**
+            * *Định hướng:* {"Em cần tiếp tục phát huy phong độ học tập hiện tại, chủ động làm thêm bài tập nâng cao." if avg_score >= 7.5 else "Em cần tập trung nghe giảng hơn trên lớp, tích cực làm bài tập về nhà và trao đổi ngay với giáo viên khi gặp phần kiến thức chưa hiểu rõ."}
+            """
+            
+            st.markdown(ai_paragraph)
+
+# =========================================================
+# --- CHỨC NĂNG 5: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
+# =========================================================
+elif choice == "5. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
     st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Xuất Hóa Đơn Ảnh PNG")
     
     col_y, col_m = st.columns([1, 3])
@@ -953,7 +1117,7 @@ elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
             
             for idx, row in combined_df.iterrows():
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
-                c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
+                c1.write(f"**{row['Họ and Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
                 c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
                 c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -977,7 +1141,7 @@ elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                 with c7:
                     if HAS_MATPLOTLIB:
                         img_bytes = create_tuition_slip_image(
-                            student_name=row['Họ và Tên'],
+                            student_name=row['Họ and Tên'],
                             lop_hoc=row['Lớp'],
                             subject=row['Môn Học'] or 'Chung',
                             price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
@@ -990,16 +1154,16 @@ elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
                 st.divider()
 
 # =========================================================
-# --- CHỨC NĂNG 5: SỬA & XÓA DỮ LIỆU ---
+# --- CHỨC NĂNG 6: SỬA & XÓA DỮ LIỆU ---
 # =========================================================
-elif choice == "5. Sửa & Xóa dữ liệu":
+elif choice == "6. Sửa & Xóa dữ liệu":
     st.subheader("⚙️ Quản Lý Dữ Liệu Học Sinh & Điểm Danh")
     
     tab_hs, tab_diemdanh = st.tabs(["👤 Quản lý Học sinh (Thêm / Sửa / Xóa)", "🗓️ Quản lý Nhật ký Điểm danh"])
@@ -1099,13 +1263,14 @@ elif choice == "5. Sửa & Xóa dữ liệu":
                 selected_del_label = st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")
                 selected_del_id = hs_del_dict[selected_del_label]
                 
-                st.warning("⚠️ **Lưu ý:** Xóa học sinh sẽ xóa toàn bộ lịch sử điểm danh, thanh toán và lịch học của học sinh này trên Supabase!")
+                st.warning("⚠️ **Lưu ý:** Xóa học sinh sẽ xóa toàn bộ lịch sử điểm danh, điểm kiểm tra, thanh toán và lịch học của học sinh này trên Supabase!")
                 confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
                 
                 if st.button("❌ XÓA HỌC SINH NÀY", type="primary"):
                     if confirm_check:
                         with engine.begin() as conn:
                             conn.execute(text("DELETE FROM diem_danh WHERE hoc_sinh_id = :id"), {"id": selected_del_id})
+                            conn.execute(text("DELETE FROM diem_kiem_tra WHERE hoc_sinh_id = :id"), {"id": selected_del_id})
                             conn.execute(text("DELETE FROM thanh_toan WHERE hoc_sinh_id = :id"), {"id": selected_del_id})
                             conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": selected_del_id})
                             conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE hoc_sinh_id = :id"), {"id": selected_del_id})
