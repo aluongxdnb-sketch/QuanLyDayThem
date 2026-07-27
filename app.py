@@ -24,12 +24,8 @@ st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide"
 
 # --- HÀM LẤY CHUỖI KẾT NỐI TỪ SECRETS (TỰ ĐỘNG CHUẨN HÓA CÚ PHÁP) ---
 def get_clean_db_url():
-    url = None
-    # 1. Thử lấy từ DATABASE_URL (dạng đơn giản)
-    if "DATABASE_URL" in st.secrets:
-        url = st.secrets["DATABASE_URL"]
-    # 2. Thử lấy từ [postgres] url
-    elif "postgres" in st.secrets:
+    url = st.secrets.get("DATABASE_URL", None)
+    if not url and "postgres" in st.secrets:
         pg_sec = st.secrets["postgres"]
         if isinstance(pg_sec, dict):
             url = pg_sec.get("url", None)
@@ -39,14 +35,14 @@ def get_clean_db_url():
     if not url:
         return None
 
-    # Lọc bỏ toàn bộ ký tự xuống dòng, khoảng trắng thừa do copy-paste
+    # Tự động lọc bỏ ký tự xuống dòng và khoảng trắng thừa
     url = str(url).replace("\n", "").replace("\r", "").replace(" ", "").strip()
 
-    # Chuẩn hóa tiền tố cho psycopg2
+    # Chuẩn hóa tiền tố driver psycopg2
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-    # Thêm sslmode=require nếu chưa có
+    # Thêm tham số sslmode=require bắt buộc cho Supabase
     if "sslmode" not in url:
         url += "?sslmode=require" if "?" not in url else "&sslmode=require"
 
@@ -60,7 +56,7 @@ def get_db_engine():
         return create_engine(
             db_url,
             pool_pre_ping=True,  # Kiểm tra kết nối trước khi truy vấn
-            pool_recycle=300,    # Reset kết nối sau 5 phút
+            pool_recycle=300,    # Reset kết nối sau 5 phút tránh bị rớt mạng
             connect_args={"connect_timeout": 15}
         )
     else:
