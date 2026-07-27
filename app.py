@@ -1080,10 +1080,12 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                             status=row['Trạng Thái'],
                             qr_path=qr_path
                         )
+                        safe_name = str(row['Họ và Tên']).replace(' ', '_')
+                        safe_thang = str(row['Tháng/Năm']).replace('/', '_')
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{safe_name}_{safe_thang}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
