@@ -679,13 +679,13 @@ if choice == "1. Điểm danh & Nhận xét":
         if target_students.empty:
             st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hợp lệ trong ngày hôm nay.")
         else:
-            st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học)")
+            st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
             with st.form("form_diem_danh_execution"):
                 danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
-                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Nguồn: {row.get('nguon', 'Lịch gốc')}*")
+                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')} (Nguồn: {row.get('nguon', 'Lịch gốc')})*")
                     c1, c2, c3 = st.columns([2.5, 3, 3.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
@@ -754,7 +754,7 @@ if choice == "1. Điểm danh & Nhận xét":
 elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
     st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
     
-    danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
+    danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
 
     tab_matrix, tab_goc, tab_tam, tab_export = st.tabs([
         "🗺️ Ma Trận Tổng Quan", 
@@ -770,7 +770,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
         render_schedule_matrix(conn, ref_date=sel_date_matrix)
 
     with tab_goc:
-        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc)")
+        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc - Hỗ trợ NHIỀU CA trong 1 ngày)")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
         
         if df_hs.empty:
@@ -782,29 +782,44 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
             
             cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
             
-            new_schedules_class = []
+            st.info("💡 Với mỗi thứ trong tuần, bạn có thể tích chọn **nhiều ca học khác nhau** hoặc tự nhập giờ tùy chỉnh.")
+            
+            schedule_dict_to_save = {}
             for t in cac_thu:
-                col_chk, col_ca, col_custom = st.columns([2, 3, 3])
-                with col_chk: has_class = st.checkbox(f"Lớp học vào **{t}**", key=f"chk_goc_lop_{t}")
-                with col_ca:
+                with st.expander(f"🗓️ Cấu hình ca học cho **{t}**", expanded=False):
+                    has_class = st.checkbox(f"Lớp có lịch học vào {t}", key=f"chk_goc_lop_{t}")
                     if has_class:
-                        ca_val = st.selectbox(f"Ca học {t}", danh_sach_ca_mau, index=4, key=f"ca_goc_lop_{t}")
-                with col_custom:
-                    if has_class:
-                        if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
-                            custom_ca_input = st.text_input(f"Nhập giờ {t}:", value="18h00 - 20h00", key=f"custom_ca_goc_{t}")
-                            final_ca = custom_ca_input.strip()
-                        else:
-                            final_ca = ca_val
-                        new_schedules_class.append((t, final_ca))
+                        cas_chon = st.multiselect(
+                            f"Chọn các ca chuẩn vào {t}:", 
+                            danh_sach_ca_mau, 
+                            default=["17h30 - 19h30"] if t != "Chủ Nhật" else [],
+                            key=f"multi_ca_{t}"
+                        )
+                        custom_ca_them = st.text_input(
+                            f"Thêm ca giờ tùy chỉnh vào {t} (nếu có, cách nhau bằng dấu phẩy):", 
+                            placeholder="VD: 08h00 - 10h00, 14h00 - 16h00", 
+                            key=f"custom_ca_multi_{t}"
+                        )
                         
+                        all_cas_for_day = list(cas_chon)
+                        if custom_ca_them.strip():
+                            extra_cas = [c_item.strip() for c_item in custom_ca_them.split(",") if c_item.strip()]
+                            all_cas_for_day.extend(extra_cas)
+                        
+                        if all_cas_for_day:
+                            schedule_dict_to_save[t] = list(set(all_cas_for_day))
+                            st.success(f"✅ Đã chọn {len(schedule_dict_to_save[t])} ca cho {t}: {', '.join(schedule_dict_to_save[t])}")
+                        else:
+                            st.warning("⚠️ Chưa chọn ca học nào cho ngày này.")
+
             if st.button(f"💾 Lưu Lịch Học Gốc Cho Lớp {selected_lop}", type="primary"):
                 for hs_id in target_hs_ids:
                     c.execute("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id=?", (hs_id,))
-                    for t_val, ca_val in new_schedules_class:
-                        c.execute("INSERT INTO lich_hoc_tuan (hoc_sinh_id, thu, ca_hoc) VALUES (?, ?, ?)", (hs_id, t_val, ca_val))
+                    for t_val, list_ca in schedule_dict_to_save.items():
+                        for ca_val in list_ca:
+                            c.execute("INSERT OR IGNORE INTO lich_hoc_tuan (hoc_sinh_id, thu, ca_hoc) VALUES (?, ?, ?)", (hs_id, t_val, ca_val))
                 conn.commit()
-                st.success(f"✅ Đã lưu lịch gốc cho Lớp {selected_lop}!")
+                st.success(f"✅ Đã lưu lịch gốc (hỗ trợ nhiều ca/ngày) cho Lớp {selected_lop} thành công!")
                 st.rerun()
 
     with tab_tam:
@@ -839,19 +854,36 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     ], key="loai_td_tam")
                     
                     thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'], key="thu_tam_sel")
-                    ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau, key="ca_tam_sel_box")
-                    custom_ca_tam_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây (VD: 08h30 - 10h30):", placeholder="08h30 - 10h30", key="custom_ca_tam_in")
+                    
+                    ca_tam_chon = st.multiselect(
+                        "Chọn các ca học tạm thời:", 
+                        danh_sach_ca_mau, 
+                        default=["17h30 - 19h30"],
+                        key="ca_tam_multiselect"
+                    )
+                    custom_ca_tam_input = st.text_input("Thêm ca giờ tùy chỉnh (nhiều ca cách nhau bằng dấu phẩy):", placeholder="VD: 08h00 - 10h00", key="custom_ca_tam_in")
                     
                     if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
-                        ca_tam_final = custom_ca_tam_input.strip() if (ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_tam_input.strip()) else ca_tam_sel
-                        for hs_id_item in target_hs_ids_tam:
-                            c.execute('''
-                                INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_tam_final, loai_td))
-                        conn.commit()
-                        st.success("✅ Đã lưu thiết lập lịch tạm thời thành công! Lịch tổng quan đã được cập nhật.")
-                        st.rerun()
+                        all_tam_cas = list(ca_tam_chon)
+                        if custom_ca_tam_input.strip():
+                            extra_tam = [c.strip() for c in custom_ca_tam_input.split(",") if c.strip()]
+                            all_tam_cas.extend(extra_tam)
+                            
+                        if not all_tam_cas and loai_td != "Nghỉ tạm thời trong khoảng thời gian này":
+                            st.warning("⚠️ Vui lòng chọn ít nhất một ca học!")
+                        else:
+                            if loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
+                                all_tam_cas = ["Cả ngày / Tất cả các ca"]
+                                
+                            for hs_id_item in target_hs_ids_tam:
+                                for ca_item in all_tam_cas:
+                                    c.execute('''
+                                        INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_item, loai_td))
+                            conn.commit()
+                            st.success("✅ Đã lưu thiết lập lịch tạm thời thành công! Lịch tổng quan đã được cập nhật.")
+                            st.rerun()
 
         with sub_tab_list_t:
             st.markdown("##### 📋 Danh sách học sinh đang có thay đổi tạm thời & Ghi chú lịch gốc")
@@ -868,7 +900,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 notes = []
                 for _, r in df_temp_manage.iterrows():
                     orig = pd.read_sql_query(f"SELECT ca_hoc FROM lich_hoc_tuan WHERE hoc_sinh_id = {r['hoc_sinh_id']} AND thu = '{r['thu']}'", conn)
-                    orig_ca = orig.iloc[0]['ca_hoc'] if not orig.empty else "Không có lịch gốc"
+                    orig_ca = ", ".join(orig['ca_hoc'].tolist()) if not orig.empty else "Không có lịch gốc"
                     if r['loai_thay_doi'] == 'Đổi ca / Học bù':
                         notes.append(f"🔄 Chiếm chỗ/thay thế ca gốc: {orig_ca}")
                     elif r['loai_thay_doi'] == 'Học thêm buổi':
@@ -919,10 +951,10 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         ed_thu_tam = st.selectbox("Vào Thứ", cac_thu_list, index=def_thu_idx, key="ed_thu_tam_m")
                         
                         def_ca = selected_tmp_row['ca_hoc']
-                        def_ca_idx = danh_sach_ca_mau.index(def_ca) if def_ca in danh_sach_ca_mau else 6
-                        ed_ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau, index=def_ca_idx if def_ca_idx < 6 else 6, key="ed_ca_tam_sel_m")
+                        def_ca_idx = danh_sach_ca_mau.index(def_ca) if def_ca in danh_sach_ca_mau else 4
+                        ed_ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(danh_sach_ca_mau) else len(danh_sach_ca_mau), key="ed_ca_tam_sel_m")
                         
-                        custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx == 6 else "18h00 - 20h00", key="custom_ca_edit_input_m")
+                        custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx >= len(danh_sach_ca_mau) else "18h00 - 20h00", key="custom_ca_edit_input_m")
                         
                         if st.form_submit_button("💾 Cập Nhật Lịch Tạm Thời", type="primary"):
                             ed_ca_tam_final = custom_ca_edit_input.strip() if (ed_ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_edit_input.strip()) else ed_ca_tam_sel
