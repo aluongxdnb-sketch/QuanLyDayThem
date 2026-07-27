@@ -132,7 +132,6 @@ def get_active_schedule_for_date(conn, check_date):
     '''
     df_temp = pd.read_sql_query(query_temp, conn)
     
-    # Lọc học sinh đang trong diện "Nghỉ tạm thời trong khoảng thời gian này"
     nghidai_ids = []
     doica_ids = []
     if not df_temp.empty:
@@ -156,10 +155,9 @@ def get_active_schedule_for_date(conn, check_date):
     if not df_base.empty and len(exclude_ids) > 0:
         df_base = df_base[~df_base['hoc_sinh_id'].isin(exclude_ids)]
 
-    # 3. Lấy lịch thêm buổi hoặc đổi ca (nếu có trong ngày)
+    # 3. Lấy lịch thêm buổi hoặc đổi ca / học bù phát sinh trong ngày
     df_temp_today = pd.DataFrame()
     if not df_temp.empty:
-        # Lọc các thay đổi đúng thứ trong tuần hoặc có lịch phát sinh
         valid_temp = df_temp[(df_temp['thu'] == target_day_str) & (df_temp['loai_thay_doi'] != 'Nghỉ tạm thời trong khoảng thời gian này')]
         if not valid_temp.empty:
             df_temp_today = valid_temp[['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'loai_thay_doi']].copy()
@@ -299,52 +297,62 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM LẤY MA TRẬN LỊCH HỌC DẠNG DATAFRAME ---
+# --- HÀM LẤY MA TRẬN LỊCH HỌC (ĐÃ TÍCH HỢP LỊCH TẠM THỜI THEO TUẦN HIỆN TẠI) ---
 def get_schedule_matrix_df(conn, filter_lop=None, filter_hs_id=None):
-    query = '''
-        SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten, h.id AS hoc_sinh_id
-        FROM lich_hoc_tuan l
-        JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
-    '''
-    params = []
-    if filter_lop:
-        query += " WHERE h.lop_hoc = ?"
-        params.append(filter_lop)
-    elif filter_hs_id:
-        query += " WHERE h.id = ?"
-        params.append(filter_hs_id)
-
-    query += '''
-        ORDER BY 
-            CASE l.thu
-                WHEN 'Thứ 2' THEN 1 WHEN 'Thứ 3' THEN 2 WHEN 'Thứ 4' THEN 3
-                WHEN 'Thứ 5' THEN 4 WHEN 'Thứ 6' THEN 5 WHEN 'Thứ 7' THEN 6 WHEN 'Chủ Nhật' THEN 7
-            END, l.ca_hoc, h.lop_hoc
-    '''
-    df_data = pd.read_sql_query(query, conn, params=params)
-    if df_data.empty:
-        return pd.DataFrame()
-
     cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-    cac_ca = sorted(df_data['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
+    today = date.today()
+    start_monday = today - timedelta(days=today.weekday())
+    
+    day_schedules = {}
+    for i, t in enumerate(cac_thu):
+        current_d = start_monday + timedelta(days=i)
+        df_day = get_active_schedule_for_date(conn, current_d)
+        if not df_day.empty:
+            if filter_lop:
+                df_day = df_day[df_day['lop_hoc'] == filter_lop]
+            elif filter_hs_id:
+                df_day = df_day[df_day['hoc_sinh_id'] == filter_hs_id]
+        day_schedules[t] = df_day
+
+    all_cas = set()
+    for t in cac_thu:
+        df_d = day_schedules[t]
+        if not df_d.empty and 'ca_hoc' in df_d.columns:
+            all_cas.update(df_d['ca_hoc'].unique().tolist())
+    
+    if not all_cas:
+        return pd.DataFrame()
+        
+    cac_ca = sorted(list(all_cas), key=ca_hoc_sort_key)
 
     matrix_rows = []
     for ca in cac_ca:
         buoi = get_buoi_from_ca(ca)
         row_dict = {"Buổi": buoi, "Ca học": ca}
         for t in cac_thu:
-            matched = df_data[(df_data['thu'] == t) & (df_data['ca_hoc'] == ca)]
-            if matched.empty:
+            df_d = day_schedules[t]
+            if df_d.empty:
                 row_dict[t] = "-"
             else:
-                items = []
-                for lop, g in matched.groupby('lop_hoc'):
-                    names = ", ".join(g['ho_ten'].tolist())
-                    if filter_lop or filter_hs_id:
-                        items.append(names)
-                    else:
-                        items.append(f"<b>[{lop}]</b>: {names}")
-                row_dict[t] = "<br>".join(items)
+                matched = df_d[df_d['ca_hoc'] == ca]
+                if matched.empty:
+                    row_dict[t] = "-"
+                else:
+                    items = []
+                    for lop, g in matched.groupby('lop_hoc'):
+                        names_list = []
+                        for _, row_item in g.iterrows():
+                            name_str = row_item['ho_ten']
+                            nguon = row_item.get('nguon', 'Lịch gốc')
+                            if nguon != 'Lịch gốc':
+                                name_str += f" <span style='color: #B91C1C; font-size: 11px;'>({nguon})</span>"
+                            names_list.append(name_str)
+                        names_str = ", ".join(names_list)
+                        if filter_lop or filter_hs_id:
+                            items.append(names_str)
+                        else:
+                            items.append(f"<b>[{lop}]</b>: {names_str}")
+                    row_dict[t] = "<br>".join(items)
         matrix_rows.append(row_dict)
 
     df_matrix = pd.DataFrame(matrix_rows)
@@ -377,6 +385,7 @@ def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượn
         for cell in row:
             clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
             clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
+            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)  # Lọc bỏ các thẻ HTML phụ trong ảnh
             cleaned_row.append(clean_cell)
         cleaned_data.append(cleaned_row)
         
@@ -442,8 +451,8 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
         [Paragraph("<b>Họ và tên học sinh:</b>", normal_style), Paragraph(student_name, bold_style)],
         [Paragraph("<b>Lớp / Nhóm học:</b>", normal_style), Paragraph(lop_hoc, normal_style)],
         [Paragraph("<b>Môn học:</b>", normal_style), Paragraph(subject, normal_style)],
-        [Paragraph("<b>Học phí / buổi:</b>", normal_style), Paragraph(f"{price_per_lesson:,.0f} VNĐ", normal_style)],
-        [Paragraph("<b>Số buổi học trong tháng:</b>", normal_style), Paragraph(f"{total_lessons} buổi", normal_style)],
+        [Paragraph("<b>Học phí / ca:</b>", normal_style), Paragraph(f"{price_per_lesson:,.0f} VNĐ", normal_style)],
+        [Paragraph("<b>Tổng số ca học trong tháng:</b>", normal_style), Paragraph(f"{total_lessons} ca", normal_style)],
         [Paragraph("<b>TỔNG CỘNG HỌC PHÍ:</b>", bold_style), Paragraph(f"<b>{total_fee:,.0f} VNĐ</b>", ParagraphStyle('RedText', parent=bold_style, textColor=colors.HexColor('#B91C1C'), fontSize=11))],
         [Paragraph("<b>Trạng thái thanh toán:</b>", normal_style), Paragraph(f"<b>{status}</b>", bold_style)]
     ]
@@ -546,17 +555,6 @@ c.execute('''
     )
 ''')
 
-# Thêm bảng quản lý trạng thái nghỉ dài hạn (cho phép bật/tắt đi học trở lại)
-c.execute('''
-    CREATE TABLE IF NOT EXISTS trang_thai_nghi_dai_han (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        hoc_sinh_id INTEGER,
-        ngay_ket_thuc DATE,
-        trang_thai_xu_ly TEXT DEFAULT 'Đang chờ xử lý',
-        UNIQUE(hoc_sinh_id, ngay_ket_thuc)
-    )
-''')
-
 try: c.execute("ALTER TABLE hoc_sinh ADD COLUMN lop_hoc TEXT DEFAULT 'Lớp chung'")
 except: pass
 try: c.execute("ALTER TABLE diem_danh ADD COLUMN trang_thai TEXT DEFAULT 'Có mặt'")
@@ -609,12 +607,12 @@ if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
 # =========================================================
-# --- KIỂM TRA CẢNH BÁO HẠT GIỐNG TẠM THỜI (HẾT HẠN) ---
+# --- KIỂM TRA CẢNH BÁO QUÁ HẠN LỊCH TẠM THỜI / NGHỈ DÀI HẠN ---
 # =========================================================
 today_date_str = date.today().strftime("%Y-%m-%d")
 expired_temp_df = pd.read_sql_query(f"SELECT * FROM lich_hoc_tam_thoi WHERE ngay_ket_thuc < '{today_date_str}'", conn)
 if not expired_temp_df.empty:
-    st.sidebar.warning(f"⚠️ Có {len(expired_temp_df)} thiết lập lịch tạm thời/nghỉ dài hạn đã hết thời gian hiệu lực! Vui lòng kiểm tra mục Lên Lịch Học.")
+    st.sidebar.warning(f"⚠️ Có {len(expired_temp_df)} thiết lập lịch tạm thời / nghỉ dài hạn đã hết hạn!")
 
 # =========================================================
 # --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
@@ -626,30 +624,29 @@ if choice == "1. Điểm danh & Nhận xét":
     date_str = ngay_hoc.strftime("%Y-%m-%d")
     st.caption(f"Ngày được chọn: **{ngay_hoc.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
     
-    # Lấy danh sách học sinh có lịch active trong ngày (đã loại trừ nghỉ dài hạn)
     df_active_today = get_active_schedule_for_date(conn, ngay_hoc)
     
-    # Kiểm tra xem có học sinh nào đang trong thời gian hết hạn nghỉ dài hạn cần xử lý không
+    # Cảnh báo quá hạn nghỉ dài hạn và cho phép xử lý trực tiếp
     pending_nghi = pd.read_sql_query(f"SELECT * FROM lich_hoc_tam_thoi WHERE loai_thay_doi = 'Nghỉ tạm thời trong khoảng thời gian này' AND ngay_ket_thuc < '{date_str}'", conn)
     if not pending_nghi.empty:
-        st.error("⚠️ **CẢNH BÁO QUÁ HẠN NGHỈ DÀI HẠN!**")
+        st.error("⚠️ **CẢNH BÁO: HỌC SINH ĐÃ HẾT HẠN NGHỈ DÀI HẠN!**")
         for _, r_p in pending_nghi.iterrows():
             hs_info = pd.read_sql_query(f"SELECT ho_ten, lop_hoc FROM hoc_sinh WHERE id = {r_p['hoc_sinh_id']}", conn)
             if not hs_info.empty:
                 name_p = hs_info.iloc[0]['ho_ten']
                 lop_p = hs_info.iloc[0]['lop_hoc']
-                st.write(f"Học sinh **{name_p}** (Lớp {lop_p}) đã hết hạn thời gian xin nghỉ (từ {r_p['ngay_bat_dau']} đến {r_p['ngay_ket_thuc']}).")
+                st.write(f"• Học sinh **{name_p}** (Lớp {lop_p}) đã hết hạn xin nghỉ từ ngày {r_p['ngay_ket_thuc']}.")
                 col_b1, col_b2 = st.columns(2)
                 if col_b1.button(f"✅ Cho học sinh {name_p} TRỞ LẠI HỌC", key=f"back_{r_p['id']}"):
                     c.execute("DELETE FROM lich_hoc_tam_thoi WHERE id = ?", (r_p['id'],))
                     conn.commit()
-                    st.success(f"Đã cập nhật học sinh {name_p} đi học trở lại bình thường!")
+                    st.success(f"Đã cập nhật học sinh {name_p} đi học trở lại!")
                     st.rerun()
                 if col_b2.button(f"🛑 Tiếp tục VẪN NGHỈ", key=f"keep_{r_p['id']}"):
                     new_end_ext = (datetime.strptime(r_p['ngay_ket_thuc'], "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
                     c.execute("UPDATE lich_hoc_tam_thoi SET ngay_ket_thuc = ? WHERE id = ?", (new_end_ext, r_p['id']))
                     conn.commit()
-                    st.warning(f"Đã gia hạn thời gian nghỉ cho học sinh {name_p} thêm 1 tuần!")
+                    st.warning(f"Đã gia hạn nghỉ cho học sinh {name_p} thêm 1 tuần!")
                     st.rerun()
 
     df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
@@ -684,7 +681,7 @@ if choice == "1. Điểm danh & Nhận xét":
                 target_students = df_active_today[df_active_today['hoc_sinh_id'] == selected_hs_id] if not df_active_today.empty else pd.DataFrame()
 
         if target_students.empty:
-            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hoặc phù hợp với bộ lọc trong ngày hôm nay.")
+            st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hợp lệ trong ngày hôm nay.")
         else:
             st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học)")
             with st.form("form_diem_danh_execution"):
@@ -726,7 +723,7 @@ if choice == "1. Điểm danh & Nhận xét":
                     if success_count > 0:
                         st.success(f"✅ Đã lưu thành công {success_count} bản ghi điểm danh!")
                     if duplicate_count > 0:
-                        st.warning(f"⚠️ Có {duplicate_count} bản ghi bị bỏ qua do học sinh đã được điểm danh trong cùng 1 ca/1 ngày trước đó.")
+                        st.warning(f"⚠️ Có {duplicate_count} bản ghi bị bỏ qua do học sinh không thể điểm danh 2 lần trong cùng 1 ca / 1 ngày.")
                     st.rerun()
 
     st.markdown("---")
@@ -826,7 +823,7 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
                     st.warning("⚠️ Thư viện Matplotlib chưa được cài đặt để xuất ảnh.")
 
 # =========================================================
-# --- CHỨC NĂNG 3: LÊN LỊCH HỌC (GỘP LUÔN MA TRẬN TỔNG QUAN) ---
+# --- CHỨC NĂNG 3: LÊN LỊCH HỌC (GỘP MA TRẬN TRỰC TIẾP) ---
 # =========================================================
 elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
     tab_goc, tab_tam = st.tabs(["📅 1. Lịch Học Gốc Hàng Tuần", "⏳ 2. Lịch Học Tạm Thời"])
@@ -872,17 +869,16 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
                 st.rerun()
 
         st.markdown("---")
-        st.subheader("🗺️ Ma Trận Lịch Học Tổng Quan (Cập nhật thời gian thực)")
+        st.subheader("🗺️ Ma Trận Lịch Học Tổng Quan (Tự động cập nhật)")
         render_schedule_matrix(conn)
 
     with tab_tam:
-        st.subheader("⏳ Lịch Học Tạm Thời (Học Bù / Đổi Ca / Học Thêm / Nghỉ Dài Hạn)")
+        st.subheader("⏳ Lịch Học Tạm Thời (Đổi ca / Học bù / Học thêm / Nghỉ dài hạn)")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", conn)
         if not df_hs.empty:
             all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
             sel_lop_tam = st.selectbox("Chọn Lớp / Nhóm", all_lops, key="sel_lop_tam_key")
             
-            # Chọn học sinh cụ thể hoặc áp dụng cho cả lớp
             hs_in_lop = df_hs[df_hs['lop_hoc'] == sel_lop_tam]
             hs_dict_tam = {f"{row['ho_ten']} - ID:{row['id']}": row['id'] for _, row in hs_in_lop.iterrows()}
             
@@ -925,14 +921,13 @@ elif choice == "4. 💡 Gợi ý Smart Assistant":
 
 # --- CHỨC NĂNG 5: THỐNG KÊ & XUẤT EXCEL ---
 elif choice == "5. Thống kê & Học phí (Lọc Tháng / Xuất Excel)":
-    st.subheader("📊 Thống Kê Điểm Danh & Tính Học Phí Theo Tháng (Học phí = Số ca có mặt x Đơn giá)")
+    st.subheader("📊 Thống Kê Điểm Danh & Tính Học Phí Theo Tháng (Học phí = Tổng số ca có mặt x Đơn giá)")
     col_t, col_n = st.columns(2)
     with col_t: thang_selected = st.selectbox("Chọn Tháng", list(range(1, 13)), index=datetime.now().month - 1)
     with col_n: nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year)
     
     thang_nam_query = f"{nam_selected}-{thang_selected:02d}"
     
-    # Tính số ca thực tế có mặt (bao gồm cả ca học bù/học thêm đã điểm danh)
     query_thang = f'''
         SELECT 
             h.id AS 'Mã HS',
