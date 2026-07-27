@@ -341,7 +341,7 @@ def render_schedule_matrix(conn):
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
 # --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
-def create_weekly_schedule_image(title_target, df_matrix, is_student=False):
+def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượng / Lớp: "):
     fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3))
     ax.axis('off')
     ax.axis('tight')
@@ -361,7 +361,6 @@ def create_weekly_schedule_image(title_target, df_matrix, is_student=False):
     table.set_fontsize(10)
     table.scale(1, 2.2)
     
-    prefix = "Học sinh / Lớp: " if is_student else "Đối tượng / Lớp: "
     plt.title(f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\n{prefix}{title_target}", fontsize=14, fontweight='bold', pad=25, color='#1E3A8A')
     
     for (row, col), cell in table.get_celld().items():
@@ -694,37 +693,40 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
             target_title = "Tất Cả Các Lớp"
             selected_lop_exp = None
             selected_hs_exp = None
-            is_student_mode = False
+            prefix_label = "Đối tượng / Lớp: "
 
-            if filter_mode == "Theo Lớp cụ thể":
+            if filter_mode == "Toàn bộ các Lớp":
+                target_title = "Tất Cả Các Lớp"
+                prefix_label = "Đối tượng / Lớp: "
+            elif filter_mode == "Theo Lớp cụ thể":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                 selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list)
-                target_title = f"Lớp {selected_lop_exp}"
-                is_student_mode = False
-
+                target_title = f"{selected_lop_exp}"
+                prefix_label = "Lớp: "
             elif filter_mode == "Theo Học sinh cụ thể":
                 hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()))
                 selected_hs_row = hs_dict_exp[sel_hs_label]
                 selected_hs_exp = selected_hs_row['id']
-                target_title = f"{selected_hs_row['ho_ten']}, {selected_hs_row['lop_hoc']}"
-                is_student_mode = True
+                target_title = f"{selected_hs_row['ho_ten']} ({selected_hs_row['lop_hoc']})"
+                prefix_label = "Học sinh/Lớp: "
 
             df_export_matrix = get_schedule_matrix_df(conn, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp)
 
             if df_export_matrix.empty:
                 st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
             else:
-                st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({target_title}):")
+                st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({prefix_label} {target_title}):")
                 st.write(df_export_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
                 st.divider()
 
                 if HAS_MATPLOTLIB:
-                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, is_student=is_student_mode)
+                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, prefix=prefix_label)
+                    file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
                     st.download_button(
                         label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
                         data=img_bytes,
-                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_').replace(',', '')}.png",
+                        file_name=f"Lich_Hoc_Tuan_{file_name_prefix}_{target_title.replace(' ', '_').replace('(', '').replace(')', '')}.png",
                         mime="image/png",
                         type="primary"
                     )
