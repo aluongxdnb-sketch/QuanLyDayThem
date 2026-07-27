@@ -685,7 +685,7 @@ if choice == "1. Điểm danh & Nhận xét":
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
-                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')} (Nguồn: {row.get('nguon', 'Lịch gốc')})*")
+                    st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')} (Nguồn: {row.get('nguon', 'Lịch gốc')} )*")
                     c1, c2, c3 = st.columns([2.5, 3, 3.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
@@ -770,24 +770,35 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
         render_schedule_matrix(conn, ref_date=sel_date_matrix)
 
     with tab_goc:
-        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc - Hỗ trợ NHIỀU CA trong 1 ngày)")
+        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc)")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
         
         if df_hs.empty:
             st.warning("Chưa có học sinh.")
         else:
-            all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
-            selected_lop = st.selectbox("Chọn Lớp để xếp lịch gốc", all_lops, key="select_goc_lop")
-            target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
+            mode_goc = st.radio("Phạm vi xếp lịch gốc:", ["Theo Lớp (Áp dụng chung cả lớp)", "Theo Từng Học Sinh Riêng Biệt"], horizontal=True, key="mode_goc_sched")
             
+            target_hs_ids = []
+            target_name_label = ""
+            if mode_goc == "Theo Lớp (Áp dụng chung cả lớp)":
+                all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
+                selected_lop = st.selectbox("Chọn Lớp để xếp lịch gốc", all_lops, key="select_goc_lop")
+                target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
+                target_name_label = f"Lớp {selected_lop}"
+            else:
+                hs_dict_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
+                selected_hs_label = st.selectbox("Chọn Học sinh cụ thể:", list(hs_dict_goc.keys()), key="select_goc_hs_indiv")
+                target_hs_ids = [hs_dict_goc[selected_hs_label]]
+                target_name_label = selected_hs_label
+
             cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
             
-            st.info("💡 Với mỗi thứ trong tuần, bạn có thể tích chọn **nhiều ca học khác nhau** hoặc tự nhập giờ tùy chỉnh.")
+            st.info(f"💡 Đang cấu hình lịch gốc cho: **{target_name_label}**. Bạn có thể chọn nhiều ca/ngày.")
             
             schedule_dict_to_save = {}
             for t in cac_thu:
                 with st.expander(f"🗓️ Cấu hình ca học cho **{t}**", expanded=False):
-                    has_class = st.checkbox(f"Lớp có lịch học vào {t}", key=f"chk_goc_lop_{t}")
+                    has_class = st.checkbox(f"Có lịch học vào {t}", key=f"chk_goc_lop_{t}")
                     if has_class:
                         cas_chon = st.multiselect(
                             f"Chọn các ca chuẩn vào {t}:", 
@@ -812,14 +823,14 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         else:
                             st.warning("⚠️ Chưa chọn ca học nào cho ngày này.")
 
-            if st.button(f"💾 Lưu Lịch Học Gốc Cho Lớp {selected_lop}", type="primary"):
+            if st.button(f"💾 Lưu Lịch Học Gốc Cho {target_name_label}", type="primary"):
                 for hs_id in target_hs_ids:
                     c.execute("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id=?", (hs_id,))
                     for t_val, list_ca in schedule_dict_to_save.items():
                         for ca_val in list_ca:
                             c.execute("INSERT OR IGNORE INTO lich_hoc_tuan (hoc_sinh_id, thu, ca_hoc) VALUES (?, ?, ?)", (hs_id, t_val, ca_val))
                 conn.commit()
-                st.success(f"✅ Đã lưu lịch gốc (hỗ trợ nhiều ca/ngày) cho Lớp {selected_lop} thành công!")
+                st.success(f"✅ Đã lưu lịch gốc cho {target_name_label} thành công!")
                 st.rerun()
 
     with tab_tam:
