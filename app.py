@@ -588,7 +588,7 @@ if choice == "1. Điểm danh & Nhận xét":
     else:
         if type_mode == "🏫 Điểm danh theo LỚP":
             available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
-            options_class = ["🌟 All Lớp (Tất cả học sinh có lịch học hômනය)"] + available_classes
+            options_class = ["🌟 All Lớp (Tất cả học sinh có lịch học hôm nay)"] + available_classes
             selected_class_opt = st.selectbox("Chọn Lớp cần điểm danh", options_class)
 
             if selected_class_opt.startswith("🌟 All Lớp"):
@@ -763,7 +763,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 st.rerun()
 
     with tab_tam:
-        st.subheader("⏳ Quản Lý Lịch Học Tạm Thời (Đổi ca / Học bù / Học thêm / Nghỉ tạm thời theo ngày)")
+        st.subheader("⏳ Quản Lý Lịch Học Tạm Thời (Đổi ca / Học bù / Học thêm / Nghỉ tạm thời trong khoảng thời gian)")
         
         sub_tab_add_t, sub_tab_list_t = st.tabs(["➕ Thêm lịch tạm thời mới", "📋 Danh sách & Sửa / Xóa lịch tạm thời"])
         
@@ -798,18 +798,18 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     cac_thu_all = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
 
                     if loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
-                        st.markdown("##### ⚙️ Cấu hình ngày nghỉ tạm thời")
+                        st.markdown("##### ⚙️ Cấu hình ngày nghỉ trong khoảng thời gian")
                         nghi_ngay_mode = st.radio(
-                            "Chọn ngày áp dụng nghỉ trong tuần:", 
+                            "Lựa chọn ngày nghỉ:", 
                             [
-                                "📅 Chọn thủ công các ngày trong tuần", 
-                                "🌟 Tự động theo lịch gốc (Tất cả các ngày học sinh/lớp có ca học)"
+                                "📅 Tự chọn các ngày trong tuần cần nghỉ", 
+                                "🌟 Tất cả các ngày có học sinh đó học trong khoảng thời gian này"
                             ], 
                             key="nghi_ngay_mode_r"
                         )
                         
-                        if nghi_ngay_mode == "📅 Chọn thủ công các ngày trong tuần":
-                            selected_thu_list = st.multiselect("Chọn các ngày trong tuần cần nghỉ:", cac_thu_all, default=["Thứ 2"], key="sel_thu_nghi_multi")
+                        if nghi_ngay_mode == "📅 Tự chọn các ngày trong tuần cần nghỉ":
+                            selected_thu_list = st.multiselect("Chọn các ngày trong tuần:", cac_thu_all, default=["Thứ 2"], key="sel_thu_nghi_multi")
                         else:
                             selected_thu_list = ["__AUTO__"]
                         
@@ -885,7 +885,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     elif r['loai_thay_doi'] == 'Học thêm buổi':
                         notes.append(f"➕ Phát sinh thêm (Lịch gốc giữ nguyên: {orig_ca})")
                     else:
-                        notes.append(f"🛑 Nghỉ toàn bộ các ca vào {r['thu']}")
+                        notes.append(f"🛑 Nghỉ toàn bộ vào {r['thu']}")
                 
                 df_temp_manage['Ghi chú lịch gốc'] = notes
                 
@@ -1124,7 +1124,7 @@ elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
