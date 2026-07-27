@@ -74,12 +74,12 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (CÓ XỬ LÝ LỊCH TẠM THỜI) ---
+# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (CÓ XỬ LÝ LỊCH TẠM THỜI ĐÚNG CA & NGÀY) ---
 def get_active_schedule_for_date(engine, check_date):
     target_day_str = get_vietnamese_weekday(check_date)
     date_str = check_date.strftime("%Y-%m-%d")
 
-    # 1. Lấy lịch gốc hàng tuần
+    # 1. Lấy lịch gốc hàng tuần cho thứ này
     query_base = f'''
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
         FROM lich_hoc_tuan l
@@ -88,40 +88,42 @@ def get_active_schedule_for_date(engine, check_date):
     '''
     df_base = pd.read_sql_query(query_base, engine)
 
-    # 2. Lấy các thay đổi tạm thời hiệu lực chứa ngày này
+    # 2. Lấy các thay đổi tạm thời có hiệu lực chứa ngày này (ngay_bat_dau <= date_str <= ngay_ket_thuc)
     query_temp = f'''
-        SELECT t.id, t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.ngay_bat_dau, t.ngay_ket_thuc, 
-               t.loai_thay_doi, t.thu_goc, t.ca_goc, t.ngay_doi_den, t.ca_doi_den
+        SELECT t.id, t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.thu, t.ca_hoc, t.loai_thay_doi, t.ngay_bat_dau, t.ngay_ket_thuc
         FROM lich_hoc_tam_thoi t
         JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
         WHERE t.ngay_bat_dau <= '{date_str}' AND t.ngay_ket_thuc >= '{date_str}'
     '''
     df_temp = pd.read_sql_query(query_temp, engine)
 
-    exclude_pairs = set() 
-    additional_rows = [] 
+    exclude_pairs = set() # (hoc_sinh_id, ca_hoc) bị ẩn/nghỉ/đổi trong ngày này
+    additional_rows = [] # Các ca học thêm phát sinh trong ngày này
 
     if not df_temp.empty:
         for _, r in df_temp.iterrows():
             hs_id = r['hoc_sinh_id']
             loai = r['loai_thay_doi']
+            thu_tam = r['thu']
+            ca_tam = r['ca_hoc']
             
-            if loai == 'Nghỉ tạm thời':
-                if r['ca_goc'] and str(r['ngay_bat_dau']) == date_str:
-                    exclude_pairs.add((hs_id, r['ca_goc']))
-            elif loai == 'Đổi ca':
-                if r['ca_goc'] and str(r['ngay_bat_dau']) == date_str:
-                    exclude_pairs.add((hs_id, r['ca_goc']))
-                if r['ca_doi_den'] and str(r['ngay_doi_den']) == date_str:
+            # CHỈ áp dụng nếu thứ của lịch tạm thời khớp với thứ của ngày đang kiểm tra
+            if thu_tam == target_day_str:
+                if loai == 'Nghỉ tạm thời trong khoảng thời gian này':
+                    exclude_pairs.add((hs_id, ca_tam))
+                elif loai == 'Đổi ca / Học bù':
+                    exclude_pairs.add((hs_id, ca_tam))
+                elif loai == 'Học thêm buổi':
                     additional_rows.append({
                         'hoc_sinh_id': hs_id,
                         'ho_ten': r['ho_ten'],
                         'lop_hoc': r['lop_hoc'],
                         'mon_hoc': r['mon_hoc'],
-                        'ca_hoc': r['ca_doi_den'],
-                        'nguon': 'Đổi ca'
+                        'ca_hoc': ca_tam,
+                        'nguon': 'Học thêm'
                     })
 
+    # Lọc bỏ các ca bị nghỉ/đổi trong lịch gốc
     if not df_base.empty and len(exclude_pairs) > 0:
         mask = df_base.apply(lambda row: (row['hoc_sinh_id'], row['ca_hoc']) not in exclude_pairs, axis=1)
         df_base = df_base[mask]
@@ -444,7 +446,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) & TỰ ĐỘNG BỔ SUNG CỘT ---
+# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -493,25 +495,11 @@ with engine.begin() as conn:
             hoc_sinh_id INTEGER,
             ngay_bat_dau DATE,
             ngay_ket_thuc DATE,
-            loai_thay_doi TEXT DEFAULT 'Nghỉ tạm thời',
-            thu_goc TEXT,
-            ca_goc TEXT,
-            ngay_doi_den DATE,
-            ca_doi_den TEXT
+            thu TEXT,
+            ca_hoc TEXT,
+            loai_thay_doi TEXT DEFAULT 'Đổi ca / Học bù'
         )
     '''))
-    # Tự động thêm cột mới nếu bảng cũ đã tồn tại trên Supabase nhưng thiếu cột
-    for col_sql in [
-        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS loai_thay_doi TEXT DEFAULT 'Nghỉ tạm thời'",
-        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS thu_goc TEXT",
-        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ca_goc TEXT",
-        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ngay_doi_den DATE",
-        "ALTER TABLE lich_hoc_tam_thoi ADD COLUMN IF NOT EXISTS ca_doi_den TEXT"
-    ]:
-        try:
-            conn.execute(text(col_sql))
-        except Exception:
-            pass
 
 # --- 2. GIAO DIỆN CHÍNH ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
@@ -834,123 +822,50 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 st.rerun()
 
     with tab_tam:
-        st.subheader("⏳ Quản Lý Lịch Học Tạm Thời (Nghỉ / Đổi Ca)")
-        sub_tab_add_t, sub_tab_edit_t, sub_tab_list_t = st.tabs([
-            "➕ Thêm lịch tạm thời mới", 
-            "✏️ Sửa lịch tạm thời", 
-            "📋 Danh sách & Xóa lịch tạm thời"
-        ])
-        
-        df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
+        sub_tab_add_t, sub_tab_manage_t = st.tabs(["➕ Thêm lịch tạm thời mới", "📋 Danh sách, Sửa & Xóa lịch tạm thời"])
         
         with sub_tab_add_t:
+            df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
             if df_hs.empty:
                 st.warning("Chưa có học sinh trong hệ thống.")
             else:
-                hs_dict_tam = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
-                selected_hs_label_add = st.selectbox("Chọn học sinh:", list(hs_dict_tam.keys()), key="sel_hs_add_tam")
-                sel_hs_id = hs_dict_tam[selected_hs_label_add]
+                all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
+                sel_lop_tam = st.selectbox("Chọn Lớp / Nhóm", all_lops, key="sel_lop_tam_key")
+                
+                hs_in_lop = df_hs[df_hs['lop_hoc'] == sel_lop_tam]
+                hs_dict_tam = {f"{row['ho_ten']} - ID:{row['id']}": row['id'] for _, row in hs_in_lop.iterrows()}
+                
+                chon_doi_tuong = st.radio("Áp dụng cho:", ["Toàn bộ lớp", "Từng học sinh cụ thể"], horizontal=True, key="chon_doi_tuong_tam")
+                target_hs_ids_tam = hs_in_lop['id'].tolist() if chon_doi_tuong == "Toàn bộ lớp" else [hs_dict_tam[st.selectbox("Chọn học sinh:", list(hs_dict_tam.keys()), key="sel_hs_lbl_tam")]]
 
-                st.markdown("---")
-                st.markdown("##### 📌 Ghi Chú Lịch Gốc Hiện Tại Của Học Sinh Này:")
-                df_hs_goc = pd.read_sql_query(f"SELECT thu, ca_hoc FROM lich_hoc_tuan WHERE hoc_sinh_id = {sel_hs_id}", engine)
-                if df_hs_goc.empty:
-                    st.info("Học sinh này chưa có lịch gốc cố định nào.")
-                else:
-                    goc_summary = []
-                    for th_val, grp in df_hs_goc.groupby('thu'):
-                        goc_summary.append(f"• **{th_val}**: " + ", ".join(grp['ca_hoc'].tolist()))
-                    st.markdown("\n".join(goc_summary))
-                st.markdown("---")
-
-                with st.form("form_lich_tam_thoi_moi"):
-                    loai_td = st.selectbox("Chọn loại thay đổi tạm thời:", ["Nghỉ tạm thời", "Đổi ca"], key="loai_td_tam_new")
+                with st.form("form_lich_tam_thoi"):
+                    d_start = st.date_input("🗓️ Hiệu lực TỪ ngày", date.today(), key="d_start_tam")
+                    d_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", date.today(), key="d_end_tam")
+                    loai_td = st.selectbox("Loại thay đổi", ["Đổi ca / Học bù", "Học thêm buổi", "Nghỉ tạm thời trong khoảng thời gian này"], key="loai_td_tam")
+                    thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'], key="thu_tam_sel")
+                    ca_tam_chon = st.multiselect("Chọn các ca học tạm thời:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key="ca_tam_multiselect")
                     
-                    d_start = st.date_input("🗓️ Ngày áp dụng (Ngày diễn ra ca học gốc bị ảnh hưởng)", date.today(), key="d_start_tam_new")
-                    
-                    thu_ngay_chon = get_vietnamese_weekday(d_start)
-                    df_goc_ngay = pd.read_sql_query(f"SELECT ca_hoc FROM lich_hoc_tuan WHERE hoc_sinh_id = {sel_hs_id} AND thu = '{thu_ngay_chon}'", engine)
-                    danh_sach_ca_goc_hs = df_goc_ngay['ca_hoc'].tolist() if not df_goc_ngay.empty else DANH_SACH_CA_MAU
-
-                    ca_goc_chon = st.selectbox(f"Chọn ca gốc vào {thu_ngay_chon} ({d_start.strftime('%d/%m/%Y')}):", danh_sach_ca_goc_hs, key="ca_goc_sel_new")
-
-                    ngay_doi_den_val = None
-                    ca_doi_den_val = None
-                    d_end_val = d_start 
-
-                    if loai_td == "Đổi ca":
-                        st.markdown("#### 🔄 Thông tin đổi đến (Học bù sang ca mới):")
-                        d_end_val = st.date_input("🗓️ Ngày học ca mới (Đổi sang ngày):", date.today() + timedelta(days=1), key="d_doi_den_new")
-                        ca_doi_den_val = st.selectbox("Chọn ca học mới:", DANH_SACH_CA_MAU, key="ca_doi_den_sel_new")
-
-                    if st.form_submit_button("💾 Lưu Thiết Lập Tạm Thời", type="primary"):
+                    if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
+                        total_saved = 0
                         with engine.begin() as conn:
-                            conn.execute(text('''
-                                INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, loai_thay_doi, thu_goc, ca_goc, ngay_doi_den, ca_doi_den)
-                                VALUES (:hs_id, :start, :end, :loai, :thu_g, :ca_g, :ngay_d, :ca_d)
-                            '''), {
-                                "hs_id": sel_hs_id, 
-                                "start": d_start.strftime("%Y-%m-%d"), 
-                                "end": d_end_val.strftime("%Y-%m-%d"), 
-                                "loai": loai_td, 
-                                "thu_g": thu_ngay_chon, 
-                                "ca_g": ca_goc_chon, 
-                                "ngay_d": ngay_doi_den_val.strftime("%Y-%m-%d") if ngay_doi_den_val else None, 
-                                "ca_d": ca_doi_den_val
-                            })
-                        st.success("✅ Đã lưu thiết lập lịch tạm thời thành công lên Supabase!")
-                        st.rerun()
+                            for hs_id_item in target_hs_ids_tam:
+                                for ca_item in ca_tam_chon:
+                                    try:
+                                        conn.execute(text('''
+                                            INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
+                                            VALUES (:hs_id, :start, :end, :thu, :ca, :loai)
+                                        '''), {"hs_id": hs_id_item, "start": d_start.strftime("%Y-%m-%d"), "end": d_end.strftime("%Y-%m-%d"), "thu": thu_tam, "ca": ca_item, "loai": loai_td})
+                                        total_saved += 1
+                                    except Exception:
+                                        pass
+                        if total_saved > 0:
+                            st.success(f"✅ Đã lưu thành công {total_saved} thiết lập lịch tạm thời lên Supabase!")
+                            st.rerun()
 
-        with sub_tab_edit_t:
-            st.subheader("✏️ Sửa Lịch Tạm Thời Đã Thiết Lập")
-            df_temp_edit_list = pd.read_sql_query('''
-                SELECT t.id, h.ho_ten, h.lop_hoc, t.ngay_bat_dau, t.loai_thay_doi, t.ca_goc, t.ngay_doi_den, t.ca_doi_den
-                FROM lich_hoc_tam_thoi t
-                JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
-                ORDER BY t.ngay_bat_dau DESC
-            ''', engine)
-
-            if df_temp_edit_list.empty:
-                st.info("💡 Không có lịch tạm thời nào để sửa.")
-            else:
-                edit_dict_opts = {f"ID:{r['id']} - {r['ho_ten']} ({r['lop_hoc']}) - Ngày: {r['ngay_bat_dau']} - Loại: {r['loai_thay_doi']}": r['id'] for _, r in df_temp_edit_list.iterrows()}
-                selected_edit_key = st.selectbox("Chọn thiết lập tạm thời cần sửa:", list(edit_dict_opts.keys()), key="sel_edit_temp_record")
-                selected_id_to_edit = edit_dict_opts[selected_edit_key]
-
-                current_row_data = df_temp_edit_list[df_temp_edit_list['id'] == selected_id_to_edit].iloc[0]
-
-                with st.form("form_edit_temp_record_exec"):
-                    edit_loai = st.selectbox("Loại thay đổi:", ["Nghỉ tạm thời", "Đổi ca"], index=0 if current_row_data['loai_thay_doi'] == 'Nghỉ tạm thời' else 1, key="edit_loai_td")
-                    edit_ngay = st.date_input("Ngày áp dụng:", value=datetime.strptime(str(current_row_data['ngay_bat_dau']), "%Y-%m-%d").date(), key="edit_ngay_bd")
-                    edit_ca_goc = st.text_input("Ca gốc bị ảnh hưởng:", value=current_row_data['ca_goc'] or "", key="edit_ca_g")
-
-                    edit_ngay_den = None
-                    edit_ca_den = None
-                    if edit_loai == "Đổi ca":
-                        edit_ngay_den = st.date_input("Ngày đổi đến:", value=datetime.strptime(str(current_row_data['ngay_doi_den']), "%Y-%m-%d").date() if current_row_data['ngay_doi_den'] else date.today(), key="edit_ng_den")
-                        edit_ca_den = st.text_input("Ca đổi đến:", value=current_row_data['ca_doi_den'] or "", key="edit_c_den")
-
-                    if st.form_submit_button("💾 Cập Nhật Thay Đổi", type="primary"):
-                        with engine.begin() as conn:
-                            conn.execute(text('''
-                                UPDATE lich_hoc_tam_thoi
-                                SET ngay_bat_dau = :start, ngay_ket_thuc = :end, loai_thay_doi = :loai, ca_goc = :ca_g, ngay_doi_den = :ngay_d, ca_doi_den = :ca_d
-                                WHERE id = :id
-                            '''), {
-                                "start": edit_ngay.strftime("%Y-%m-%d"),
-                                "end": edit_ngay.strftime("%Y-%m-%d"),
-                                "loai": edit_loai,
-                                "ca_g": edit_ca_goc,
-                                "ngay_d": edit_ngay_den.strftime("%Y-%m-%d") if edit_ngay_den else None,
-                                "ca_d": edit_ca_den,
-                                "id": selected_id_to_edit
-                            })
-                        st.success("✅ Đã cập nhật thành công thiết lập tạm thời!")
-                        st.rerun()
-
-        with sub_tab_list_t:
+        with sub_tab_manage_t:
+            st.subheader("📋 Danh Sách Lịch Học Tạm Thời")
             df_temp_manage = pd.read_sql_query('''
-                SELECT t.id, h.ho_ten, h.lop_hoc, t.ngay_bat_dau, t.loai_thay_doi, t.thu_goc, t.ca_goc, t.ngay_doi_den, t.ca_doi_den
+                SELECT t.id, h.ho_ten, h.lop_hoc, t.ngay_bat_dau, t.ngay_ket_thuc, t.thu, t.ca_hoc, t.loai_thay_doi
                 FROM lich_hoc_tam_thoi t
                 JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
                 ORDER BY t.ngay_bat_dau DESC
@@ -959,12 +874,56 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 st.info("💡 Chưa có thiết lập lịch tạm thời nào.")
             else:
                 st.dataframe(df_temp_manage, use_container_width=True)
-                selected_del_id = st.selectbox("Chọn ID thiết lập cần xóa:", df_temp_manage['id'].tolist(), key="sel_del_tmp_id_merged")
-                if st.button("❌ Xóa thiết lập tạm thời này", type="primary"):
-                    with engine.begin() as conn:
-                        conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE id = :id"), {"id": selected_del_id})
-                    st.success("✅ Đã xóa thành công!")
-                    st.rerun()
+                
+                st.markdown("---")
+                st.subheader("✏️ Sửa Hoặc Xóa Lịch Tạm Thời")
+                
+                selected_edit_id = st.selectbox("Chọn ID thiết lập cần sửa hoặc xóa:", df_temp_manage['id'].tolist(), key="sel_edit_tmp_id")
+                row_to_edit = df_temp_manage[df_temp_manage['id'] == selected_edit_id].iloc[0]
+                
+                with st.form("form_edit_lich_tam_thoi"):
+                    st.write(f"Đang sửa thiết lập cho học sinh: **{row_to_edit['ho_ten']}** (Lớp {row_to_edit['lop_hoc']})")
+                    e_start = st.date_input("🗓️ Hiệu lực TỪ ngày", value=datetime.strptime(str(row_to_edit['ngay_bat_dau']), "%Y-%m-%d").date(), key="e_start_date")
+                    e_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", value=datetime.strptime(str(row_to_edit['ngay_ket_thuc']), "%Y-%m-%d").date(), key="e_end_date")
+                    
+                    loai_options = ["Đổi ca / Học bù", "Học thêm buổi", "Nghỉ tạm thời trong khoảng thời gian này"]
+                    default_loai_idx = loai_options.index(row_to_edit['loai_thay_doi']) if row_to_edit['loai_thay_doi'] in loai_options else 0
+                    e_loai = st.selectbox("Loại thay đổi", loai_options, index=default_loai_idx, key="e_loai_td")
+                    
+                    thu_options = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
+                    default_thu_idx = thu_options.index(row_to_edit['thu']) if row_to_edit['thu'] in thu_options else 0
+                    e_thu = st.selectbox("Vào Thứ", thu_options, index=default_thu_idx, key="e_thu_sel")
+                    
+                    e_ca = st.text_input("Ca học:", value=row_to_edit['ca_hoc'], key="e_ca_input")
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        submit_edit = st.form_submit_button("💾 Cập Nhật Lịch Tạm Thời", type="primary")
+                    with col_b2:
+                        submit_del = st.form_submit_button("❌ Xóa Lịch Tạm Thời Này", type="secondary")
+                        
+                    if submit_edit:
+                        with engine.begin() as conn:
+                            conn.execute(text('''
+                                UPDATE lich_hoc_tam_thoi
+                                SET ngay_bat_dau = :start, ngay_ket_thuc = :end, thu = :thu, ca_hoc = :ca, loai_thay_doi = :loai
+                                WHERE id = :id
+                            '''), {
+                                "start": e_start.strftime("%Y-%m-%d"),
+                                "end": e_end.strftime("%Y-%m-%d"),
+                                "thu": e_thu,
+                                "ca": e_ca.strip(),
+                                "loai": e_loai,
+                                "id": selected_edit_id
+                            })
+                        st.success("✅ Đã cập nhật thiết lập lịch tạm thời thành công!")
+                        st.rerun()
+                        
+                    if submit_del:
+                        with engine.begin() as conn:
+                            conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE id = :id"), {"id": selected_edit_id})
+                        st.success("✅ Đã xóa thiết lập lịch tạm thời thành công!")
+                        st.rerun()
 
     with tab_export:
         st.markdown("### 📥 Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
@@ -1157,7 +1116,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
