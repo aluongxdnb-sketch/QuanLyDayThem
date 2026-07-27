@@ -7,6 +7,7 @@ import json
 import re
 import io
 import textwrap
+import zipfile
 
 # Thử import Matplotlib để xuất lịch học & phiếu học phí dạng ảnh PNG
 try:
@@ -137,7 +138,6 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
     try:
         scopes = ['https://www.googleapis.com/auth/calendar']
         
-        # Đọc trực tiếp chuỗi JSON từ Secrets sẵn có của bạn
         creds_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         
@@ -870,7 +870,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     st.rerun()
 
     with tab_export:
-        st.markdown("### 🖼️ Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
+        st.markdown("### 📥 Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
         df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
 
         if df_hs_all.empty:
@@ -906,15 +906,41 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
             else:
                 if HAS_MATPLOTLIB:
-                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
-                    file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
-                    st.download_button(
-                        label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
-                        data=img_bytes,
-                        file_name=f"Lich_Hoc_Tuan_{file_name_prefix}.png",
-                        mime="image/png",
-                        type="primary"
-                    )
+                    col_ex1, col_ex2 = st.columns(2)
+                    with col_ex1:
+                        img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
+                        file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
+                        st.download_button(
+                            label=f"🖼️ Tải Ảnh Lịch Học ({target_title})",
+                            data=img_bytes,
+                            file_name=f"Lich_Hoc_Tuan_{file_name_prefix}.png",
+                            mime="image/png",
+                            type="primary"
+                        )
+                    with col_ex2:
+                        # --- TÍNH NĂNG XUẤT HÀNG LOẠT LỊCH HỌC TẤT CẢ HỌC SINH ---
+                        if st.button("📦 Xuất ZIP Lịch Học TẤT CẢ Học Sinh Trong Tuần", type="secondary"):
+                            zip_buffer_s = io.BytesIO()
+                            with zipfile.ZipFile(zip_buffer_s, "w", zipfile.ZIP_DEFLATED) as zf:
+                                for _, hs_r in df_hs_all.iterrows():
+                                    hs_id_val = hs_r['id']
+                                    hs_name_val = hs_r['ho_ten']
+                                    hs_lop_val = hs_r['lop_hoc']
+                                    
+                                    df_hs_mat = get_schedule_matrix_df(engine, filter_hs_id=hs_id_val, ref_date=sel_date_export)
+                                    if not df_hs_mat.empty:
+                                        img_hs_b = create_weekly_schedule_image(f"{hs_name_val} ({hs_lop_val})", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh: ")
+                                        safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
+                                        zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
+                            zip_buffer_s.seek(0)
+                            st.download_button(
+                                label="📥 Bấm Tải Xuống File ZIP Lịch Học (Tất Cả HS)",
+                                data=zip_buffer_s,
+                                file_name=f"Tat_Ca_Lich_Hoc_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                mime="application/zip",
+                                type="primary",
+                                key="btn_download_zip_schedule"
+                            )
 
 # =========================================================
 # --- CHỨC NĂNG 3: QUẢN LÝ HỌC PHÍ & THỐNG KÊ ---
@@ -960,6 +986,37 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
             all_dfs.append(pd.read_sql_query(q, engine))
             
         combined_df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
+        
+        # --- NÚT XUẤT HÀNG LOẠT HÓA ĐƠN HỌC PHÍ DẠNG ZIP ---
+        if not combined_df.empty and HAS_MATPLOTLIB:
+            if st.button("📦 Xuất ZIP Hàng Loạt Hóa Đơn Học Phí (Tất cả học sinh trong danh sách)", type="primary"):
+                zip_buffer_f = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
+                    for _, row_fee in combined_df.iterrows():
+                        img_fee_b = create_tuition_slip_image(
+                            student_name=row_fee['Họ và Tên'],
+                            lop_hoc=row_fee['Lớp'],
+                            subject=row_fee['Môn Học'] or 'Chung',
+                            price_per_lesson=row_fee['Đơn Giá/Ca (VNĐ)'],
+                            month_year=row_fee['Tháng/Năm'],
+                            total_lessons=row_fee['Số Ca Có Mặt'],
+                            total_fee=row_fee['Tổng Tiền (VNĐ)'],
+                            status=row_fee['Trạng Thái'],
+                            qr_path=qr_path
+                        )
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ and Tên'] if 'Họ and Tên' in row_fee else row_fee['Họ và Tên']}_{row_fee['Lớp']}_{row_fee['Tháng/Năm']}".replace(" ", "_"))
+                        zf_fee.writestr(f"Hoa_Don_{safe_n_fee}.png", img_fee_b.getvalue())
+                zip_buffer_f.seek(0)
+                st.download_button(
+                    label="📥 Bấm Tải Xuống File ZIP Hóa Đơn Học Phí",
+                    data=zip_buffer_f,
+                    file_name=f"Tat_Ca_Hoa_Don_Hoc_Phi_{nam_selected}.zip",
+                    mime="application/zip",
+                    type="primary",
+                    key="btn_download_zip_fee"
+                )
+            st.divider()
+
         if not combined_df.empty and search_query.strip():
             combined_df = combined_df[combined_df['Họ và Tên'].str.contains(search_query.strip(), case=False, na=False)]
 
@@ -1005,7 +1062,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
