@@ -341,7 +341,6 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
             clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
             clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
             
-            # Tự động ngắt dòng thông minh để không bị đè chữ trong bảng
             if col_idx >= 2 and len(clean_cell) > 14:
                 parts = clean_cell.split(', ')
                 wrapped_parts = []
@@ -354,7 +353,6 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
             cleaned_row.append(clean_cell)
         cleaned_data.append(cleaned_row)
         
-    # Cấu hình chiều rộng cột cân đối (9 cột: Buổi, Ca học, 7 ngày trong tuần)
     col_widths = [0.08, 0.12, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11]
     
     table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
@@ -362,7 +360,6 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     table.set_fontsize(9.5)
     table.scale(1, 2.6)
     
-    # Tiêu đề bảng lịch học rõ ràng, màu sắc chuyên nghiệp
     ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
             fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
     ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
@@ -1047,7 +1044,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
             
             for idx, row in combined_df.iterrows():
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
-                c1.write(f"**{row['Họ and Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
+                c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Tháng/Năm']})*")
                 c2.write(f"{row['Số Ca Có Mặt']} ca")
                 c3.write(f"{row['Đơn Giá/Ca (VNĐ)']:,.0f} đ")
                 c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -1071,7 +1068,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                 with c7:
                     if HAS_MATPLOTLIB:
                         img_bytes = create_tuition_slip_image(
-                            student_name=row['Họ and Tên'],
+                            student_name=row['Họ và Tên'],
                             lop_hoc=row['Lớp'],
                             subject=row['Môn Học'] or 'Chung',
                             price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
@@ -1084,7 +1081,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
