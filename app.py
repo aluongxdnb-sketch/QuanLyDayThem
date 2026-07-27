@@ -534,6 +534,19 @@ if qr_file is not None:
 if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
+# --- THÊM TÍNH NĂNG SAO LƯU DATABASE (BACKUP) TRỰC TIẾP TRÊN SIDEBAR ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("💾 Sao Lưu Dữ Liệu (Backup)")
+if os.path.exists("quan_ly_hoc_sinh.db"):
+    with open("quan_ly_hoc_sinh.db", "rb") as f:
+        st.sidebar.download_button(
+            label="📥 Tải Backup Database (.db)",
+            data=f,
+            file_name=f"quan_ly_hoc_sinh_backup_{date.today().strftime('%Y%m%d')}.db",
+            mime="application/octet-stream",
+            use_container_width=True
+        )
+
 # =========================================================
 # --- KIỂM TRA CẢNH BÁO QUÁ HẠN LỊCH TẠM THỜI / NGHỈ DÀI HẠN ---
 # =========================================================
