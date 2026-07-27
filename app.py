@@ -319,11 +319,12 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (ĐÃ TỐI ƯU KÍCH THƯỚC & XUỐNG DÒNG) ---
-def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
-    if ref_date is None:
-        ref_date = date.today()
-        
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CÓ CACHE TỐI ƯU TỐC ĐỘ) ---
+@st.cache_data
+def create_weekly_schedule_image(title_target, df_matrix_data, ref_date_str, prefix="Học sinh / Lớp: "):
+    ref_date = datetime.strptime(ref_date_str, "%Y-%m-%d").date()
+    df_matrix = pd.DataFrame(df_matrix_data)
+    
     fig, ax = plt.subplots(figsize=(20, len(df_matrix) * 1.2 + 4.5))
     ax.axis('off')
     ax.axis('tight')
@@ -389,9 +390,10 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
     buffer.seek(0)
-    return buffer
+    return buffer.getvalue()
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (PNG) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CÓ CACHE TỐI ƯU TỐC ĐỘ) ---
+@st.cache_data
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path):
     fig, ax = plt.subplots(figsize=(8, 10))
     ax.axis('off')
@@ -432,7 +434,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
     buffer.seek(0)
-    return buffer
+    return buffer.getvalue()
 
 # --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE (POSTGRESQL) ---
 with engine.begin() as conn:
@@ -970,7 +972,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
             else:
                 if HAS_MATPLOTLIB:
-                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
+                    img_bytes = create_weekly_schedule_image(target_title, df_export_matrix.to_dict(), sel_date_export.strftime("%Y-%m-%d"), prefix=prefix_label)
                     file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
                     st.download_button(
                         label=f"🖼️ Tải File Ảnh Lịch Học ({target_title})",
@@ -1081,7 +1083,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
