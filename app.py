@@ -483,6 +483,7 @@ if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width
     st.rerun()
 
 menu = [
+    "0. 📊 Trang Chủ Dashboard",
     "1. Điểm danh & Nhận xét", 
     "2. 🗺️ Quản Lý & Ma Trận Lịch Học",
     "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)", 
@@ -514,9 +515,65 @@ st.sidebar.markdown("---")
 st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và lưu trữ vĩnh viễn trên **Supabase Cloud**.")
 
 # =========================================================
-# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
+# --- CHỨC NĂNG 0: TRANG CHỦ DASHBOARD TỔNG QUAN ---
 # =========================================================
-if choice == "1. Điểm danh & Nhận xét":
+if choice == "0. 📊 Trang Chủ Dashboard":
+    st.subheader("📊 Trang Chủ Dashboard Tổng Quan Trong Ngày")
+    today = date.today()
+    thu_hom_nay = get_vietnamese_weekday(today)
+    st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
+    
+    df_today = get_active_schedule_for_date(engine, today)
+    current_thang_nam = f"{datetime.now().month:02d}/{datetime.now().year}"
+    
+    query_unpaid = f'''
+        SELECT COUNT(*) as cnt 
+        FROM hoc_sinh h 
+        LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{current_thang_nam}'
+        WHERE COALESCE(t.trang_thai, 'Chưa đóng') = 'Chưa đóng'
+    '''
+    df_unpaid = pd.read_sql_query(query_unpaid, engine)
+    unpaid_count = df_unpaid.iloc[0]['cnt'] if not df_unpaid.empty else 0
+
+    col1, col2 = st.columns(2)
+    with col1:
+        total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
+        total_hs_today = len(df_today) if not df_today.empty else 0
+        st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
+    with col2:
+        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Tháng {current_thang_nam}")
+        
+    st.markdown("---")
+    st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay:")
+    if df_today.empty:
+        st.info("💡 Hôm nay không có ca dạy nào được lên lịch.")
+    else:
+        for ca, group_ca in df_today.groupby('ca_hoc'):
+            with st.expander(f"⏰ Ca: {ca} ({len(group_ca)} học sinh)", expanded=True):
+                for lop, g_lop in group_ca.groupby('lop_hoc'):
+                    ds_names = ", ".join(g_lop['ho_ten'].tolist())
+                    st.write(f"• **Lớp {lop}:** {ds_names}")
+
+    st.markdown("---")
+    st.markdown("#### 🎂 Học Sinh Có Sinh Nhật Trong Tháng Này:")
+    current_month_int = datetime.now().month
+    df_all_hs = pd.read_sql_query("SELECT ho_ten, lop_hoc, ngay_sinh FROM hoc_sinh WHERE ngay_sinh IS NOT NULL", engine)
+    if not df_all_hs.empty:
+        df_all_hs['ngay_sinh_dt'] = pd.to_datetime(df_all_hs['ngay_sinh'], errors='coerce')
+        bday_this_month = df_all_hs[df_all_hs['ngay_sinh_dt'].dt.month == current_month_int]
+        if not bday_this_month.empty:
+            for _, r_b in bday_this_month.iterrows():
+                b_date_str = r_b['ngay_sinh_dt'].strftime('%d/%m')
+                st.success(f"🎉 **{r_b['ho_ten']}** (Lớp {r_b['lop_hoc']}) có sinh nhật vào ngày **{b_date_str}**")
+        else:
+            st.info("💡 Không có học sinh nào sinh nhật trong tháng này.")
+    else:
+        st.info("💡 Chưa có dữ liệu ngày sinh học sinh.")
+
+# =========================================================
+# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT (CÓ QUICK BEHAVIOR TAGS) ---
+# =========================================================
+elif choice == "1. Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     ngay_hoc = st.date_input("🗓️ Chọn ngày điểm danh", date.today())
     thu_hom_nay = get_vietnamese_weekday(ngay_hoc)
@@ -588,22 +645,33 @@ if choice == "1. Điểm danh & Nhận xét":
 
                 for idx, row in target_students.iterrows():
                     st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')} (Nguồn: {row.get('nguon', 'Lịch gốc')})*")
-                    c1, c2, c3 = st.columns([2.5, 3, 3.5])
+                    c1, c2, c3 = st.columns([2, 2.5, 4.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in DANH_SACH_CA_MAU) else "17h30 - 19h30"
 
                     with c1:
                         ca_val = st.selectbox("Ca học", danh_sach_ca_mau_dd, index=danh_sach_ca_mau_dd.index(default_ca) if default_ca in danh_sach_ca_mau_dd else 5, key=f"ca_cls_{row['hoc_sinh_id']}_{idx}")
                         if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
-                            custom_ca = st.text_input("Nhập giờ (VD: 08h30 - 10h30)", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}_{idx}")
+                            custom_ca = st.text_input("Nhập giờ", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}_{idx}")
                             ca_final = custom_ca.strip()
                         else:
                             ca_final = ca_val
 
                     with c2:
-                        stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=True)
+                        stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=False)
+                    
                     with c3:
-                        nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học...")
+                        tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "⚠️ Quên làm bài tập", "💤 Buồn ngủ/Mất tập trung"]
+                        selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
+                        custom_nx = st.text_input("Ghi chú thêm", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học...")
+                        
+                        tag_str = " ".join([f"[{t}]" for t in selected_tags])
+                        if tag_str and custom_nx.strip():
+                            nx_val = f"{tag_str} - {custom_nx.strip()}"
+                        elif tag_str:
+                            nx_val = tag_str
+                        else:
+                            nx_val = custom_nx.strip()
 
                     danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_final, stt_val, nx_val))
                     st.divider()
@@ -969,7 +1037,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                 with c7:
                     if HAS_MATPLOTLIB:
                         img_bytes = create_tuition_slip_image(
-                            student_name=row['Họ and Tên'],
+                            student_name=row['Họ và Tên'],
                             lop_hoc=row['Lớp'],
                             subject=row['Môn Học'] or 'Chung',
                             price_per_lesson=row['Đơn Giá/Ca (VNĐ)'],
@@ -982,7 +1050,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
