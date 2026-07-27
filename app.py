@@ -802,20 +802,49 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         "Nghỉ tạm thời trong khoảng thời gian này"
                     ], key="loai_td_tam")
                     
-                    thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'], key="thu_tam_sel")
-                    
-                    all_tam_cas = []
+                    selected_thu_list = []
+                    shifts_to_apply = []
+                    cac_thu_all = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
+
                     if loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
-                        nghi_mode_add = st.radio("Hình thức nghỉ:", ["Nghỉ tất cả các ca (Cả ngày)", "Nghỉ ca cụ thể"], horizontal=True, key="nghi_mode_add_r")
-                        if nghi_mode_add == "Nghỉ tất cả các ca (Cả ngày)":
-                            all_tam_cas = ["Cả ngày / Tất cả các ca"]
+                        st.markdown("##### ⚙️ Cấu hình nghỉ tạm thời")
+                        
+                        # Chọn ngày trong tuần
+                        nghi_ngay_mode = st.radio(
+                            "Chọn ngày áp dụng nghỉ trong tuần:", 
+                            [
+                                "📅 Chọn thủ công các ngày trong tuần", 
+                                "🌟 Tự động theo lịch gốc (Tất cả các ngày học sinh/lớp có ca học)"
+                            ], 
+                            key="nghi_ngay_mode_r"
+                        )
+                        
+                        if nghi_ngay_mode == "📅 Chọn thủ công các ngày trong tuần":
+                            selected_thu_list = st.multiselect("Chọn các ngày trong tuần cần nghỉ:", cac_thu_all, default=["Thứ 2"], key="sel_thu_nghi_multi")
                         else:
-                            ca_nghi_chon_add = st.multiselect("Chọn các ca cần nghỉ:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key="ca_nghi_multiselect_add")
-                            custom_ca_nghi_add = st.text_input("Hoặc nhập ca tùy chỉnh cần nghỉ (cách nhau bằng dấu phẩy):", key="custom_ca_nghi_in_add")
-                            all_tam_cas = list(ca_nghi_chon_add)
-                            if custom_ca_nghi_add.strip():
-                                all_tam_cas.extend([c.strip() for c in custom_ca_nghi_add.split(",") if c.strip()])
+                            selected_thu_list = ["__AUTO__"] # Sẽ tự động lấy từ lich_hoc_tuan lúc submit cho từng HS
+                        
+                        # Chọn ca nghỉ
+                        nghi_ca_mode = st.radio(
+                            "Chọn hình thức nghỉ ca:", 
+                            [
+                                "🛑 Nghỉ tất cả các ca (Cả ngày)", 
+                                "⏱️ Chỉ nghỉ ca cụ thể"
+                            ], 
+                            key="nghi_ca_mode_r"
+                        )
+                        
+                        if nghi_ca_mode == "🛑 Nghỉ tất cả các ca (Cả ngày)":
+                            shifts_to_apply = ["Cả ngày / Tất cả các ca"]
+                        else:
+                            ca_nghi_chon = st.multiselect("Chọn các ca cần nghỉ:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key="ca_nghi_multi_sel")
+                            custom_ca_nghi = st.text_input("Hoặc nhập ca giờ tùy chỉnh cần nghỉ (cách nhau bằng dấu phẩy):", key="custom_ca_nghi_in")
+                            shifts_to_apply = list(ca_nghi_chon)
+                            if custom_ca_nghi.strip():
+                                shifts_to_apply.extend([c.strip() for c in custom_ca_nghi.split(",") if c.strip()])
                     else:
+                        thu_tam = st.selectbox("Vào Thứ", cac_thu_all, key="thu_tam_sel")
+                        selected_thu_list = [thu_tam]
                         ca_tam_chon = st.multiselect(
                             "Chọn các ca học tạm thời:", 
                             DANH_SACH_CA_MAU, 
@@ -823,24 +852,45 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                             key="ca_tam_multiselect"
                         )
                         custom_ca_tam_input = st.text_input("Thêm ca giờ tùy chỉnh (nhiều ca cách nhau bằng dấu phẩy):", placeholder="VD: 08h00 - 10h00", key="custom_ca_tam_in")
-                        all_tam_cas = list(ca_tam_chon)
+                        shifts_to_apply = list(ca_tam_chon)
                         if custom_ca_tam_input.strip():
-                            extra_tam = [c.strip() for c in custom_ca_tam_input.split(",") if c.strip()]
-                            all_tam_cas.extend(extra_tam)
+                            shifts_to_apply.extend([c.strip() for c in custom_ca_tam_input.split(",") if c.strip()])
                     
                     if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
-                        if not all_tam_cas:
-                            st.warning("⚠️ Vui lòng chọn ít nhất một ca học hoặc hình thức nghỉ!")
+                        if not target_hs_ids_tam:
+                            st.warning("⚠️ Chưa chọn đối tượng học sinh!")
                         else:
+                            total_saved = 0
                             for hs_id_item in target_hs_ids_tam:
-                                for ca_item in all_tam_cas:
-                                    c.execute('''
-                                        INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_item, loai_td))
+                                current_thu_to_apply = []
+                                if loai_td == "Nghỉ tạm thời trong khoảng thời gian này" and "__AUTO__" in selected_thu_list:
+                                    base_thu_df = pd.read_sql_query(f"SELECT DISTINCT thu FROM lich_hoc_tuan WHERE hoc_sinh_id = {hs_id_item}", conn)
+                                    if not base_thu_df.empty:
+                                        current_thu_to_apply = base_thu_df['thu'].tolist()
+                                else:
+                                    current_thu_to_apply = selected_thu_list
+
+                                if not current_thu_to_apply:
+                                    continue
+                                if not shifts_to_apply:
+                                    continue
+
+                                for t_item in current_thu_to_apply:
+                                    for ca_item in shifts_to_apply:
+                                        try:
+                                            c.execute('''
+                                                INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
+                                                VALUES (?, ?, ?, ?, ?, ?)
+                                            ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), t_item, ca_item, loai_td))
+                                            total_saved += 1
+                                        except Exception:
+                                            pass
                             conn.commit()
-                            st.success("✅ Đã lưu thiết lập lịch tạm thời thành công! Lịch tổng quan đã được cập nhật.")
-                            st.rerun()
+                            if total_saved > 0:
+                                st.success(f"✅ Đã lưu thành công {total_saved} thiết lập lịch tạm thời! Lịch tổng quan đã được cập nhật.")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Không có thiết lập nào được lưu. Vui lòng kiểm tra lại ngày học hoặc ca học.")
 
         with sub_tab_list_t:
             st.markdown("##### 📋 Danh sách học sinh đang có thay đổi tạm thời & Ghi chú lịch gốc")
@@ -864,9 +914,9 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         notes.append(f"➕ Phát sinh thêm (Lịch gốc giữ nguyên: {orig_ca})")
                     else:
                         if r['ca_hoc'] == 'Cả ngày / Tất cả các ca':
-                            notes.append(f"🛑 Nghỉ tất cả ca gốc")
+                            notes.append(f"🛑 Nghỉ tất cả ca ngày {r['thu']}")
                         else:
-                            notes.append(f"🛑 Nghỉ riêng ca: {r['ca_hoc']}")
+                            notes.append(f"🛑 Nghỉ ca {r['ca_hoc']} ngày {r['thu']}")
                 
                 df_temp_manage['Ghi chú lịch gốc'] = notes
                 
