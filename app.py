@@ -502,14 +502,6 @@ with engine.begin() as conn:
             nhan_xet TEXT
         )
     '''))
-    # Đảm bảo bảng diem_danh luôn có unique index để hỗ trợ ON CONFLICT
-    try:
-        conn.execute(text('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_diem_danh_unique ON diem_danh(hoc_sinh_id, ngay, ca_hoc);
-        '''))
-    except Exception:
-        pass
-
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS thanh_toan (
             id SERIAL PRIMARY KEY,
@@ -731,12 +723,25 @@ elif choice == "1. Điểm danh & Nhận xét":
                     with engine.begin() as conn:
                         for item in danh_sach_luu:
                             try:
-                                conn.execute(text('''
-                                    INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) 
-                                    VALUES (:hs_id, :ngay, :ca, :stt, :nx)
-                                    ON CONFLICT (hoc_sinh_id, ngay, ca_hoc) 
-                                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, nhan_xet = EXCLUDED.nhan_xet
-                                '''), {"hs_id": item[0], "ngay": item[1], "ca": item[2], "stt": item[3], "nx": item[4]})
+                                # Kiểm tra xem đã tồn tại bản ghi điểm danh cho học sinh này vào ngày và ca này chưa
+                                existing_record = conn.execute(text('''
+                                    SELECT id FROM diem_danh 
+                                    WHERE hoc_sinh_id = :hs_id AND ngay = :ngay AND ca_hoc = :ca
+                                '''), {"hs_id": item[0], "ngay": item[1], "ca": item[2]}).fetchone()
+
+                                if existing_record:
+                                    # Nếu có rồi thì Cập nhật
+                                    conn.execute(text('''
+                                        UPDATE diem_danh 
+                                        SET trang_thai = :stt, nhan_xet = :nx 
+                                        WHERE id = :id
+                                    '''), {"stt": item[3], "nx": item[4], "id": existing_record[0]})
+                                else:
+                                    # Nếu chưa có thì Thêm mới
+                                    conn.execute(text('''
+                                        INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) 
+                                        VALUES (:hs_id, :ngay, :ca, :stt, :nx)
+                                    '''), {"hs_id": item[0], "ngay": item[1], "ca": item[2], "stt": item[3], "nx": item[4]})
                                 success_count += 1
                             except Exception as e:
                                 st.error(f"❌ Lỗi lưu điểm danh HS ID {item[0]}: {e}")
