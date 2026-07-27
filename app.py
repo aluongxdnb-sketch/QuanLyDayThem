@@ -1138,7 +1138,7 @@ elif choice == "5. Sửa & Xóa dữ liệu":
     with tab_diemdanh:
         st.subheader("🗑️ Xóa Buổi Điểm Danh Nhầm")
         df_logs = pd.read_sql_query('''
-            SELECT d.id AS 'Mã Lịch', h.ho_ten AS 'Họ Tên', h.lop_hoc AS 'Lớp', d.ngay AS 'Ngày', d.ca_hoc AS 'Ca Học', d.trang_thai AS 'Trạng Thái', d.nhan_xet AS 'Nhận Xét' 
+            SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" 
             FROM diem_danh d 
             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id 
             ORDER BY d.ngay DESC, d.id DESC
