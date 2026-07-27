@@ -28,20 +28,80 @@ def get_db_engine():
     if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
         db_url = st.secrets["postgres"]["url"].strip()
         
-        # Tự động chuyển đổi tiền tố sang driver psycopg2 chuẩn
+        # Tự động chuẩn hóa tiền tố cho thư viện psycopg2
         if db_url.startswith("postgresql://"):
             db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
             
         return create_engine(
             db_url,
-            pool_pre_ping=True,  # Tự động kiểm tra & kết nối lại nếu bị rớt mạng
-            pool_recycle=300,    # Làm mới kết nối sau mỗi 5 phút
+            pool_pre_ping=True,  # Kiểm tra kết nối trước khi truy vấn
+            pool_recycle=300,    # Reset kết nối sau 5 phút tránh ngắt mạng
             connect_args={"connect_timeout": 15}
         )
     else:
         return create_engine("sqlite:///quan_ly_hoc_sinh.db")
 
 engine = get_db_engine()
+
+# --- TỰ ĐỘNG KHIỂN TẠO CẤU TRÚC BẢNG TRÊN SUPABASE NẾU CHƯA CÓ ---
+def init_db():
+    is_postgres = "postgres" in st.secrets and "url" in st.secrets["postgres"]
+    pk_type = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    
+    with engine.begin() as conn:
+        conn.execute(text(f'''
+            CREATE TABLE IF NOT EXISTS hoc_sinh (
+                id {pk_type},
+                ho_ten VARCHAR(255) NOT NULL,
+                lop_hoc VARCHAR(100),
+                mon_hoc VARCHAR(100),
+                hoc_phi_buoi NUMERIC DEFAULT 150000
+            );
+        '''))
+        conn.execute(text(f'''
+            CREATE TABLE IF NOT EXISTS diem_danh (
+                id {pk_type},
+                hoc_sinh_id INT,
+                ngay DATE,
+                ca_hoc VARCHAR(50),
+                trang_thai VARCHAR(50),
+                nhan_xet TEXT
+            );
+        '''))
+        conn.execute(text(f'''
+            CREATE TABLE IF NOT EXISTS lich_hoc_tuan (
+                id {pk_type},
+                hoc_sinh_id INT,
+                thu VARCHAR(20),
+                ca_hoc VARCHAR(50)
+            );
+        '''))
+        conn.execute(text(f'''
+            CREATE TABLE IF NOT EXISTS lich_hoc_tam_thoi (
+                id {pk_type},
+                hoc_sinh_id INT,
+                ngay_bat_dau DATE,
+                ngay_ket_thuc DATE,
+                thu VARCHAR(20),
+                ca_hoc VARCHAR(50),
+                loai_thay_doi VARCHAR(100)
+            );
+        '''))
+        conn.execute(text(f'''
+            CREATE TABLE IF NOT EXISTS thanh_toan (
+                id {pk_type},
+                hoc_sinh_id INT,
+                thang_nam VARCHAR(20),
+                trang_thai VARCHAR(50),
+                ngay_thu VARCHAR(20),
+                UNIQUE(hoc_sinh_id, thang_nam)
+            );
+        '''))
+
+try:
+    init_db()
+except Exception:
+    pass
 
 # =========================================================
 # 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ỨNG DỤNG
@@ -349,7 +409,7 @@ if choice == "1. Điểm danh & Nhận xét":
         df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
         if df_all_hs.empty:
-            st.warning("⚠️ Chưa có học sinh nào!")
+            st.warning("⚠️ Chưa có học sinh nào! Hãy sang mục '7. Sửa & Xóa dữ liệu' để thêm học sinh mới.")
         else:
             available_classes = df_active_today['lop_hoc'].unique().tolist() if (sub_mode_class == "🏫 Lớp có lịch hôm nay" and not df_active_today.empty) else df_all_hs['lop_hoc'].unique().tolist()
             if available_classes:
