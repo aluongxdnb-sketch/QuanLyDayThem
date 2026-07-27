@@ -840,6 +840,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         
                         shifts_to_apply = ["Nghỉ cả ngày"]
                     else:
+                        st.markdown("##### ⚙️ Cấu hình ngày và ca học tạm thời")
                         thu_tam = st.selectbox("Vào Thứ", cac_thu_all, key="thu_tam_sel")
                         selected_thu_list = [thu_tam]
                         ca_tam_chon = st.multiselect(
