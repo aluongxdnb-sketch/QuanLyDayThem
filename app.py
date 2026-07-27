@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 import os
 import io
 import re
+import urllib.request
 
 # Thử import thư viện ReportLab xuất PDF
 try:
@@ -58,6 +59,81 @@ if not check_password():
 def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
+
+# --- HÀM TỰ ĐỘNG ĐĂNG KÝ FONT TIẾNG VIỆT CHUẨN UNICODE CHO PDF ---
+def register_vietnamese_fonts():
+    try:
+        pdfmetrics.getFont('VNFontRegular')
+        return 'VNFontRegular', 'VNFontBold'
+    except KeyError:
+        pass
+
+    reg_font_name = 'Helvetica'
+    bold_font_name = 'Helvetica-Bold'
+
+    paths_reg = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/times.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+    ]
+    paths_bold = [
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/timesbd.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+    ]
+
+    found_reg = None
+    for p in paths_reg:
+        if os.path.exists(p):
+            found_reg = p
+            break
+
+    found_bold = None
+    for p in paths_bold:
+        if os.path.exists(p):
+            found_bold = p
+            break
+
+    # Tự động tải font chuẩn Unicode về thư mục nếu máy tính chưa có sẵn
+    if not found_reg:
+        try:
+            font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+            local_font = "DejaVuSans.ttf"
+            if not os.path.exists(local_font):
+                urllib.request.urlretrieve(font_url, local_font)
+            found_reg = local_font
+        except Exception:
+            pass
+
+    if not found_bold:
+        try:
+            font_bold_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf"
+            local_bold = "DejaVuSans-Bold.ttf"
+            if not os.path.exists(local_bold):
+                urllib.request.urlretrieve(font_bold_url, local_bold)
+            found_bold = local_bold
+        except Exception:
+            found_bold = found_reg
+
+    try:
+        if found_reg and os.path.exists(found_reg):
+            pdfmetrics.registerFont(TTFont('VNFontRegular', found_reg))
+            reg_font_name = 'VNFontRegular'
+    except Exception:
+        pass
+
+    try:
+        if found_bold and os.path.exists(found_bold):
+            pdfmetrics.registerFont(TTFont('VNFontBold', found_bold))
+            bold_font_name = 'VNFontBold'
+        else:
+            bold_font_name = reg_font_name
+    except Exception:
+        bold_font_name = reg_font_name
+
+    return reg_font_name, bold_font_name
 
 # --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY ---
 def get_active_schedule_for_date(conn, check_date):
@@ -281,7 +357,7 @@ def render_schedule_matrix(conn):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE PDF LỊCH HỌC THEO TUẦN (A4 LANDSCAPE) - ĐÃ SỬA CHUẨN FONT UNICODE ---
+# --- HÀM TẠO FILE PDF LỊCH HỌC THEO TUẦN (A4 LANDSCAPE) ---
 def create_weekly_schedule_pdf(title_target, df_matrix):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -290,76 +366,15 @@ def create_weekly_schedule_pdf(title_target, df_matrix):
     )
     story = []
     
-    # 1. ĐĂNG KÝ FONT UNICODE CHUYÊN DỤNG CHO TIẾNG VIỆT
-    font_name_normal = 'Helvetica'
-    font_name_bold = 'Helvetica-Bold'
-
-    font_paths_normal = [
-        "C:\\Windows\\Fonts\\arial.ttf",
-        "C:\\Windows\\Fonts\\times.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-    ]
-    font_paths_bold = [
-        "C:\\Windows\\Fonts\\arialbd.ttf",
-        "C:\\Windows\\Fonts\\timesbd.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-    ]
-
-    for fp in font_paths_normal:
-        if os.path.exists(fp):
-            try:
-                pdfmetrics.registerFont(TTFont('VietnameseFont', fp))
-                font_name_normal = 'VietnameseFont'
-                break
-            except Exception:
-                pass
-
-    for fp in font_paths_bold:
-        if os.path.exists(fp):
-            try:
-                pdfmetrics.registerFont(TTFont('VietnameseFontBold', fp))
-                font_name_bold = 'VietnameseFontBold'
-                break
-            except Exception:
-                pass
-
-    if font_name_bold == 'Helvetica-Bold' and font_name_normal != 'Helvetica':
-        font_name_bold = font_name_normal
-
-    # 2. KHỞI TẠO CÁC STYLE VÀ ĐẢM BẢO TẤT CẢ ĐỀU DÙNG FONT TIẾNG VIỆT
+    font_reg, font_bold = register_vietnamese_fonts()
+    
     styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'VN_TitleStyle', parent=styles['Normal'],
-        fontName=font_name_bold, fontSize=16, leading=20,
-        alignment=1, textColor=colors.HexColor('#1E3A8A')
-    )
-    
-    sub_style = ParagraphStyle(
-        'VN_SubStyle', parent=styles['Normal'],
-        fontName=font_name_normal, fontSize=11, leading=15, alignment=1
-    )
-    
-    cell_style = ParagraphStyle(
-        'VN_CellStyle', parent=styles['Normal'],
-        fontName=font_name_normal, fontSize=9, leading=12
-    )
-    
-    header_style = ParagraphStyle(
-        'VN_HeaderStyle', parent=styles['Normal'],
-        fontName=font_name_bold, fontSize=10, leading=13,
-        alignment=1, textColor=colors.white
-    )
+    title_style = ParagraphStyle('VN_TitleStyle', parent=styles['Normal'], fontName=font_bold, fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    sub_style = ParagraphStyle('VN_SubStyle', parent=styles['Normal'], fontName=font_reg, fontSize=11, leading=15, alignment=1)
+    cell_style = ParagraphStyle('VN_CellStyle', parent=styles['Normal'], fontName=font_reg, fontSize=9, leading=12)
+    header_style = ParagraphStyle('VN_HeaderStyle', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=13, alignment=1, textColor=colors.white)
+    footer_style = ParagraphStyle('VN_FooterStyle', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=14, alignment=1, textColor=colors.HexColor('#1E3A8A'))
 
-    footer_style = ParagraphStyle(
-        'VN_FooterStyle', parent=styles['Normal'],
-        fontName=font_name_bold, fontSize=10, leading=14,
-        alignment=1, textColor=colors.HexColor('#1E3A8A')
-    )
-
-    # 3. TẠO NỘI DUNG PDF
     story.append(Paragraph("THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", title_style))
     story.append(Spacer(1, 4))
     story.append(Paragraph(f"Đối tượng / Lớp: <b>{title_target}</b>", sub_style))
@@ -404,40 +419,17 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
     )
     story = []
     
-    font_name_normal = 'Helvetica'
-    font_name_bold = 'Helvetica-Bold'
-
-    font_paths_normal = ["C:\\Windows\\Fonts\\arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
-    font_paths_bold = ["C:\\Windows\\Fonts\\arialbd.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
-
-    for fp in font_paths_normal:
-        if os.path.exists(fp):
-            try:
-                pdfmetrics.registerFont(TTFont('VietnameseFont', fp))
-                font_name_normal = 'VietnameseFont'
-                break
-            except Exception: pass
-
-    for fp in font_paths_bold:
-        if os.path.exists(fp):
-            try:
-                pdfmetrics.registerFont(TTFont('VietnameseFontBold', fp))
-                font_name_bold = 'VietnameseFontBold'
-                break
-            except Exception: pass
-
-    if font_name_bold == 'Helvetica-Bold' and font_name_normal != 'Helvetica':
-        font_name_bold = font_name_normal
+    font_reg, font_bold = register_vietnamese_fonts()
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Normal'], fontName=font_name_bold, fontSize=15, leading=18, alignment=1, textColor=colors.HexColor('#1E3A8A'))
-    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontName=font_name_normal, fontSize=10, leading=14)
-    bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontName=font_name_bold, fontSize=10, leading=14)
-    center_style = ParagraphStyle('CenterStyle', parent=styles['Normal'], fontName=font_name_normal, fontSize=9, leading=12, alignment=1)
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Normal'], fontName=font_bold, fontSize=15, leading=18, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontName=font_reg, fontSize=10, leading=14)
+    bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=14)
+    center_style = ParagraphStyle('CenterStyle', parent=styles['Normal'], fontName=font_reg, fontSize=9, leading=12, alignment=1)
 
     story.append(Paragraph("PHIẾU BÁO HỌC PHÍ DẠY THÊM", title_style))
     story.append(Spacer(1, 4))
-    story.append(Paragraph(f"<b>Tháng / Năm:</b> {month_year}", ParagraphStyle('Sub', parent=center_style, fontName=font_name_bold, fontSize=11, leading=15)))
+    story.append(Paragraph(f"<b>Tháng / Năm:</b> {month_year}", ParagraphStyle('Sub', parent=center_style, fontName=font_bold, fontSize=11, leading=15)))
     story.append(Spacer(1, 10))
     
     info_data = [
@@ -464,7 +456,7 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
     story.append(Spacer(1, 8))
     
     if qr_path and os.path.exists(qr_path):
-        story.append(Paragraph("<b>MÃ QR THANH TOÁN CHUYỂN KHỎAN</b>", ParagraphStyle('QRTitle', parent=center_style, fontName=font_name_bold, fontSize=10)))
+        story.append(Paragraph("<b>MÃ QR THANH TOÁN CHUYỂN KHỎAN</b>", ParagraphStyle('QRTitle', parent=center_style, fontName=font_bold, fontSize=10)))
         story.append(Spacer(1, 4))
         try:
             img = RLImage(qr_path, width=110, height=110)
@@ -478,7 +470,7 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
         story.append(Paragraph("<i>(Chưa tải lên mã QR thanh toán trong ứng dụng)</i>", center_style))
         
     story.append(Spacer(1, 10))
-    story.append(Paragraph("Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", ParagraphStyle('Thanks', parent=center_style, fontName=font_name_bold, fontSize=10, textColor=colors.HexColor('#1E3A8A'))))
+    story.append(Paragraph("Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", ParagraphStyle('Thanks', parent=center_style, fontName=font_bold, fontSize=10, textColor=colors.HexColor('#1E3A8A'))))
     
     doc.build(story)
     buffer.seek(0)
@@ -633,7 +625,7 @@ if choice == "1. Điểm danh & Nhận xét":
             else:
                 target_students = df_all_hs[df_all_hs['lop_hoc'] == selected_class_opt]
 
-        else: # "👤 Điểm danh từng HỌC SINH"
+        else:
             student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
             options_hs = ["🌟 All Học sinh (Tất cả học sinh có lịch học hôm nay)"] + list(student_dict.keys())
             selected_hs_opt = st.selectbox("Chọn học sinh điểm danh", options_hs)
