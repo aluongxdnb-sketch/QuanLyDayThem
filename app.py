@@ -8,7 +8,7 @@ import re
 
 # Thử import thư viện ReportLab xuất PDF
 try:
-    from reportlab.lib.pagesizes import A5, portrait
+    from reportlab.lib.pagesizes import A5, A4, portrait, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -221,65 +221,133 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM KIỂM TRA TRÙNG CA HỌC ---
-def check_schedule_conflicts(conn, thu, ca_hoc, exclude_lop=None, exclude_hs_id=None):
+# --- HÀM LẤY MA TRẬN LỊCH HỌC DẠNG DATAFRAME ---
+def get_schedule_matrix_df(conn, filter_lop=None, filter_hs_id=None):
     query = '''
-        SELECT DISTINCT h.lop_hoc, GROUP_CONCAT(h.ho_ten, ', ') as ds_hs
+        SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten, h.id AS hoc_sinh_id
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
-        WHERE l.thu = ? AND l.ca_hoc = ?
     '''
-    params = [thu, ca_hoc]
-    if exclude_lop:
-        query += " AND h.lop_hoc != ?"
-        params.append(exclude_lop)
-    if exclude_hs_id:
-        query += " AND h.id != ?"
-        params.append(exclude_hs_id)
-    query += " GROUP BY h.lop_hoc"
-    return pd.read_sql_query(query, conn, params=params)
+    params = []
+    if filter_lop:
+        query += " WHERE h.lop_hoc = ?"
+        params.append(filter_lop)
+    elif filter_hs_id:
+        query += " WHERE h.id = ?"
+        params.append(filter_hs_id)
 
-# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC ---
-def render_schedule_matrix(conn):
-    query_mindmap = '''
-        SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
-        FROM lich_hoc_tuan l
-        JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
+    query += '''
         ORDER BY 
             CASE l.thu
                 WHEN 'Thứ 2' THEN 1 WHEN 'Thứ 3' THEN 2 WHEN 'Thứ 4' THEN 3
                 WHEN 'Thứ 5' THEN 4 WHEN 'Thứ 6' THEN 5 WHEN 'Thứ 7' THEN 6 WHEN 'Chủ Nhật' THEN 7
             END, l.ca_hoc, h.lop_hoc
     '''
-    df_mindmap = pd.read_sql_query(query_mindmap, conn)
-    
-    if df_mindmap.empty:
-        st.info("💡 Chưa có lịch học tuần nào được thiết lập trong hệ thống.")
-        return
+    df_data = pd.read_sql_query(query, conn, params=params)
+    if df_data.empty:
+        return pd.DataFrame()
 
     cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-    cac_ca = sorted(df_mindmap['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
-    
+    cac_ca = sorted(df_data['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
+
     matrix_rows = []
     for ca in cac_ca:
         buoi = get_buoi_from_ca(ca)
         row_dict = {"Buổi": buoi, "Ca học": ca}
         for t in cac_thu:
-            matched = df_mindmap[(df_mindmap['thu'] == t) & (df_mindmap['ca_hoc'] == ca)]
+            matched = df_data[(df_data['thu'] == t) & (df_data['ca_hoc'] == ca)]
             if matched.empty:
                 row_dict[t] = "-"
             else:
                 items = []
                 for lop, g in matched.groupby('lop_hoc'):
                     names = ", ".join(g['ho_ten'].tolist())
-                    items.append(f"<b>[{lop}]</b>: {names}")
+                    if filter_lop or filter_hs_id:
+                        items.append(names)
+                    else:
+                        items.append(f"<b>[{lop}]</b>: {names}")
                 row_dict[t] = "<br>".join(items)
         matrix_rows.append(row_dict)
-    
+
     df_matrix = pd.DataFrame(matrix_rows)
     cols = ["Buổi", "Ca học"] + cac_thu
-    df_matrix = df_matrix[cols]
+    return df_matrix[cols]
+
+# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC ---
+def render_schedule_matrix(conn):
+    df_matrix = get_schedule_matrix_df(conn)
+    if df_matrix.empty:
+        st.info("💡 Chưa có lịch học tuần nào được thiết lập trong hệ thống.")
+        return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
+
+# --- HÀM TẠO FILE PDF LỊCH HỌC THEO TUẦN (A4 LANDSCAPE) ---
+def create_weekly_schedule_pdf(title_target, df_matrix):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=landscape(A4),
+        rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20
+    )
+    story = []
+    
+    font_path = "C:\\Windows\\Fonts\\arial.ttf"
+    font_bold_path = "C:\\Windows\\Fonts\\arialbd.ttf"
+    
+    if os.path.exists(font_path):
+        try:
+            pdfmetrics.registerFont(TTFont('ArialCustom', font_path))
+            f_normal = 'ArialCustom'
+        except: f_normal = 'Helvetica'
+    else: f_normal = 'Helvetica'
+        
+    if os.path.exists(font_bold_path):
+        try:
+            pdfmetrics.registerFont(TTFont('ArialCustomBold', font_bold_path))
+            f_bold = 'ArialCustomBold'
+        except: f_bold = 'Helvetica-Bold'
+    else: f_bold = 'Helvetica-Bold'
+        
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Normal'], fontName=f_bold, fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    sub_style = ParagraphStyle('SubStyle', parent=styles['Normal'], fontName=f_normal, fontSize=11, leading=15, alignment=1)
+    cell_style = ParagraphStyle('CellStyle', parent=styles['Normal'], fontName=f_normal, fontSize=9, leading=12)
+    header_style = ParagraphStyle('HeaderStyle', parent=styles['Normal'], fontName=f_bold, fontSize=10, leading=13, alignment=1, textColor=colors.white)
+
+    story.append(Paragraph("THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", title_style))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(f"<b>Đối tượng / Lớp:</b> {title_target}", sub_style))
+    story.append(Spacer(1, 10))
+    
+    headers = [Paragraph(f"<b>{col}</b>", header_style) for col in df_matrix.columns]
+    table_data = [headers]
+
+    for _, row in df_matrix.iterrows():
+        row_cells = []
+        for col in df_matrix.columns:
+            val = str(row[col]).replace("<br>", "\n").replace("<b>", "").replace("</b>", "")
+            val_clean = val.replace("\n", "<br/>")
+            row_cells.append(Paragraph(val_clean, cell_style))
+        table_data.append(row_cells)
+
+    # Đặt độ rộng 9 cột cho vừa trang A4 nằm ngang (~780pt)
+    col_widths = [55, 85, 90, 90, 90, 90, 90, 90, 90]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('BACKGROUND', (0,1), (1,-1), colors.HexColor('#F1F5F9')),
+    ]))
+    
+    story.append(t)
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("<i>Chúc các em học sinh học tập tốt và đạt kết quả cao!</i>", ParagraphStyle('Footer', parent=sub_style, fontName=f_bold, textColor=colors.HexColor('#1E3A8A'))))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 # --- HÀM TẠO FILE PDF PHIẾU HỌC PHÍ ---
 def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path):
@@ -481,7 +549,7 @@ if os.path.exists("qr_code.png"):
     st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
 # =========================================================
-# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT (ĐÃ CẢI TIẾN) ---
+# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT (CÓ TỰ NHẬP GIỜ) ---
 # =========================================================
 if choice == "1. Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
@@ -522,29 +590,34 @@ if choice == "1. Điểm danh & Nhận xét":
                 selected_hs_id = student_dict[selected_hs_opt]
                 target_students = df_all_hs[df_all_hs['hoc_sinh_id'] == selected_hs_id]
 
-        # FORM ĐIỂM DANH
         if target_students.empty:
             st.info("ℹ️ Không tìm thấy học sinh nào có lịch học hoặc phù hợp với bộ lọc đã chọn.")
         else:
             st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} học sinh)")
             with st.form("form_diem_danh_execution"):
-                danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
+                danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
                     st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}]")
-                    c1, c2, c3 = st.columns([2, 3, 4])
+                    c1, c2, c3 = st.columns([2.5, 3, 3.5])
                     
                     default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
 
                     with c1:
                         ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}")
+                        if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
+                            custom_ca = st.text_input("Nhập giờ (VD: 08h30 - 10h30)", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}")
+                            ca_final = custom_ca.strip()
+                        else:
+                            ca_final = ca_val
+
                     with c2:
                         stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}", horizontal=True)
                     with c3:
                         nx_val = st.text_input("Nhận xét nhanh", key=f"nx_cls_{row['hoc_sinh_id']}", placeholder="Nhận xét bài học...")
 
-                    danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_val, stt_val, nx_val))
+                    danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_final, stt_val, nx_val))
                     st.divider()
 
                 if st.form_submit_button(f"💾 LƯU ĐIỂM DANH ({len(target_students)} HS)", type="primary", use_container_width=True):
@@ -581,15 +654,70 @@ if choice == "1. Điểm danh & Nhận xét":
     else:
         st.info("ℹ️ Chưa có dữ liệu điểm danh nào được ghi nhận cho ngày này.")
 
-# --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC TỔNG QUAN & MINDMAP ---
+# =========================================================
+# --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC & XUẤT FILE PDF ---
+# =========================================================
 elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
-    st.subheader("🗺️ Thời Khóa Biểu Tuần & Sơ Đồ Mindmap")
-    render_schedule_matrix(conn)
+    st.subheader("🗺️ Thời Khóa Biểu Tuần & Xuất File Lịch Học")
+    
+    tab_matrix, tab_export = st.tabs(["🗺️ Ma Trận Lịch Học Tổng Quan", "📥 Xuất Lịch Học Theo Lớp / Học Sinh (PDF)"])
 
-# --- CHỨC NĂNG 3: LÊN LỊCH HỌC ---
+    with tab_matrix:
+        render_schedule_matrix(conn)
+
+    with tab_export:
+        st.markdown("### 📄 Xuất File Lịch Học Hàng Tuần Dạng PDF")
+        df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", conn)
+
+        if df_hs_all.empty:
+            st.warning("Chưa có dữ liệu học sinh.")
+        else:
+            filter_mode = st.radio("Chọn phạm vi xuất lịch học:", ["Toàn bộ các Lớp", "Theo Lớp cụ thể", "Theo Học sinh cụ thể"], horizontal=True)
+            
+            target_title = "Tất Cả Các Lớp"
+            selected_lop_exp = None
+            selected_hs_exp = None
+
+            if filter_mode == "Theo Lớp cụ thể":
+                lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
+                selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list)
+                target_title = f"Lớp {selected_lop_exp}"
+
+            elif filter_mode == "Theo Học sinh cụ thể":
+                hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all.iterrows()}
+                sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()))
+                selected_hs_exp = hs_dict_exp[sel_hs_label]
+                target_title = f"Học sinh {sel_hs_label.split(' - ')[0]}"
+
+            df_export_matrix = get_schedule_matrix_df(conn, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp)
+
+            if df_export_matrix.empty:
+                st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
+            else:
+                st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({target_title}):")
+                st.write(df_export_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
+                st.divider()
+
+                if HAS_REPORTLAB:
+                    pdf_matrix_bytes = create_weekly_schedule_pdf(target_title, df_export_matrix)
+                    st.download_button(
+                        label=f"📄 Tải File PDF Lịch Học ({target_title})",
+                        data=pdf_matrix_bytes,
+                        file_name=f"Lich_Hoc_Tuan_{target_title.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
+                else:
+                    st.warning("⚠️ Chưa cài đặt thư viện ReportLab để xuất file PDF.")
+
+# =========================================================
+# --- CHỨC NĂNG 3: LÊN LỊCH HỌC (CÓ TỰ NHẬP GIỜ) ---
+# =========================================================
 elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
     tab_goc, tab_tam = st.tabs(["📅 1. Lịch Học Gốc Hàng Tuần", "⏳ 2. Lịch Học Tạm Thời"])
     
+    danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
+
     with tab_goc:
         st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc)")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", conn)
@@ -597,21 +725,27 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
         if df_hs.empty:
             st.warning("Chưa có học sinh.")
         else:
-            all_lops = df_hs['lop_hoc'].unique().tolist()
+            all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
             selected_lop = st.selectbox("Chọn Lớp để xếp lịch gốc", all_lops, key="select_goc_lop")
             target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
             
             cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-            danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
             
             new_schedules_class = []
             for t in cac_thu:
-                col_chk, col_ca = st.columns([2, 4])
+                col_chk, col_ca, col_custom = st.columns([2, 3, 3])
                 with col_chk: has_class = st.checkbox(f"Lớp học vào **{t}**", key=f"chk_goc_lop_{t}")
                 with col_ca:
                     if has_class:
                         ca_val = st.selectbox(f"Ca học {t}", danh_sach_ca_mau, index=4, key=f"ca_goc_lop_{t}")
-                        new_schedules_class.append((t, ca_val))
+                with col_custom:
+                    if has_class:
+                        if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
+                            custom_ca_input = st.text_input(f"Nhập giờ {t}:", value="18h00 - 20h00", key=f"custom_ca_goc_{t}")
+                            final_ca = custom_ca_input.strip()
+                        else:
+                            final_ca = ca_val
+                        new_schedules_class.append((t, final_ca))
                         
             if st.button(f"💾 Lưu Lịch Học Gốc Cho Lớp {selected_lop}", type="primary"):
                 for hs_id in target_hs_ids:
@@ -626,7 +760,7 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
         st.subheader("⏳ Lịch Học Tạm Thời")
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", conn)
         if not df_hs.empty:
-            all_lops = df_hs['lop_hoc'].unique().tolist()
+            all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
             sel_lop_tam = st.selectbox("Chọn Lớp", all_lops)
             target_hs_ids_tam = df_hs[df_hs['lop_hoc'] == sel_lop_tam]['id'].tolist()
             
@@ -635,14 +769,16 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
                 d_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", date.today())
                 loai_td = st.radio("Loại thay đổi", ["Đổi ca / Học bù", "Nghỉ tạm thời trong khoảng thời gian này"], horizontal=True)
                 thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'])
-                ca_tam = st.selectbox("Vào Ca", ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"])
+                ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau)
+                custom_ca_tam_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây (VD: 08h30 - 10h30):", placeholder="08h30 - 10h30")
                 
                 if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
+                    ca_tam_final = custom_ca_tam_input.strip() if (ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_tam_input.strip()) else ca_tam_sel
                     for hs_id_item in target_hs_ids_tam:
                         c.execute('''
                             INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_tam, loai_td))
+                        ''', (hs_id_item, d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), thu_tam, ca_tam_final, loai_td))
                     conn.commit()
                     st.success("✅ Đã lưu lịch tạm thời!")
                     st.rerun()
