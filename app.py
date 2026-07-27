@@ -60,80 +60,48 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM TỰ ĐỘNG ĐĂNG KÝ FONT TIẾNG VIỆT CHUẨN UNICODE CHO PDF ---
+# --- HÀM TẢI VÀ ĐĂNG KÝ FONT UNICODE TIẾNG VIỆT CHO REPORTLAB ---
 def register_vietnamese_fonts():
-    try:
-        pdfmetrics.getFont('VNFontRegular')
-        return 'VNFontRegular', 'VNFontBold'
-    except KeyError:
-        pass
-
-    reg_font_name = 'Helvetica'
-    bold_font_name = 'Helvetica-Bold'
-
-    paths_reg = [
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/times.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-    ]
-    paths_bold = [
-        "C:/Windows/Fonts/arialbd.ttf",
-        "C:/Windows/Fonts/timesbd.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-    ]
-
-    found_reg = None
-    for p in paths_reg:
-        if os.path.exists(p):
-            found_reg = p
-            break
-
-    found_bold = None
-    for p in paths_bold:
-        if os.path.exists(p):
-            found_bold = p
-            break
-
-    # Tự động tải font chuẩn Unicode về thư mục nếu máy tính chưa có sẵn
-    if not found_reg:
+    font_reg_path = "DejaVuSans.ttf"
+    font_bold_path = "DejaVuSans-Bold.ttf"
+    
+    # Tự động tải font chuẩn Unicode nếu chưa có trong thư mục chạy
+    if not os.path.exists(font_reg_path):
         try:
-            font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-            local_font = "DejaVuSans.ttf"
-            if not os.path.exists(local_font):
-                urllib.request.urlretrieve(font_url, local_font)
-            found_reg = local_font
+            urllib.request.urlretrieve(
+                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf", 
+                font_reg_path
+            )
         except Exception:
             pass
 
-    if not found_bold:
+    if not os.path.exists(font_bold_path):
         try:
-            font_bold_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf"
-            local_bold = "DejaVuSans-Bold.ttf"
-            if not os.path.exists(local_bold):
-                urllib.request.urlretrieve(font_bold_url, local_bold)
-            found_bold = local_bold
+            urllib.request.urlretrieve(
+                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf", 
+                font_bold_path
+            )
         except Exception:
-            found_bold = found_reg
+            pass
 
-    try:
-        if found_reg and os.path.exists(found_reg):
-            pdfmetrics.registerFont(TTFont('VNFontRegular', found_reg))
-            reg_font_name = 'VNFontRegular'
-    except Exception:
-        pass
+    reg_name = 'Helvetica'
+    bold_name = 'Helvetica-Bold'
+    
+    if os.path.exists(font_reg_path):
+        try:
+            pdfmetrics.registerFont(TTFont('CustomDejaVu', font_reg_path))
+            reg_name = 'CustomDejaVu'
+        except Exception:
+            pass
+            
+    if os.path.exists(font_bold_path):
+        try:
+            pdfmetrics.registerFont(TTFont('CustomDejaVuBold', font_bold_path))
+            bold_name = 'CustomDejaVuBold'
+        except Exception:
+            bold_name = reg_name
 
-    try:
-        if found_bold and os.path.exists(found_bold):
-            pdfmetrics.registerFont(TTFont('VNFontBold', found_bold))
-            bold_font_name = 'VNFontBold'
-        else:
-            bold_font_name = reg_font_name
-    except Exception:
-        bold_font_name = reg_font_name
-
-    return reg_font_name, bold_font_name
+    return reg_name, bold_name
 
 # --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY ---
 def get_active_schedule_for_date(conn, check_date):
@@ -369,11 +337,11 @@ def create_weekly_schedule_pdf(title_target, df_matrix):
     font_reg, font_bold = register_vietnamese_fonts()
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('VN_TitleStyle', parent=styles['Normal'], fontName=font_bold, fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#1E3A8A'))
-    sub_style = ParagraphStyle('VN_SubStyle', parent=styles['Normal'], fontName=font_reg, fontSize=11, leading=15, alignment=1)
-    cell_style = ParagraphStyle('VN_CellStyle', parent=styles['Normal'], fontName=font_reg, fontSize=9, leading=12)
-    header_style = ParagraphStyle('VN_HeaderStyle', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=13, alignment=1, textColor=colors.white)
-    footer_style = ParagraphStyle('VN_FooterStyle', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=14, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    title_style = ParagraphStyle('VN_Title', parent=styles['Normal'], fontName=font_bold, fontSize=15, leading=18, alignment=1, textColor=colors.HexColor('#1E3A8A'))
+    sub_style = ParagraphStyle('VN_Sub', parent=styles['Normal'], fontName=font_reg, fontSize=11, leading=15, alignment=1)
+    cell_style = ParagraphStyle('VN_Cell', parent=styles['Normal'], fontName=font_reg, fontSize=9, leading=12)
+    header_style = ParagraphStyle('VN_Header', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=13, alignment=1, textColor=colors.white)
+    footer_style = ParagraphStyle('VN_Footer', parent=styles['Normal'], fontName=font_bold, fontSize=10, leading=14, alignment=1, textColor=colors.HexColor('#1E3A8A'))
 
     story.append(Paragraph("THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", title_style))
     story.append(Spacer(1, 4))
@@ -456,7 +424,7 @@ def create_tuition_pdf(student_name, lop_hoc, subject, price_per_lesson, month_y
     story.append(Spacer(1, 8))
     
     if qr_path and os.path.exists(qr_path):
-        story.append(Paragraph("<b>MÃ QR THANH TOÁN CHUYỂN KHỎAN</b>", ParagraphStyle('QRTitle', parent=center_style, fontName=font_bold, fontSize=10)))
+        story.append(Paragraph("<b>MÃ QR THANH TOÁN CHUYỂN KHOẢN</b>", ParagraphStyle('QRTitle', parent=center_style, fontName=font_bold, fontSize=10)))
         story.append(Spacer(1, 4))
         try:
             img = RLImage(qr_path, width=110, height=110)
@@ -574,10 +542,10 @@ choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
 # --- SIDEBAR: ĐỒNG BỘ LỊCH SANG IPHONE ---
 st.sidebar.markdown("---")
-st.sidebar.subheader("📲 Đồng Bổ Lịch Sang iPhone")
+st.sidebar.subheader("📲 Đồng Bộ Lịch Sang iPhone")
 user_gmail = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
 
-if st.sidebar.button("🔄 Đồng Bổ Lịch 7 Ngày Tới Sang iPhone", type="primary"):
+if st.sidebar.button("🔄 Đồng Bộ Lịch 7 Ngày Tới Sang iPhone", type="primary"):
     target_cal_id = user_gmail.strip() if user_gmail.strip() else 'primary'
     success, msg = sync_weekly_schedule_to_google(calendar_id=target_cal_id, days_ahead=7)
     if success: st.sidebar.success(msg)
