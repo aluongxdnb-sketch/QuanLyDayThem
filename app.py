@@ -499,10 +499,17 @@ with engine.begin() as conn:
             ngay DATE,
             ca_hoc TEXT DEFAULT '7h00 - 9h00',
             trang_thai TEXT DEFAULT 'Có mặt',
-            nhan_xet TEXT,
-            UNIQUE(hoc_sinh_id, ngay, ca_hoc)
+            nhan_xet TEXT
         )
     '''))
+    # Đảm bảo bảng diem_danh luôn có unique index để hỗ trợ ON CONFLICT
+    try:
+        conn.execute(text('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_diem_danh_unique ON diem_danh(hoc_sinh_id, ngay, ca_hoc);
+        '''))
+    except Exception:
+        pass
+
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS thanh_toan (
             id SERIAL PRIMARY KEY,
@@ -1144,7 +1151,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ and Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
