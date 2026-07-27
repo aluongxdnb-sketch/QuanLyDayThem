@@ -727,14 +727,15 @@ elif choice == "1. Điểm danh & Nhận xét":
                                 conn.execute(text('''
                                     INSERT INTO diem_danh (hoc_sinh_id, ngay, ca_hoc, trang_thai, nhan_xet) 
                                     VALUES (:hs_id, :ngay, :ca, :stt, :nx)
-                                    ON CONFLICT (hoc_sinh_id, ngay, ca_hoc) DO NOTHING
+                                    ON CONFLICT (hoc_sinh_id, ngay, ca_hoc) 
+                                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, nhan_xet = EXCLUDED.nhan_xet
                                 '''), {"hs_id": item[0], "ngay": item[1], "ca": item[2], "stt": item[3], "nx": item[4]})
                                 success_count += 1
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                st.error(f"❌ Lỗi lưu điểm danh HS ID {item[0]}: {e}")
                     if success_count > 0:
                         st.success(f"✅ Đã lưu thành công {success_count} bản ghi điểm danh lên Supabase!")
-                    st.rerun()
+                        st.rerun()
 
     st.markdown("---")
     st.subheader(f"📊 Kết quả & Thống kê điểm danh ngày {ngay_hoc.strftime('%d/%m/%Y')}")
@@ -1143,7 +1144,7 @@ elif choice == "3. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / 
                         st.download_button(
                             label="🖼️ Tải Ảnh Phiếu",
                             data=img_bytes,
-                            file_name=f"Hoa_Don_{row['Họ và Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
+                            file_name=f"Hoa_Don_{row['Họ and Tên']}_{row['Tháng/Năm'].replace('/', '_')}.png",
                             mime="image/png",
                             key=f"img_fee_{row['hoc_sinh_id']}_{row['Tháng/Năm']}"
                         )
