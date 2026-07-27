@@ -20,6 +20,17 @@ except ImportError:
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
 
+# --- DANH SÁCH CA HỌC MẪU TOÀN HỆ THỐNG ---
+DANH_SACH_CA_MAU = [
+    "7h00 - 9h00", 
+    "9h00 - 11h00", 
+    "13h30 - 15h30", 
+    "14h00 - 16h00", 
+    "15h30 - 17h30", 
+    "17h30 - 19h30", 
+    "19h30 - 21h30"
+]
+
 # =========================================================
 # 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ỨNG DỤNG
 # =========================================================
@@ -152,6 +163,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
             "7h00 - 9h00": ("07:00:00", "09:00:00"),
             "9h00 - 11h00": ("09:00:00", "11:00:00"),
             "13h30 - 15h30": ("13:30:00", "15:30:00"),
+            "14h00 - 16h00": ("14:00:00", "16:00:00"),
             "15h30 - 17h30": ("15:30:00", "17:30:00"),
             "17h30 - 19h30": ("17:30:00", "19:30:00"),
             "19h30 - 21h30": ("19:30:00", "21:30:00")
@@ -204,7 +216,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
 
 # --- HÀM SẮP XẾP CA HỌC THEO GIỜ ---
 def ca_hoc_sort_key(ca_str):
-    predefined = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
+    predefined = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "14h00 - 16h00", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
     if ca_str in predefined:
         return (0, predefined.index(ca_str))
     
@@ -219,7 +231,7 @@ def ca_hoc_sort_key(ca_str):
 def get_buoi_from_ca(ca_str):
     predefined = {
         "7h00 - 9h00": "🌅 Sáng", "9h00 - 11h00": "🌅 Sáng",
-        "13h30 - 15h30": "☀️ Chiều", "15h30 - 17h30": "☀️ Chiều",
+        "13h30 - 15h30": "☀️ Chiều", "14h00 - 16h00": "☀️ Chiều", "15h30 - 17h30": "☀️ Chiều",
         "17h30 - 19h30": "🌙 Tối", "19h30 - 21h30": "🌙 Tối"
     }
     if ca_str in predefined:
@@ -597,17 +609,17 @@ if choice == "1. Điểm danh & Nhận xét":
         else:
             st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
             with st.form("form_diem_danh_execution"):
-                danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30", "⏱️ Tự nhập giờ tùy chỉnh..."]
+                danh_sach_ca_mau_dd = DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."]
                 danh_sach_luu = []
 
                 for idx, row in target_students.iterrows():
                     st.markdown(f"**👤 {row['ho_ten']}** [{row.get('lop_hoc', 'N/A')}] - *Ca: {row.get('ca_hoc', 'N/A')} (Nguồn: {row.get('nguon', 'Lịch gốc')})*")
                     c1, c2, c3 = st.columns([2.5, 3, 3.5])
                     
-                    default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in danh_sach_ca_mau) else "17h30 - 19h30"
+                    default_ca = row['ca_hoc'] if ('ca_hoc' in row and pd.notna(row['ca_hoc']) and row['ca_hoc'] in DANH_SACH_CA_MAU) else "17h30 - 19h30"
 
                     with c1:
-                        ca_val = st.selectbox("Ca học", danh_sach_ca_mau, index=danh_sach_ca_mau.index(default_ca) if default_ca in danh_sach_ca_mau else 4, key=f"ca_cls_{row['hoc_sinh_id']}_{idx}")
+                        ca_val = st.selectbox("Ca học", danh_sach_ca_mau_dd, index=danh_sach_ca_mau_dd.index(default_ca) if default_ca in danh_sach_ca_mau_dd else 5, key=f"ca_cls_{row['hoc_sinh_id']}_{idx}")
                         if ca_val == "⏱️ Tự nhập giờ tùy chỉnh...":
                             custom_ca = st.text_input("Nhập giờ (VD: 08h30 - 10h30)", value="18h00 - 20h00", key=f"custom_ca_{row['hoc_sinh_id']}_{idx}")
                             ca_final = custom_ca.strip()
@@ -669,8 +681,6 @@ if choice == "1. Điểm danh & Nhận xét":
 # =========================================================
 elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
     st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
-    
-    danh_sach_ca_mau = ["7h00 - 9h00", "9h00 - 11h00", "13h30 - 15h30", "15h30 - 17h30", "17h30 - 19h30", "19h30 - 21h30"]
 
     tab_matrix, tab_goc, tab_tam, tab_export = st.tabs([
         "🗺️ Ma Trận Tổng Quan", 
@@ -718,7 +728,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     if has_class:
                         cas_chon = st.multiselect(
                             f"Chọn các ca chuẩn vào {t}:", 
-                            danh_sach_ca_mau, 
+                            DANH_SACH_CA_MAU, 
                             default=["17h30 - 19h30"] if t != "Chủ Nhật" else [],
                             key=f"multi_ca_{t}"
                         )
@@ -784,7 +794,7 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     
                     ca_tam_chon = st.multiselect(
                         "Chọn các ca học tạm thời:", 
-                        danh_sach_ca_mau, 
+                        DANH_SACH_CA_MAU, 
                         default=["17h30 - 19h30"],
                         key="ca_tam_multiselect"
                     )
@@ -878,10 +888,10 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         ed_thu_tam = st.selectbox("Vào Thứ", cac_thu_list, index=def_thu_idx, key="ed_thu_tam_m")
                         
                         def_ca = selected_tmp_row['ca_hoc']
-                        def_ca_idx = danh_sach_ca_mau.index(def_ca) if def_ca in danh_sach_ca_mau else 4
-                        ed_ca_tam_sel = st.selectbox("Vào Ca", danh_sach_ca_mau + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(danh_sach_ca_mau) else len(danh_sach_ca_mau), key="ed_ca_tam_sel_m")
+                        def_ca_idx = DANH_SACH_CA_MAU.index(def_ca) if def_ca in DANH_SACH_CA_MAU else 5
+                        ed_ca_tam_sel = st.selectbox("Vào Ca", DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(DANH_SACH_CA_MAU) else len(DANH_SACH_CA_MAU), key="ed_ca_tam_sel_m")
                         
-                        custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx >= len(danh_sach_ca_mau) else "18h00 - 20h00", key="custom_ca_edit_input_m")
+                        custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx >= len(DANH_SACH_CA_MAU) else "18h00 - 20h00", key="custom_ca_edit_input_m")
                         
                         if st.form_submit_button("💾 Cập Nhật Lịch Tạm Thời", type="primary"):
                             ed_ca_tam_final = custom_ca_edit_input.strip() if (ed_ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_edit_input.strip()) else ed_ca_tam_sel
@@ -969,7 +979,7 @@ elif choice == "3. 💡 Gợi ý Smart Assistant":
     st.info("🤖 Trợ lý thông minh đang hỗ trợ phân tích lịch học và nhắc nhở học phí tự động.")
 
 # =========================================================
-# --- CHỨC NĂNG 4: QUẢN LÝ HỌC PHÍ & THỐNG KÊ (GỘP MỤC 4 & 5, LỌC ĐA THÁNG, TÌM KIẾM, XUẤT ẢNH) ---
+# --- CHỨC NĂNG 4: QUẢN LÝ HỌC PHÍ & THỐNG KÊ (LỌC ĐA THÁNG, TÌM KIẾM, XUẤT ẢNH) ---
 # =========================================================
 elif choice == "4. 💳 Quản Lý Học Phí & Thống Kê (Lọc Đa Tháng / Xuất Ảnh)":
     st.subheader("💳 Thống Kê Điểm Danh, Quản Lý Học Phí & Xuất Hóa Đơn Ảnh PNG")
