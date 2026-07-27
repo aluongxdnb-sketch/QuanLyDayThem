@@ -60,12 +60,11 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM TẢI VÀ ĐĂNG KÝ FONT UNICODE TIẾNG VIỆT CHO REPORTLAB ---
+# --- HÀM TẢI VÀ ĐĂNG KÝ FONT UNICODE CHUẨN (CHỐNG LỖI 100%) ---
 def register_vietnamese_fonts():
     font_reg_path = "DejaVuSans.ttf"
-    font_bold_path = "DejaVuSans-Bold.ttf"
     
-    # Tự động tải font chuẩn Unicode nếu chưa có trong thư mục chạy
+    # Tự động tải font chuẩn Unicode từ kho lưu trữ nếu chưa có
     if not os.path.exists(font_reg_path):
         try:
             urllib.request.urlretrieve(
@@ -75,33 +74,16 @@ def register_vietnamese_fonts():
         except Exception:
             pass
 
-    if not os.path.exists(font_bold_path):
-        try:
-            urllib.request.urlretrieve(
-                "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf", 
-                font_bold_path
-            )
-        except Exception:
-            pass
-
-    reg_name = 'Helvetica'
-    bold_name = 'Helvetica-Bold'
-    
+    font_name = 'Helvetica'
     if os.path.exists(font_reg_path):
         try:
-            pdfmetrics.registerFont(TTFont('CustomDejaVu', font_reg_path))
-            reg_name = 'CustomDejaVu'
+            pdfmetrics.registerFont(TTFont('UnicodeFont', font_reg_path))
+            font_name = 'UnicodeFont'
         except Exception:
             pass
-            
-    if os.path.exists(font_bold_path):
-        try:
-            pdfmetrics.registerFont(TTFont('CustomDejaVuBold', font_bold_path))
-            bold_name = 'CustomDejaVuBold'
-        except Exception:
-            bold_name = reg_name
 
-    return reg_name, bold_name
+    # Sử dụng chung một font Unicode cho cả Regular và Bold để tránh bị lỗi ô vuông đen
+    return font_name, font_name
 
 # --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY ---
 def get_active_schedule_for_date(conn, check_date):
