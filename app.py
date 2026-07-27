@@ -342,9 +342,15 @@ def render_schedule_matrix(conn):
 
 # --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
 def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượng / Lớp: "):
-    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3))
+    fig, ax = plt.subplots(figsize=(16, len(df_matrix) * 1.0 + 3.5))
     ax.axis('off')
     ax.axis('tight')
+    
+    # Tính toán tuần hiện tại (Thứ 2 đến Chủ Nhật)
+    today = date.today()
+    start_w = today - timedelta(days=today.weekday())
+    end_w = start_w + timedelta(days=6)
+    week_text = f"Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')}"
     
     table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
     cleaned_data = []
@@ -361,7 +367,11 @@ def create_weekly_schedule_image(title_target, df_matrix, prefix="Đối tượn
     table.set_fontsize(10)
     table.scale(1, 2.2)
     
-    plt.title(f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\n{prefix}{title_target}", fontsize=14, fontweight='bold', pad=25, color='#1E3A8A')
+    full_title = f"THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN\n{prefix}{title_target}\n{week_text}"
+    plt.title(full_title, fontsize=13, fontweight='bold', pad=20, color='#1E3A8A', linespacing=1.5)
+    
+    # Thêm ghi chú chân trang trong ảnh
+    plt.figtext(0.5, 0.02, "Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
@@ -716,8 +726,16 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
             if df_export_matrix.empty:
                 st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
             else:
-                st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({prefix_label} {target_title}):")
+                # Tính tuần hiện tại để xem trước
+                today = date.today()
+                start_w = today - timedelta(days=today.weekday())
+                end_w = start_w + timedelta(days=6)
+                week_text = f"Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')}"
+
+                st.markdown(f"#### 📋 Xem trước Lịch Học Tuần ({prefix_label} {target_title})")
+                st.info(f"📅 **{week_text}**")
                 st.write(df_export_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
+                st.markdown("<p style='font-style: italic; color: #475569; font-size: 14px;'>Ghi chú: Áp dụng cho các tuần tiếp nếu không có thay đổi</p>", unsafe_allow_html=True)
                 st.divider()
 
                 if HAS_MATPLOTLIB:
