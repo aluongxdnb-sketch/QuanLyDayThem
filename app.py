@@ -22,20 +22,45 @@ except ImportError:
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
 
-# --- KẾT NỐI CƠ SỞ DỮ LIỆU ĐÁM MÂY SUPABASE (POSTGRESQL) / SQLITE LOCAL ---
+# --- HÀM LẤY CHUỖI KẾT NỐI TỪ SECRETS (TỰ ĐỘNG CHUẨN HÓA CÚ PHÁP) ---
+def get_clean_db_url():
+    url = None
+    # 1. Thử lấy từ DATABASE_URL (dạng đơn giản)
+    if "DATABASE_URL" in st.secrets:
+        url = st.secrets["DATABASE_URL"]
+    # 2. Thử lấy từ [postgres] url
+    elif "postgres" in st.secrets:
+        pg_sec = st.secrets["postgres"]
+        if isinstance(pg_sec, dict):
+            url = pg_sec.get("url", None)
+        elif isinstance(pg_sec, str):
+            url = pg_sec
+
+    if not url:
+        return None
+
+    # Lọc bỏ toàn bộ ký tự xuống dòng, khoảng trắng thừa do copy-paste
+    url = str(url).replace("\n", "").replace("\r", "").replace(" ", "").strip()
+
+    # Chuẩn hóa tiền tố cho psycopg2
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    # Thêm sslmode=require nếu chưa có
+    if "sslmode" not in url:
+        url += "?sslmode=require" if "?" not in url else "&sslmode=require"
+
+    return url
+
+# --- KẾT NỐI CƠ SỞ DỮ LIỆU ---
 @st.cache_resource
 def get_db_engine():
-    if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
-        db_url = st.secrets["postgres"]["url"].strip()
-        
-        # Tự động chuẩn hóa tiền tố cho thư viện psycopg2
-        if db_url.startswith("postgresql://"):
-            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
-            
+    db_url = get_clean_db_url()
+    if db_url:
         return create_engine(
             db_url,
             pool_pre_ping=True,  # Kiểm tra kết nối trước khi truy vấn
-            pool_recycle=300,    # Reset kết nối sau 5 phút tránh ngắt mạng
+            pool_recycle=300,    # Reset kết nối sau 5 phút
             connect_args={"connect_timeout": 15}
         )
     else:
@@ -43,13 +68,14 @@ def get_db_engine():
 
 engine = get_db_engine()
 
-# --- TỰ ĐỘNG KHIỂN TẠO CẤU TRÚC BẢNG TRÊN SUPABASE NẾU CHƯA CÓ ---
+# --- TỰ ĐỘNG KHỞI TẠO CẤU TRÚC BẢNG TRÊN SUPABASE NẾU CHƯA CÓ ---
 def init_db():
-    is_postgres = "postgres" in st.secrets and "url" in st.secrets["postgres"]
+    db_url = get_clean_db_url()
+    is_postgres = db_url is not None
     pk_type = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
     
     with engine.begin() as conn:
-        conn.execute(text(f'''
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS hoc_sinh (
                 id {pk_type},
                 ho_ten VARCHAR(255) NOT NULL,
@@ -57,8 +83,8 @@ def init_db():
                 mon_hoc VARCHAR(100),
                 hoc_phi_buoi NUMERIC DEFAULT 150000
             );
-        '''))
-        conn.execute(text(f'''
+        """))
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS diem_danh (
                 id {pk_type},
                 hoc_sinh_id INT,
@@ -67,16 +93,16 @@ def init_db():
                 trang_thai VARCHAR(50),
                 nhan_xet TEXT
             );
-        '''))
-        conn.execute(text(f'''
+        """))
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS lich_hoc_tuan (
                 id {pk_type},
                 hoc_sinh_id INT,
                 thu VARCHAR(20),
                 ca_hoc VARCHAR(50)
             );
-        '''))
-        conn.execute(text(f'''
+        """))
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS lich_hoc_tam_thoi (
                 id {pk_type},
                 hoc_sinh_id INT,
@@ -86,17 +112,17 @@ def init_db():
                 ca_hoc VARCHAR(50),
                 loai_thay_doi VARCHAR(100)
             );
-        '''))
-        conn.execute(text(f'''
+        """))
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS thanh_toan (
                 id {pk_type},
                 hoc_sinh_id INT,
                 thang_nam VARCHAR(20),
                 trang_thai VARCHAR(50),
                 ngay_thu VARCHAR(20),
-                UNIQUE(hoc_sinh_id, thang_nam)
+                CONSTRAINT unique_hs_thang UNIQUE(hoc_sinh_id, thang_nam)
             );
-        '''))
+        """))
 
 try:
     init_db()
@@ -146,21 +172,21 @@ def get_active_schedule_for_date(check_date):
     target_day_str = get_vietnamese_weekday(check_date)
     date_str = check_date.strftime("%Y-%m-%d")
 
-    query_temp = text('''
+    query_temp = text("""
         SELECT t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.thu, t.ca_hoc, t.loai_thay_doi
         FROM lich_hoc_tam_thoi t
         JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
         WHERE t.ngay_bat_dau <= :d_str AND t.ngay_ket_thuc >= :d_str
-    ''')
+    """)
     df_temp = pd.read_sql_query(query_temp, engine, params={"d_str": date_str})
     temp_hs_ids = df_temp['hoc_sinh_id'].unique() if not df_temp.empty else []
 
-    query_base = text('''
+    query_base = text("""
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
         WHERE l.thu = :thu
-    ''')
+    """)
     df_base = pd.read_sql_query(query_base, engine, params={"thu": target_day_str})
     if not df_base.empty and len(temp_hs_ids) > 0:
         df_base = df_base[~df_base['hoc_sinh_id'].isin(temp_hs_ids)]
@@ -315,7 +341,7 @@ def get_buoi_from_ca(ca_str):
 
 # --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC ---
 def render_schedule_matrix():
-    query_mindmap = text('''
+    query_mindmap = text("""
         SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
@@ -324,7 +350,7 @@ def render_schedule_matrix():
                 WHEN 'Thứ 2' THEN 1 WHEN 'Thứ 3' THEN 2 WHEN 'Thứ 4' THEN 3
                 WHEN 'Thứ 5' THEN 4 WHEN 'Thứ 6' THEN 5 WHEN 'Thứ 7' THEN 6 WHEN 'Chủ Nhật' THEN 7
             END, l.ca_hoc, h.lop_hoc
-    ''')
+    """)
     df_mindmap = pd.read_sql_query(query_mindmap, engine)
     
     if df_mindmap.empty:
@@ -466,7 +492,7 @@ if choice == "1. Điểm danh & Nhận xét":
 # --- CHỨC NĂNG 2: MA TRẬN LỊCH HỌC TỔNG QUAN & MINDMAP ---
 elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
     st.subheader("🗺️ Thời Khóa Biểu Tuần & Sơ Đồ Mindmap")
-    df_mindmap = pd.read_sql_query(text('''
+    df_mindmap = pd.read_sql_query(text("""
         SELECT l.thu, l.ca_hoc, h.lop_hoc, h.mon_hoc, h.ho_ten
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
@@ -475,7 +501,7 @@ elif choice == "2. 🗺️ Ma Trận Lịch Học & Mindmap Tuần":
                 WHEN 'Thứ 2' THEN 1 WHEN 'Thứ 3' THEN 2 WHEN 'Thứ 4' THEN 3
                 WHEN 'Thứ 5' THEN 4 WHEN 'Thứ 6' THEN 5 WHEN 'Thứ 7' THEN 6 WHEN 'Chủ Nhật' THEN 7
             END, l.ca_hoc, h.lop_hoc
-    '''), engine)
+    """), engine)
     
     if df_mindmap.empty:
         st.info("💡 Chưa có lịch học tuần nào được thiết lập.")
@@ -538,10 +564,10 @@ elif choice == "3. 📅 Lên Lịch Học (Gốc & Tạm Thời)":
                 if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
                     with engine.begin() as conn:
                         for hs_id_item in target_hs_ids_tam:
-                            conn.execute(text('''
+                            conn.execute(text("""
                                 INSERT INTO lich_hoc_tam_thoi (hoc_sinh_id, ngay_bat_dau, ngay_ket_thuc, thu, ca_hoc, loai_thay_doi)
                                 VALUES (:hs_id, :st, :et, :thu, :ca, :loai)
-                            '''), {"hs_id": int(hs_id_item), "st": d_start.strftime("%Y-%m-%d"), "et": d_end.strftime("%Y-%m-%d"), "thu": thu_tam, "ca": ca_tam, "loai": loai_td})
+                            """), {"hs_id": int(hs_id_item), "st": d_start.strftime("%Y-%m-%d"), "et": d_end.strftime("%Y-%m-%d"), "thu": thu_tam, "ca": ca_tam, "loai": loai_td})
                     st.success("✅ Đã lưu lịch tạm thời!")
                     st.rerun()
 
@@ -558,10 +584,11 @@ elif choice == "5. Thống kê & Học phí (Lọc Tháng / Xuất Excel)":
     with col_n: nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year)
     
     thang_nam_query = f"{nam_selected}-{thang_selected:02d}"
-    is_postgres = "postgres" in st.secrets and "url" in st.secrets["postgres"]
-    date_format_func = f"to_char(d.ngay, 'YYYY-MM')" if is_postgres else "strftime('%Y-%m', d.ngay)"
+    db_url_check = get_clean_db_url()
+    is_postgres = db_url_check is not None
+    date_format_func = "to_char(d.ngay, 'YYYY-MM')" if is_postgres else "strftime('%Y-%m', d.ngay)"
     
-    query_thang = f'''
+    query_thang = f"""
         SELECT 
             h.id AS "Mã HS",
             h.ho_ten AS "Họ tên",
@@ -575,7 +602,7 @@ elif choice == "5. Thống kê & Học phí (Lọc Tháng / Xuất Excel)":
         FROM hoc_sinh h
         LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND {date_format_func} = :ym
         GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi
-    '''
+    """
     df_thong_ke = pd.read_sql_query(text(query_thang), engine, params={"ym": thang_nam_query})
     st.dataframe(df_thong_ke, use_container_width=True)
 
@@ -587,10 +614,11 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
     
     thang_nam_key = f"{thang:02d}/{nam}"
     thang_nam_query = f"{nam}-{thang:02d}"
-    is_postgres = "postgres" in st.secrets and "url" in st.secrets["postgres"]
-    date_format_func = f"to_char(d.ngay, 'YYYY-MM')" if is_postgres else "strftime('%Y-%m', d.ngay)"
+    db_url_check = get_clean_db_url()
+    is_postgres = db_url_check is not None
+    date_format_func = "to_char(d.ngay, 'YYYY-MM')" if is_postgres else "strftime('%Y-%m', d.ngay)"
     
-    query_status = f'''
+    query_status = f"""
         SELECT 
             h.id AS hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi,
             SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS so_buoi,
@@ -600,7 +628,7 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
         LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND {date_format_func} = :ym
         LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = :tn
         GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-    '''
+    """
     df_status = pd.read_sql_query(text(query_status), engine, params={"ym": thang_nam_query, "tn": thang_nam_key})
     
     for _, row in df_status.iterrows():
@@ -616,12 +644,12 @@ elif choice == "6. Quản lý & Thống kê Học phí (Xuất PDF)":
             new_status = 'Chưa đóng' if is_paid else 'Đã đóng'
             today_str = date.today().strftime("%Y-%m-%d") if new_status == 'Đã đóng' else ""
             with engine.begin() as conn:
-                conn.execute(text('''
+                conn.execute(text("""
                     INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
                     VALUES (:hs_id, :tn, :st, :nt)
                     ON CONFLICT(hoc_sinh_id, thang_nam) 
                     DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                '''), {"hs_id": int(row['hoc_sinh_id']), "tn": thang_nam_key, "st": new_status, "nt": today_str})
+                """), {"hs_id": int(row['hoc_sinh_id']), "tn": thang_nam_key, "st": new_status, "nt": today_str})
             st.rerun()
 
 # --- CHỨC NĂNG 7: SỬA & XÓA DỮ LIỆU ---
