@@ -82,14 +82,22 @@ def get_active_schedule_for_date(conn, check_date):
     '''
     df_temp = pd.read_sql_query(query_temp, conn)
     
-    nghidai_ids = []
+    nghidai_all_ids = []
+    nghidai_shift_exclusions = []
     doica_ids = []
+    
     if not df_temp.empty:
-        nghidai_df = df_temp[df_temp['loai_thay_doi'] == 'Nghỉ tạm thời trong khoảng thời gian này']
-        nghidai_ids = nghidai_df['hoc_sinh_id'].unique().tolist()
-        
-        doica_df = df_temp[df_temp['loai_thay_doi'] == 'Đổi ca / Học bù']
-        doica_ids = doica_df['hoc_sinh_id'].unique().tolist()
+        df_temp_today_weekday = df_temp[df_temp['thu'] == target_day_str]
+        if not df_temp_today_weekday.empty:
+            nghi_df = df_temp_today_weekday[df_temp_today_weekday['loai_thay_doi'] == 'Nghỉ tạm thời trong khoảng thời gian này']
+            for _, r in nghi_df.iterrows():
+                if r['ca_hoc'] == 'Cả ngày / Tất cả các ca':
+                    nghidai_all_ids.append(r['hoc_sinh_id'])
+                else:
+                    nghidai_shift_exclusions.append((r['hoc_sinh_id'], r['ca_hoc']))
+            
+            doica_df = df_temp_today_weekday[df_temp_today_weekday['loai_thay_doi'] == 'Đổi ca / Học bù']
+            doica_ids = doica_df['hoc_sinh_id'].unique().tolist()
 
     query_base = f'''
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
@@ -99,21 +107,25 @@ def get_active_schedule_for_date(conn, check_date):
     '''
     df_base = pd.read_sql_query(query_base, conn)
     
-    exclude_ids = list(set(nghidai_ids + doica_ids))
-    if not df_base.empty and len(exclude_ids) > 0:
-        df_base = df_base[~df_base['hoc_sinh_id'].isin(exclude_ids)]
+    exclude_all_ids = list(set(nghidai_all_ids + doica_ids))
+    if not df_base.empty and len(exclude_all_ids) > 0:
+        df_base = df_base[~df_base['hoc_sinh_id'].isin(exclude_all_ids)]
+        
+    if not df_base.empty and len(nghidai_shift_exclusions) > 0:
+        for hs_id, shift in nghidai_shift_exclusions:
+            df_base = df_base[~((df_base['hoc_sinh_id'] == hs_id) & (df_base['ca_hoc'] == shift))]
 
-    df_temp_today = pd.DataFrame()
+    df_temp_additions = pd.DataFrame()
     if not df_temp.empty:
-        valid_temp = df_temp[(df_temp['thu'] == target_day_str) & (df_temp['loai_thay_doi'] != 'Nghỉ tạm thời trong khoảng thời gian này')]
+        valid_temp = df_temp[(df_temp['thu'] == target_day_str) & (df_temp['loai_thay_doi'].isin(['Đổi ca / Học bù', 'Học thêm buổi']))]
         if not valid_temp.empty:
-            df_temp_today = valid_temp[['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'loai_thay_doi']].copy()
-            df_temp_today.rename(columns={'loai_thay_doi': 'nguon'}, inplace=True)
+            df_temp_additions = valid_temp[['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'loai_thay_doi']].copy()
+            df_temp_additions.rename(columns={'loai_thay_doi': 'nguon'}, inplace=True)
 
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     df_combined = pd.concat([
         df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols),
-        df_temp_today[cols] if not df_temp_today.empty else pd.DataFrame(columns=cols)
+        df_temp_additions[cols] if not df_temp_additions.empty else pd.DataFrame(columns=cols)
     ], ignore_index=True)
 
     return df_combined
@@ -792,26 +804,34 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     
                     thu_tam = st.selectbox("Vào Thứ", ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'], key="thu_tam_sel")
                     
-                    ca_tam_chon = st.multiselect(
-                        "Chọn các ca học tạm thời:", 
-                        DANH_SACH_CA_MAU, 
-                        default=["17h30 - 19h30"],
-                        key="ca_tam_multiselect"
-                    )
-                    custom_ca_tam_input = st.text_input("Thêm ca giờ tùy chỉnh (nhiều ca cách nhau bằng dấu phẩy):", placeholder="VD: 08h00 - 10h00", key="custom_ca_tam_in")
-                    
-                    if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
+                    all_tam_cas = []
+                    if loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
+                        nghi_mode_add = st.radio("Hình thức nghỉ:", ["Nghỉ tất cả các ca (Cả ngày)", "Nghỉ ca cụ thể"], horizontal=True, key="nghi_mode_add_r")
+                        if nghi_mode_add == "Nghỉ tất cả các ca (Cả ngày)":
+                            all_tam_cas = ["Cả ngày / Tất cả các ca"]
+                        else:
+                            ca_nghi_chon_add = st.multiselect("Chọn các ca cần nghỉ:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key="ca_nghi_multiselect_add")
+                            custom_ca_nghi_add = st.text_input("Hoặc nhập ca tùy chỉnh cần nghỉ (cách nhau bằng dấu phẩy):", key="custom_ca_nghi_in_add")
+                            all_tam_cas = list(ca_nghi_chon_add)
+                            if custom_ca_nghi_add.strip():
+                                all_tam_cas.extend([c.strip() for c in custom_ca_nghi_add.split(",") if c.strip()])
+                    else:
+                        ca_tam_chon = st.multiselect(
+                            "Chọn các ca học tạm thời:", 
+                            DANH_SACH_CA_MAU, 
+                            default=["17h30 - 19h30"],
+                            key="ca_tam_multiselect"
+                        )
+                        custom_ca_tam_input = st.text_input("Thêm ca giờ tùy chỉnh (nhiều ca cách nhau bằng dấu phẩy):", placeholder="VD: 08h00 - 10h00", key="custom_ca_tam_in")
                         all_tam_cas = list(ca_tam_chon)
                         if custom_ca_tam_input.strip():
                             extra_tam = [c.strip() for c in custom_ca_tam_input.split(",") if c.strip()]
                             all_tam_cas.extend(extra_tam)
-                            
-                        if not all_tam_cas and loai_td != "Nghỉ tạm thời trong khoảng thời gian này":
-                            st.warning("⚠️ Vui lòng chọn ít nhất một ca học!")
+                    
+                    if st.form_submit_button("💾 Thiết Lập Lịch Tạm Thời", type="primary"):
+                        if not all_tam_cas:
+                            st.warning("⚠️ Vui lòng chọn ít nhất một ca học hoặc hình thức nghỉ!")
                         else:
-                            if loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
-                                all_tam_cas = ["Cả ngày / Tất cả các ca"]
-                                
                             for hs_id_item in target_hs_ids_tam:
                                 for ca_item in all_tam_cas:
                                     c.execute('''
@@ -843,7 +863,10 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     elif r['loai_thay_doi'] == 'Học thêm buổi':
                         notes.append(f"➕ Phát sinh thêm (Lịch gốc giữ nguyên: {orig_ca})")
                     else:
-                        notes.append(f"🛑 Nghỉ tạm thời lịch gốc: {orig_ca}")
+                        if r['ca_hoc'] == 'Cả ngày / Tất cả các ca':
+                            notes.append(f"🛑 Nghỉ tất cả ca gốc")
+                        else:
+                            notes.append(f"🛑 Nghỉ riêng ca: {r['ca_hoc']}")
                 
                 df_temp_manage['Ghi chú lịch gốc'] = notes
                 
@@ -887,14 +910,26 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                         def_thu_idx = cac_thu_list.index(selected_tmp_row['thu']) if selected_tmp_row['thu'] in cac_thu_list else 0
                         ed_thu_tam = st.selectbox("Vào Thứ", cac_thu_list, index=def_thu_idx, key="ed_thu_tam_m")
                         
-                        def_ca = selected_tmp_row['ca_hoc']
-                        def_ca_idx = DANH_SACH_CA_MAU.index(def_ca) if def_ca in DANH_SACH_CA_MAU else 5
-                        ed_ca_tam_sel = st.selectbox("Vào Ca", DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(DANH_SACH_CA_MAU) else len(DANH_SACH_CA_MAU), key="ed_ca_tam_sel_m")
-                        
-                        custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx >= len(DANH_SACH_CA_MAU) else "18h00 - 20h00", key="custom_ca_edit_input_m")
+                        ed_ca_tam_final = ""
+                        if ed_loai_td == "Nghỉ tạm thời trong khoảng thời gian này":
+                            is_all_day_edit = (selected_tmp_row['ca_hoc'] == 'Cả ngày / Tất cả các ca')
+                            ed_nghi_mode = st.radio("Hình thức nghỉ:", ["Nghỉ tất cả các ca (Cả ngày)", "Nghỉ ca cụ thể"], index=0 if is_all_day_edit else 1, horizontal=True, key="ed_nghi_mode_r")
+                            if ed_nghi_mode == "Nghỉ tất cả các ca (Cả ngày)":
+                                ed_ca_tam_final = 'Cả ngày / Tất cả các ca'
+                            else:
+                                def_ca_edit = selected_tmp_row['ca_hoc'] if not is_all_day_edit else "17h30 - 19h30"
+                                def_ca_idx = DANH_SACH_CA_MAU.index(def_ca_edit) if def_ca_edit in DANH_SACH_CA_MAU else 5
+                                ed_ca_tam_sel = st.selectbox("Chọn ca nghỉ", DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(DANH_SACH_CA_MAU) else len(DANH_SACH_CA_MAU), key="ed_ca_nghi_sel")
+                                custom_ca_edit_nghi = st.text_input("Hoặc nhập giờ tùy chỉnh:", value=def_ca_edit if def_ca_idx >= len(DANH_SACH_CA_MAU) else "", key="ed_custom_ca_nghi")
+                                ed_ca_tam_final = custom_ca_edit_nghi.strip() if (ed_ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_edit_nghi.strip()) else ed_ca_tam_sel
+                        else:
+                            def_ca = selected_tmp_row['ca_hoc']
+                            def_ca_idx = DANH_SACH_CA_MAU.index(def_ca) if def_ca in DANH_SACH_CA_MAU else 5
+                            ed_ca_tam_sel = st.selectbox("Vào Ca", DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."], index=def_ca_idx if def_ca_idx < len(DANH_SACH_CA_MAU) else len(DANH_SACH_CA_MAU), key="ed_ca_tam_sel_m")
+                            custom_ca_edit_input = st.text_input("Nếu chọn tự nhập giờ, nhập vào đây:", value=def_ca if def_ca_idx >= len(DANH_SACH_CA_MAU) else "18h00 - 20h00", key="custom_ca_edit_input_m")
+                            ed_ca_tam_final = custom_ca_edit_input.strip() if (ed_ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_edit_input.strip()) else ed_ca_tam_sel
                         
                         if st.form_submit_button("💾 Cập Nhật Lịch Tạm Thời", type="primary"):
-                            ed_ca_tam_final = custom_ca_edit_input.strip() if (ed_ca_tam_sel == "⏱️ Tự nhập giờ tùy chỉnh..." and custom_ca_edit_input.strip()) else ed_ca_tam_sel
                             c.execute('''
                                 UPDATE lich_hoc_tam_thoi 
                                 SET ngay_bat_dau = ?, ngay_ket_thuc = ?, thu = ?, ca_hoc = ?, loai_thay_doi = ?
