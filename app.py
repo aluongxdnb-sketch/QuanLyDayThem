@@ -370,7 +370,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     
     table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
-    table.set_fontsize(12) # Tăng kích thước chữ tổng thể to rõ hơn
+    table.set_fontsize(12)
     
     v_scale = max(3.2, max_lines_overall * 1.15)
     table.scale(1, v_scale)
@@ -386,8 +386,6 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        
-        # Thêm khoảng đệm (padding) để chữ không bị nằm sát đường kẻ viền
         cell.PAD = 0.15 
         
         if row == 0:
@@ -395,15 +393,12 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
             cell.set_text_props(color='white', weight='bold', size=12.5)
         else:
             if col == 0:
-                # Cột Buổi (Sáng, Chiều, Tối): Làm nổi bật với màu nền vàng kem/cam nhạt và chữ đậm màu cam đậm/đỏ gạch
                 cell.set_facecolor('#FEF3C7')
                 cell.set_text_props(weight='bold', color='#B45309', size=12)
             elif col == 1:
-                # Cột Ca học: Làm nổi bật với nền xanh dương nhạt và chữ đậm màu xanh dương đậm
                 cell.set_facecolor('#E0F2FE')
                 cell.set_text_props(weight='bold', color='#0369A1', size=11.5)
             else:
-                # Các cột ngày trong tuần: Tăng font chữ tên học sinh to rõ, thoáng đãng
                 cell.set_text_props(color='#1E293B', size=12, weight='normal')
                 if row % 2 == 0:
                     cell.set_facecolor('#F8FAFC')
@@ -603,22 +598,26 @@ if choice == "0. 📊 Trang Chủ Dashboard":
     st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
     
     df_today = get_active_schedule_for_date(engine, today)
-    current_thang_query = f"{datetime.now().year}-{datetime.now().month:02d}"
-    current_thang_key = f"{datetime.now().month:02d}/{datetime.now().year}"
+    
+    # Tính toán khoảng thời gian: 1 năm trở về trước tính từ ngày hiện tại, không tính tháng hiện tại
+    curr_y, curr_m = today.year, today.month
+    past_y, past_m = curr_y - 1, curr_m
+    start_date_str = f"{past_y}-{past_m:02d}-01"
+    end_date_str = f"{curr_y}-{curr_m:02d}-01"
     
     query_unpaid_details = f'''
-        SELECT h.id, h.ho_ten, h.lop_hoc 
+        SELECT DISTINCT h.id, h.ho_ten, h.lop_hoc 
         FROM hoc_sinh h
-        WHERE h.id IN (
-            SELECT DISTINCT d.hoc_sinh_id 
-            FROM diem_danh d 
-            WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_thang_query}' AND d.trang_thai = 'Có mặt'
-        )
-        AND h.id NOT IN (
-            SELECT t.hoc_sinh_id 
-            FROM thanh_toan t 
-            WHERE t.thang_nam = '{current_thang_key}' AND t.trang_thai = 'Đã đóng'
-        )
+        JOIN diem_danh d ON h.id = d.hoc_sinh_id
+        WHERE d.trang_thai = 'Có mặt'
+          AND d.ngay >= '{start_date_str}' 
+          AND d.ngay < '{end_date_str}'
+          AND NOT EXISTS (
+              SELECT 1 FROM thanh_toan t 
+              WHERE t.hoc_sinh_id = h.id 
+                AND t.thang_nam = TO_CHAR(d.ngay, 'MM/YYYY') 
+                AND t.trang_thai = 'Đã đóng'
+          )
     '''
     df_unpaid_details = pd.read_sql_query(query_unpaid_details, engine)
     unpaid_count = len(df_unpaid_details)
@@ -629,12 +628,12 @@ if choice == "0. 📊 Trang Chủ Dashboard":
         total_hs_today = len(df_today) if not df_today.empty else 0
         st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
-        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Tháng {current_thang_key}")
+        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Trong 1 năm qua (trừ tháng này)")
         if not df_unpaid_details.empty:
             unpaid_names = ", ".join([f"{r['ho_ten']} ({r['lop_hoc']})" for _, r in df_unpaid_details.iterrows()])
             st.caption(f"⚠️ Chưa đóng: {unpaid_names}")
         else:
-            st.caption("✅ Tất cả học sinh đi học trong tháng đã hoàn thành học phí!")
+            st.caption("✅ Tất cả học sinh đi học trong 1 năm qua (trừ tháng này) đã hoàn thành học phí!")
         
     st.markdown("---")
     st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
