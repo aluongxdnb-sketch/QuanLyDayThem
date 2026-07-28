@@ -272,10 +272,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
 
 # --- HÀM TẠO ẢNH HÓA ĐƠN HỌC PHÍ (TỰ ĐỘNG LỌC BỎ THÁNG 0 CA) ---
 def create_tuition_slip_image_multi(student_name, lop_hoc, subject, month_details, total_lessons, total_fee, status, qr_path):
-    # Lọc bỏ các tháng có số ca học bằng 0
     valid_months = [md for md in month_details if md['so_ca'] > 0]
-    
-    # Nếu sau khi lọc chỉ còn 1 tháng hoặc ban đầu chỉ có 1 tháng -> xuất chuẩn định dạng 1 tháng
     is_multi = len(valid_months) > 1
     
     fig, ax = plt.subplots(figsize=(8, 10 + (len(valid_months) * 0.4 if is_multi else 0)))
@@ -300,8 +297,6 @@ def create_tuition_slip_image_multi(student_name, lop_hoc, subject, month_detail
             ax.text(0.12, y_pos, f" • Tháng {md['thang']}: {md['so_ca']} ca x {md['don_gia']:,.0f} đ = {md['thanh_tien']:,.0f} VNĐ", fontsize=10.5, color='#334155', transform=ax.transAxes)
             y_pos -= 0.04
         y_pos -= 0.02
-        
-        # Tính lại tổng ca và tổng tiền chuẩn xác từ danh sách hợp lệ
         actual_total_lessons = sum([md['so_ca'] for md in valid_months])
         actual_total_fee = sum([md['thanh_tien'] for md in valid_months])
     else:
@@ -616,6 +611,48 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
         c_sum2.metric("💰 Tổng tiền học phí", f"{combined_df['Tổng Tiền (VNĐ)'].sum():,.0f} đ")
         st.markdown("---")
 
+        # Nút xuất ZIP hàng loạt hóa đơn các học sinh có phát sinh
+        if HAS_MATPLOTLIB:
+            if st.button("📦 Xuất ZIP Hàng Loạt Hóa Đơn Các Học Sinh Có Phát Sinh", type="primary"):
+                df_active_students = combined_df[combined_df['Số Ca Có Mặt'] > 0]
+                if df_active_students.empty:
+                    st.warning("⚠️ Không có học sinh nào phát sinh ca học trong khoảng thời gian này.")
+                else:
+                    zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                        for _, row in df_active_students.iterrows():
+                            hs_id = row['hoc_sinh_id']
+                            month_details = []
+                            if che_do_xem == "Theo Tháng (Hỗ trợ chọn nhiều tháng)" and sel_thangs:
+                                for th in sel_thangs:
+                                    t_str, t_key = f"{nam_sel}-{th:02d}", f"{th:02d}/{nam_sel}"
+                                    sc_res = pd.read_sql_query(f"SELECT COUNT(id) as sc FROM diem_danh WHERE hoc_sinh_id = {hs_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{t_str}' AND trang_thai = 'Có mặt'", engine)
+                                    sc_val = int(sc_res.iloc[0]['sc']) if not sc_res.empty else 0
+                                    month_details.append({'thang': t_key, 'so_ca': sc_val, 'don_gia': row['Đơn Giá/Ca (VNĐ)'], 'thanh_tien': sc_val * row['Đơn Giá/Ca (VNĐ)']})
+                            else:
+                                month_details.append({'thang': row['Thời gian'], 'so_ca': int(row['Số Ca Có Mặt']), 'don_gia': row['Đơn Giá/Ca (VNĐ)'], 'thanh_tien': row['Tổng Tiền (VNĐ)']})
+                            
+                            img_buf = create_tuition_slip_image_multi(
+                                row['Họ và Tên'], row['Lớp'], row['Môn Học'] or 'Chung',
+                                month_details, int(row['Số Ca Có Mặt']), row['Tổng Tiền (VNĐ)'], row['Trạng Thái'], qr_path
+                            )
+                            
+                            clean_name = re.sub(r'[^\w\s-]', '', str(row['Họ và Tên'])).strip().replace(' ', '_')
+                            clean_lop = re.sub(r'[^\w\s-]', '', str(row['Lớp'])).strip().replace(' ', '_')
+                            clean_time = str(row['Thời gian']).replace(', ', '_').replace('/', '-').replace(' ', '_')
+                            file_name = f"Phieu_{clean_name}_{clean_lop}_{clean_time}.png"
+                            zip_file.writestr(file_name, img_buf.getvalue())
+                    
+                    zip_buffer.seek(0)
+                    st.download_button(
+                        label="📥 Tải Xuống File ZIP Hóa Đơn Hàng Loạt",
+                        data=zip_buffer,
+                        file_name="Tat_Ca_Hoa_Don_Hoc_Sinh.zip",
+                        mime="application/zip",
+                        key="download_zip_all_invoices"
+                    )
+            st.markdown("---")
+
         for idx, row in combined_df.iterrows():
             hs_id = row['hoc_sinh_id']
             month_details = []
@@ -652,10 +689,15 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
 
             with c7:
                 if HAS_MATPLOTLIB:
+                    clean_name = re.sub(r'[^\w\s-]', '', str(row['Họ và Tên'])).strip().replace(' ', '_')
+                    clean_lop = re.sub(r'[^\w\s-]', '', str(row['Lớp'])).strip().replace(' ', '_')
+                    clean_time = str(row['Thời gian']).replace(', ', '_').replace('/', '-').replace(' ', '_')
+                    file_name_img = f"Phieu_{clean_name}_{clean_lop}_{clean_time}.png"
+
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=create_tuition_slip_image_multi(row['Họ và Tên'], row['Lớp'], row['Môn Học'] or 'Chung', month_details, int(row['Số Ca Có Mặt']), row['Tổng Tiền (VNĐ)'], row['Trạng Thái'], qr_path),
-                        file_name=f"Phieu_{row['Họ và Tên'].replace(' ', '_')}.png", mime="image/png", key=f"img_{hs_id}_{idx}"
+                        file_name=file_name_img, mime="image/png", key=f"img_{hs_id}_{idx}"
                     )
             st.divider()
 
