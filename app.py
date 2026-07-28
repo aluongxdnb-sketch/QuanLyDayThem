@@ -261,7 +261,7 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM LẤY MA TRẬN LỊCH HỌC (ĐÃ TỐI ƯU CÁCH XUỐNG DÒNG TỪNG HỌC SINH) ---
+# --- HÀM LẤY MA TRẬN LỊCH HỌC ---
 def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -333,37 +333,49 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (MỞ RỘNG CỘT & CÂN CHỈNH TRÌNH BÀY) ---
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CÓ CO GIÃN ĐỘNG CHIỀU CAO DÒNG) ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
         ref_date = date.today()
         
-    fig, ax = plt.subplots(figsize=(22, len(df_matrix) * 1.4 + 4.5))
+    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
+    
+    # Tự động tính số dòng tối đa trong các ô để co giãn chiều cao ảnh và bảng linh hoạt
+    max_lines_overall = 1
+    cleaned_data = []
+    for row in table_data:
+        cleaned_row = []
+        row_max_lines = 1
+        for col_idx, cell in enumerate(row):
+            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
+            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
+            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
+            
+            lines = clean_cell.count('\n') + 1
+            if lines > row_max_lines:
+                row_max_lines = lines
+            cleaned_row.append(clean_cell)
+        cleaned_data.append(cleaned_row)
+        if row_max_lines > max_lines_overall:
+            max_lines_overall = row_max_lines
+            
+    fig, ax = plt.subplots(figsize=(22, len(df_matrix) * max(1.6, max_lines_overall * 0.55) + 4.5))
     ax.axis('off')
     ax.axis('tight')
     
     start_w = ref_date - timedelta(days=ref_date.weekday())
     end_w = start_w + timedelta(days=6)
     week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
-    
-    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
-    cleaned_data = []
-    for row in table_data:
-        cleaned_row = []
-        for col_idx, cell in enumerate(row):
-            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
-            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
-            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
-            cleaned_row.append(clean_cell)
-        cleaned_data.append(cleaned_row)
         
-    # Phân bổ rộng rãi kích thước các cột để thể hiện hết tên học sinh
     col_widths = [0.07, 0.11, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
     
     table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1, 2.8)
+    
+    # Co giãn chiều cao động dựa theo số lượng học sinh nhiều hay ít trong ô
+    v_scale = max(2.8, max_lines_overall * 0.95)
+    table.scale(1, v_scale)
     
     ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
             fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
@@ -1287,7 +1299,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
-                        file_name=f"Phieu_{row['Họ and Tên']}_{str(row['Thời gian']).replace('/', '_')}.png",
+                        file_name=f"Phieu_{row['Họ và Tên']}_{str(row['Thời gian']).replace('/', '_')}.png",
                         mime="image/png",
                         key=f"img_fee_{row['hoc_sinh_id']}_{row['Thời gian']}_{idx}"
                     )
