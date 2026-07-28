@@ -606,7 +606,9 @@ if choice == "0. 📊 Trang Chủ Dashboard":
     end_date_str = f"{curr_y}-{curr_m:02d}-01"
     
     query_unpaid_details = f'''
-        SELECT DISTINCT h.id, h.ho_ten, h.lop_hoc 
+        SELECT h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi,
+               TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam,
+               COUNT(d.id) AS so_ca
         FROM hoc_sinh h
         JOIN diem_danh d ON h.id = d.hoc_sinh_id
         WHERE d.trang_thai = 'Có mặt'
@@ -618,22 +620,40 @@ if choice == "0. 📊 Trang Chủ Dashboard":
                 AND t.thang_nam = TO_CHAR(d.ngay, 'MM/YYYY') 
                 AND t.trang_thai = 'Đã đóng'
           )
+        GROUP BY h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi, TO_CHAR(d.ngay, 'MM/YYYY')
+        ORDER BY thang_nam DESC, h.ho_ten ASC
     '''
     df_unpaid_details = pd.read_sql_query(query_unpaid_details, engine)
-    unpaid_count = len(df_unpaid_details)
+    
+    # Tính tổng tiền còn cần phải thu
+    if not df_unpaid_details.empty:
+        df_unpaid_details['tien_no'] = df_unpaid_details['so_ca'] * df_unpaid_details['hoc_phi_buoi']
+        total_debt_amount = df_unpaid_details['tien_no'].sum()
+        unique_unpaid_students = df_unpaid_details['id'].nunique()
+    else:
+        total_debt_amount = 0
+        unique_unpaid_students = 0
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
         total_hs_today = len(df_today) if not df_today.empty else 0
         st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
-        st.metric("💳 Học sinh chưa đóng học phí", f"{unpaid_count} em", f"Trong 1 năm qua (trừ tháng này)")
-        if not df_unpaid_details.empty:
-            unpaid_names = ", ".join([f"{r['ho_ten']} ({r['lop_hoc']})" for _, r in df_unpaid_details.iterrows()])
-            st.caption(f"⚠️ Chưa đóng: {unpaid_names}")
-        else:
-            st.caption("✅ Tất cả học sinh đi học trong 1 năm qua (trừ tháng này) đã hoàn thành học phí!")
+        st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
+    with col3:
+        st.metric("💰 Tổng tiền còn cần thu", f"{total_debt_amount:,.0f} đ", f"Các tháng trước")
+
+    st.markdown("---")
+    st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
+    if df_unpaid_details.empty:
+        st.success("✅ Tuyệt vời! Tất cả học sinh trong 1 năm qua (trừ tháng này) đã hoàn thành học phí.")
+    else:
+        # Gom nhóm hiển thị theo từng học sinh hoặc hiển thị bảng chi tiết rõ ràng
+        display_debt_df = df_unpaid_details[['ho_ten', 'lop_hoc', 'thang_nam', 'so_ca', 'tien_no']].copy()
+        display_debt_df.columns = ['Họ và Tên', 'Lớp', 'Tháng Chưa Đóng', 'Số Ca Học', 'Số Tiền Cần Thu (VNĐ)']
+        display_debt_df['Số Tiền Cần Thu (VNĐ)'] = display_debt_df['Số Tiền Cần Thu (VNĐ)'].map('{:,.0f} đ'.format)
+        st.dataframe(display_debt_df, use_container_width=True)
         
     st.markdown("---")
     st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
