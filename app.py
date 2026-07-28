@@ -79,7 +79,6 @@ def get_active_schedule_for_date(engine, check_date):
     target_day_str = get_vietnamese_weekday(check_date)
     date_str = check_date.strftime("%Y-%m-%d")
 
-    # 1. Lấy lịch gốc hàng tuần cho thứ này
     query_base = f'''
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
         FROM lich_hoc_tuan l
@@ -88,7 +87,6 @@ def get_active_schedule_for_date(engine, check_date):
     '''
     df_base = pd.read_sql_query(query_base, engine)
 
-    # 2. Lấy các thay đổi tạm thời có hiệu lực chứa ngày này (ngay_bat_dau <= date_str <= ngay_ket_thuc)
     query_temp = f'''
         SELECT t.id, t.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, t.thu, t.ca_hoc, t.loai_thay_doi, t.ngay_bat_dau, t.ngay_ket_thuc
         FROM lich_hoc_tam_thoi t
@@ -97,8 +95,8 @@ def get_active_schedule_for_date(engine, check_date):
     '''
     df_temp = pd.read_sql_query(query_temp, engine)
 
-    exclude_pairs = set() # (hoc_sinh_id, ca_hoc) bị ẩn/nghỉ/đổi trong ngày này
-    additional_rows = [] # Các ca học thêm phát sinh trong ngày này
+    exclude_pairs = set() 
+    additional_rows = [] 
 
     if not df_temp.empty:
         for _, r in df_temp.iterrows():
@@ -107,7 +105,6 @@ def get_active_schedule_for_date(engine, check_date):
             thu_tam = r['thu']
             ca_tam = r['ca_hoc']
             
-            # CHỈ áp dụng nếu thứ của lịch tạm thời khớp với thứ của ngày đang kiểm tra
             if thu_tam == target_day_str:
                 if loai == 'Nghỉ tạm thời trong khoảng thời gian này':
                     exclude_pairs.add((hs_id, ca_tam))
@@ -123,7 +120,6 @@ def get_active_schedule_for_date(engine, check_date):
                         'nguon': 'Học thêm'
                     })
 
-    # Lọc bỏ các ca bị nghỉ/đổi trong lịch gốc
     if not df_base.empty and len(exclude_pairs) > 0:
         mask = df_base.apply(lambda row: (row['hoc_sinh_id'], row['ca_hoc']) not in exclude_pairs, axis=1)
         df_base = df_base[mask]
@@ -1101,15 +1097,19 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
             selected_lop_exp = None
             selected_hs_exp = None
             prefix_label = "Học sinh / Lớp: "
+            file_name_download = "Lich_Hoc_Tat_Ca_Cac_Lop.png"
 
             if filter_mode == "Toàn bộ các Lớp":
                 target_title = "Tất Cả Các Lớp"
                 prefix_label = "Phạm vi: "
+                file_name_download = "Lich_Hoc_Tat_Ca_Cac_Lop.png"
             elif filter_mode == "Theo Lớp cụ thể":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                 selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list, key="sel_lop_exp_m")
                 target_title = f"Lớp {selected_lop_exp}"
                 prefix_label = "Học sinh / Lớp: "
+                safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", f"{selected_lop_exp}".replace(" ", "_"))
+                file_name_download = f"Lich_Hoc_Lop_{safe_lop_name}.png"
             elif filter_mode == "Theo Học sinh cụ thể":
                 hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()), key="sel_hs_label_exp_m")
@@ -1117,6 +1117,8 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                 selected_hs_exp = selected_hs_row['id']
                 target_title = f"{selected_hs_row['ho_ten']} ({selected_hs_row['lop_hoc']})"
                 prefix_label = "Học sinh / Lớp: "
+                safe_hs_name = re.sub(r'[\\/*?:"<>|]', "", f"{selected_hs_row['ho_ten']}_{selected_hs_row['lop_hoc']}".replace(" ", "_"))
+                file_name_download = f"Lich_Hoc_{safe_hs_name}.png"
 
             df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
 
@@ -1127,37 +1129,60 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                     col_ex1, col_ex2 = st.columns(2)
                     with col_ex1:
                         img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
-                        file_name_prefix = "Hoc_Sinh" if filter_mode == "Theo Học sinh cụ thể" else ("Lop" if filter_mode == "Theo Lớp cụ thể" else "Tat_Ca")
                         st.download_button(
                             label=f"🖼️ Tải Ảnh Lịch Học ({target_title})",
                             data=img_bytes,
-                            file_name=f"Lich_Hoc_Tuan_{file_name_prefix}.png",
+                            file_name=file_name_download,
                             mime="image/png",
                             type="primary"
                         )
                     with col_ex2:
-                        if st.button("📦 Xuất ZIP Lịch Học TẤT CẢ Học Sinh Trong Tuần", type="secondary"):
-                            zip_buffer_s = io.BytesIO()
-                            with zipfile.ZipFile(zip_buffer_s, "w", zipfile.ZIP_DEFLATED) as zf:
-                                for _, hs_r in df_hs_all.iterrows():
-                                    hs_id_val = hs_r['id']
-                                    hs_name_val = hs_r['ho_ten']
-                                    hs_lop_val = hs_r['lop_hoc']
-                                    
-                                    df_hs_mat = get_schedule_matrix_df(engine, filter_hs_id=hs_id_val, ref_date=sel_date_export)
-                                    if not df_hs_mat.empty:
-                                        img_hs_b = create_weekly_schedule_image(f"{hs_name_val} ({hs_lop_val})", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh: ")
-                                        safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
-                                        zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
-                            zip_buffer_s.seek(0)
-                            st.download_button(
-                                label="📥 Bấm Tải Xuống File ZIP Lịch Học (Tất Cả HS)",
-                                data=zip_buffer_s,
-                                file_name=f"Tat_Ca_Lich_Hoc_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
-                                mime="application/zip",
-                                type="primary",
-                                key="btn_download_zip_schedule"
-                            )
+                        st.markdown("##### 📦 Xuất File ZIP Hàng Loạt")
+                        zip_choice = st.radio("Chọn nội dung file ZIP:", ["Tất cả học sinh", "Tất cả các lớp"], horizontal=True, key="zip_choice_schedule")
+                        
+                        if zip_choice == "Tất cả học sinh":
+                            if st.button("📦 Tải ZIP Lịch Học TẤT CẢ Học Sinh", type="secondary"):
+                                zip_buffer_s = io.BytesIO()
+                                with zipfile.ZipFile(zip_buffer_s, "w", zipfile.ZIP_DEFLATED) as zf:
+                                    for _, hs_r in df_hs_all.iterrows():
+                                        hs_id_val = hs_r['id']
+                                        hs_name_val = hs_r['ho_ten']
+                                        hs_lop_val = hs_r['lop_hoc']
+                                        
+                                        df_hs_mat = get_schedule_matrix_df(engine, filter_hs_id=hs_id_val, ref_date=sel_date_export)
+                                        if not df_hs_mat.empty:
+                                            img_hs_b = create_weekly_schedule_image(f"{hs_name_val} ({hs_lop_val})", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh: ")
+                                            safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
+                                            zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
+                                zip_buffer_s.seek(0)
+                                st.download_button(
+                                    label="📥 Bấm Tải Xuống ZIP Tất Cả Học Sinh",
+                                    data=zip_buffer_s,
+                                    file_name=f"Tat_Ca_Lich_Hoc_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    mime="application/zip",
+                                    type="primary",
+                                    key="btn_download_zip_schedule_hs"
+                                )
+                        else:
+                            if st.button("📦 Tải ZIP Lịch Học TẤT CẢ Các Lớp", type="secondary"):
+                                zip_buffer_l = io.BytesIO()
+                                all_lops_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
+                                with zipfile.ZipFile(zip_buffer_l, "w", zipfile.ZIP_DEFLATED) as zf_l:
+                                    for lop_val in all_lops_list:
+                                        df_lop_mat = get_schedule_matrix_df(engine, filter_lop=lop_val, ref_date=sel_date_export)
+                                        if not df_lop_mat.empty:
+                                            img_lop_b = create_weekly_schedule_image(f"Lớp {lop_val}", df_lop_mat, ref_date=sel_date_export, prefix="Lớp: ")
+                                            safe_lop_n = re.sub(r'[\\/*?:"<>|]', "", f"{lop_val}".replace(" ", "_"))
+                                            zf_l.writestr(f"Lich_Hoc_Lop_{safe_lop_n}.png", img_lop_b.getvalue())
+                                zip_buffer_l.seek(0)
+                                st.download_button(
+                                    label="📥 Bấm Tải Xuống ZIP Tất Cả Các Lớp",
+                                    data=zip_buffer_l,
+                                    file_name=f"Tat_Ca_Lich_Hoc_Cac_Lop_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    mime="application/zip",
+                                    type="primary",
+                                    key="btn_download_zip_schedule_lop"
+                                )
 
 # =========================================================
 # --- CHỨC NĂNG 3: THỐNG KÊ SỐ CA & QUẢN LÝ HỌC PHÍ ---
@@ -1224,7 +1249,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                         df_att = pd.read_sql_query(q_att, engine)
                         so_ca = int(df_att.iloc[0]['so_ca']) if not df_att.empty else 0
                         
-                        # Lọc bỏ tháng có số ca học bằng 0
                         if so_ca == 0:
                             continue
                             
@@ -1250,7 +1274,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     if len(valid_month_details) == 0:
                         continue
                     elif len(valid_month_details) == 1:
-                        # Sau khi lọc mà chỉ còn đúng 1 tháng có ca học -> chuyển về định dạng chuẩn 1 tháng
                         m_info = valid_month_details[0]
                         rows_aggregated.append({
                             'hoc_sinh_id': hs_id,
@@ -1266,7 +1289,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                             'details': []
                         })
                     else:
-                        # Từ 2 tháng trở lên sau khi lọc
                         status_str_parts = [f"Tháng {d['thang_key']}: {d['trang_thai']}" for d in valid_month_details]
                         status_combined = ", ".join(status_str_parts)
                         thangs_str = " - ".join([d['thang_key'] for d in valid_month_details])
@@ -1312,7 +1334,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
         combined_df['is_multi'] = False
         combined_df['details'] = [[] for _ in range(len(combined_df))]
 
-    else: # Theo Tuần
+    else:
         tuan_chon = st.date_input("Chọn ngày thuộc tuần cần xem:", date.today())
         start_w = tuan_chon - timedelta(days=tuan_chon.weekday())
         end_w = start_w + timedelta(days=6)
@@ -1379,7 +1401,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                             details_list=row_fee.get('details', [])
                         )
                         safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['HọនិងTên'] if 'HọនិងTên' in row_fee else row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
