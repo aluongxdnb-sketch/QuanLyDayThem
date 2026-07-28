@@ -333,14 +333,13 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CÓ CO GIÃN ĐỘNG CHIỀU CAO DÒNG) ---
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (CHỮ TO RÕ, CĂN LỀ & NỔI BẬT BUỔI/CA) ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
         ref_date = date.today()
         
     table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
     
-    # Tự động tính số dòng tối đa trong các ô để co giãn chiều cao ảnh và bảng linh hoạt
     max_lines_overall = 1
     cleaned_data = []
     for row in table_data:
@@ -359,7 +358,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
         if row_max_lines > max_lines_overall:
             max_lines_overall = row_max_lines
             
-    fig, ax = plt.subplots(figsize=(22, len(df_matrix) * max(1.6, max_lines_overall * 0.55) + 4.5))
+    fig, ax = plt.subplots(figsize=(24, len(df_matrix) * max(1.8, max_lines_overall * 0.65) + 5.0))
     ax.axis('off')
     ax.axis('tight')
     
@@ -367,36 +366,45 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     end_w = start_w + timedelta(days=6)
     week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
         
-    col_widths = [0.07, 0.11, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
+    col_widths = [0.08, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
     
     table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
-    table.set_fontsize(10)
+    table.set_fontsize(12) # Tăng kích thước chữ tổng thể to rõ hơn
     
-    # Co giãn chiều cao động dựa theo số lượng học sinh nhiều hay ít trong ô
-    v_scale = max(2.8, max_lines_overall * 0.95)
+    v_scale = max(3.2, max_lines_overall * 1.15)
     table.scale(1, v_scale)
     
     ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
-            fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+            fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
     ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
-            fontsize=13.5, fontweight='bold', color='#0F172A', ha='center', va='bottom')
+            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='bottom')
     ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
-            fontsize=11, fontweight='normal', color='#475569', ha='center', va='bottom')
+            fontsize=11.5, fontweight='normal', color='#475569', ha='center', va='bottom')
     
-    plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
+    plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", ha='center', fontsize=10.5, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
+        
+        # Thêm khoảng đệm (padding) để chữ không bị nằm sát đường kẻ viền
+        cell.PAD = 0.15 
+        
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=11.5)
+            cell.set_text_props(color='white', weight='bold', size=12.5)
         else:
-            cell.set_text_props(color='#1E293B', size=10)
-            if col == 0 or col == 1:
-                cell.set_facecolor('#F1F5F9')
-                cell.set_text_props(weight='bold', color='#1E3A8A')
+            if col == 0:
+                # Cột Buổi (Sáng, Chiều, Tối): Làm nổi bật với màu nền vàng kem/cam nhạt và chữ đậm màu cam đậm/đỏ gạch
+                cell.set_facecolor('#FEF3C7')
+                cell.set_text_props(weight='bold', color='#B45309', size=12)
+            elif col == 1:
+                # Cột Ca học: Làm nổi bật với nền xanh dương nhạt và chữ đậm màu xanh dương đậm
+                cell.set_facecolor('#E0F2FE')
+                cell.set_text_props(weight='bold', color='#0369A1', size=11.5)
             else:
+                # Các cột ngày trong tuần: Tăng font chữ tên học sinh to rõ, thoáng đãng
+                cell.set_text_props(color='#1E293B', size=12, weight='normal')
                 if row % 2 == 0:
                     cell.set_facecolor('#F8FAFC')
                 else:
