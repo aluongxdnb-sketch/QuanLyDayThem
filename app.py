@@ -293,7 +293,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     plt.close(fig); buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO ẢNH HÓA ĐƠN HỌC PHÍ (TỰ ĐỘNG LỌC THÁNG 0 CA) ---
+# --- HÀM TẠO ẢNH HÓA ĐƠN HỌC PHÍ (TỰ ĐỘNG LỌC THÁNG 0 CA & CHUẨN HÓA NHIỀU/1 THÁNG) ---
 def create_tuition_slip_image_multi(student_name, lop_hoc, subject, month_details, status, qr_path):
     valid_months = [md for md in month_details if md['so_ca'] > 0]
     is_multi = len(valid_months) > 1
