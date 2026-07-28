@@ -270,24 +270,14 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     plt.close(fig); buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO ẢNH HÓA ĐƠN HỌC PHÍ (TỰ ĐỘNG LỌC BỎ THÁNG 0 CA) ---
+# --- HÀM TẠO ẢNH HÓA ĐƠN HỌC PHÍ (HỖ TRỢ 1 HOẶC NHIỀU THÁNG) ---
 def create_tuition_slip_image_multi(student_name, lop_hoc, subject, month_details, total_lessons, total_fee, status, qr_path):
-    # Lọc bỏ các tháng có số ca học bằng 0
-    valid_months = [md for md in month_details if md['so_ca'] > 0]
-    
-    # Nếu sau khi lọc chỉ còn 1 tháng hoặc ban đầu chỉ có 1 tháng -> xuất chuẩn định dạng 1 tháng
-    is_multi = len(valid_months) > 1
-    
-    fig, ax = plt.subplots(figsize=(8, 10 + (len(valid_months) * 0.4 if is_multi else 0)))
+    is_multi = len(month_details) > 1
+    fig, ax = plt.subplots(figsize=(8, 10 + (len(month_details) * 0.4 if is_multi else 0)))
     ax.axis('off')
     
     ax.text(0.5, 0.95, "PHIẾU BÁO HỌC PHÍ NHIỀU THÁNG" if is_multi else "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    
-    if is_multi:
-        ax.text(0.5, 0.91, f"Tổng hợp {len(valid_months)} tháng có phát sinh", fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    else:
-        display_month = valid_months[0]['thang'] if valid_months else (month_details[0]['thang'] if month_details else "")
-        ax.text(0.5, 0.91, f"Thời gian: {display_month}", fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.91, f"Tổng hợp {len(month_details)} tháng" if is_multi else f"Thời gian: {month_details[0]['thang']}", fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.84
     ax.text(0.1, y_pos, f"Họ và tên học sinh: {student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes); y_pos -= 0.045
@@ -296,23 +286,17 @@ def create_tuition_slip_image_multi(student_name, lop_hoc, subject, month_detail
     
     if is_multi:
         ax.text(0.1, y_pos, "Chi tiết học phí theo từng tháng:", fontsize=11.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes); y_pos -= 0.045
-        for md in valid_months:
+        for md in month_details:
             ax.text(0.12, y_pos, f" • Tháng {md['thang']}: {md['so_ca']} ca x {md['don_gia']:,.0f} đ = {md['thanh_tien']:,.0f} VNĐ", fontsize=10.5, color='#334155', transform=ax.transAxes)
             y_pos -= 0.04
         y_pos -= 0.02
-        
-        # Tính lại tổng ca và tổng tiền chuẩn xác từ danh sách hợp lệ
-        actual_total_lessons = sum([md['so_ca'] for md in valid_months])
-        actual_total_fee = sum([md['thanh_tien'] for md in valid_months])
     else:
-        md = valid_months[0] if valid_months else (month_details[0] if month_details else {'don_gia': 0, 'so_ca': 0, 'thanh_tien': 0})
+        md = month_details[0]
         ax.text(0.1, y_pos, f"Học phí / ca: {md['don_gia']:,.0f} VNĐ", fontsize=11.5, transform=ax.transAxes); y_pos -= 0.045
         ax.text(0.1, y_pos, f"Tổng số ca học: {md['so_ca']} ca", fontsize=11.5, transform=ax.transAxes); y_pos -= 0.055
-        actual_total_lessons = md['so_ca']
-        actual_total_fee = md['thanh_tien']
         
-    ax.text(0.1, y_pos, f"TỔNG SỐ CA: {actual_total_lessons} ca", fontsize=12, fontweight='bold', color='#1E3A8A', transform=ax.transAxes); y_pos -= 0.045
-    ax.text(0.1, y_pos, f"TỔNG CỘNG HỌC PHÍ: {actual_total_fee:,.0f} VNĐ", fontsize=13, fontweight='bold', color='#B91C1C', transform=ax.transAxes); y_pos -= 0.045
+    ax.text(0.1, y_pos, f"TỔNG SỐ CA: {total_lessons} ca", fontsize=12, fontweight='bold', color='#1E3A8A', transform=ax.transAxes); y_pos -= 0.045
+    ax.text(0.1, y_pos, f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ", fontsize=13, fontweight='bold', color='#B91C1C', transform=ax.transAxes); y_pos -= 0.045
     ax.text(0.1, y_pos, f"Trạng thái thanh toán: {status}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
         
     if qr_path and os.path.exists(qr_path):
