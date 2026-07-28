@@ -1149,7 +1149,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
     if combined_df.empty:
         st.info("ℹ️ Không tìm thấy dữ liệu thống kê phù hợp.")
     else:
-        # 🌟 BỔ SUNG DÒNG TỔNG SỐ CA VÀ HỌC PHÍ NGAY ĐẦU DANH SÁCH
         total_ca_all = combined_df['Số Ca Có Mặt'].sum()
         total_tien_all = combined_df['Tổng Tiền (VNĐ)'].sum()
         
@@ -1175,7 +1174,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                             status=row_fee['Trạng Thái'],
                             qr_path=qr_path
                         )
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{row_fee['Thời gian']}".replace(" ", "_").replace("/", "_"))
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ and Tên'] if 'Họ and Tên' in row_fee else row_fee['Họ và Tên']}_{row_fee['Lớp']}_{row_fee['Thời gian']}".replace(" ", "_").replace("/", "_"))
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
@@ -1321,7 +1320,7 @@ elif choice == "4. Sửa & Xóa dữ liệu":
             date_filter_str = sel_date_filter.strftime("%Y-%m-%d")
             
             df_logs = pd.read_sql_query(f'''
-                SELECT d.id AS "Mã Lịch", h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" 
+                SELECT d.id AS "Mã Lịch", h.id AS hoc_sinh_id, h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" 
                 FROM diem_danh d 
                 JOIN hoc_sinh h ON d.hoc_sinh_id = h.id 
                 WHERE d.ngay = '{date_filter_str}'
@@ -1332,40 +1331,82 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                 st.write(f"📋 Danh sách điểm danh trong ngày **{sel_date_filter.strftime('%d/%m/%Y')}** ({len(df_logs)} bản ghi):")
                 st.dataframe(df_logs[['Mã Lịch', 'Họ Tên', 'Lớp', 'Ca Học', 'Trạng Thái', 'Nhận Xét']], use_container_width=True)
                 
-                log_dict = {f"Mã ID: {row['Mã Lịch']} - {row['Họ Tên']} [{row['Lớp']}] (Ca: {row['Ca Học']} - {row['Trạng Thái']})": row['Mã Lịch'] for _, row in df_logs.iterrows()}
-                selected_log_label = st.selectbox("Chọn bản ghi (Mã Lịch) cần sửa hoặc xóa trong ngày:", list(log_dict.keys()), key="log_sel_id_by_date")
-                log_to_edit_del = log_dict[selected_log_label]
+                # 🌟 THÊM TÍNH NĂNG CHỌN PHẠM VI THAO TÁC (TỪNG BẢN GHI HOẶC THEO CẢ LỚP)
+                action_mode = st.radio("Chọn phạm vi thao tác:", ["👤 Sửa/Xóa từng bản ghi lẻ", "🏫 Sửa/Xóa theo Cả Lớp trong ngày"], horizontal=True, key="action_mode_log_manage")
                 
-                row_log_item = df_logs[df_logs['Mã Lịch'] == log_to_edit_del].iloc[0]
-                
-                with st.form("form_edit_delete_diem_danh_record"):
-                    st.write(f"Đang thao tác Mã Lịch **{log_to_edit_del}**: {row_log_item['Họ Tên']} [{row_log_item['Lớp']}] - Ngày: {row_log_item['Ngày']} - Ca: {row_log_item['Ca Học']}")
-                    stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
-                    default_stt_idx = stt_options.index(row_log_item['Trạng Thái']) if row_log_item['Trạng Thái'] in stt_options else 0
-                    edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
-                    edit_nx_val = st.text_input("Nhận xét mới:", value=row_log_item['Nhận Xét'] or "", key="edit_log_nx")
+                if action_mode == "👤 Sửa/Xóa từng bản ghi lẻ":
+                    log_dict = {f"Mã ID: {row['Mã Lịch']} - {row['Họ Tên']} [{row['Lớp']}] (Ca: {row['Ca Học']} - {row['Trạng Thái']})": row['Mã Lịch'] for _, row in df_logs.iterrows()}
+                    selected_log_label = st.selectbox("Chọn bản ghi (Mã Lịch) cần sửa hoặc xóa:", list(log_dict.keys()), key="log_sel_id_by_date")
+                    log_to_edit_del = log_dict[selected_log_label]
+                    row_log_item = df_logs[df_logs['Mã Lịch'] == log_to_edit_del].iloc[0]
                     
-                    col_eb1, col_eb2 = st.columns(2)
-                    with col_eb1:
-                        submit_update_log = st.form_submit_button("💾 Cập Nhật Điểm Danh", type="primary")
-                    with col_eb2:
-                        submit_delete_log = st.form_submit_button("❌ Xóa Bản Ghi Này", type="secondary")
+                    with st.form("form_edit_delete_diem_danh_record"):
+                        st.write(f"Đang thao tác Mã Lịch **{log_to_edit_del}**: {row_log_item['Họ Tên']} [{row_log_item['Lớp']}] - Ngày: {row_log_item['Ngày']} - Ca: {row_log_item['Ca Học']}")
+                        stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
+                        default_stt_idx = stt_options.index(row_log_item['Trạng Thái']) if row_log_item['Trạng Thái'] in stt_options else 0
+                        edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
+                        edit_nx_val = st.text_input("Nhận xét mới:", value=row_log_item['Nhận Xét'] or "", key="edit_log_nx")
                         
-                    if submit_update_log:
-                        with engine.begin() as conn:
-                            conn.execute(text('''
-                                UPDATE diem_danh 
-                                SET trang_thai = :stt, nhan_xet = :nx 
-                                WHERE id = :id
-                            '''), {"stt": edit_stt_val, "nx": edit_nx_val.strip(), "id": log_to_edit_del})
-                        st.success(f"✅ Đã cập nhật thành công Mã Lịch {log_to_edit_del}!")
-                        st.rerun()
-                        
-                    if submit_delete_log:
-                        with engine.begin() as conn:
-                            conn.execute(text("DELETE FROM diem_danh WHERE id = :id"), {"id": log_to_edit_del})
-                        st.success(f"✅ Đã xóa thành công Mã Lịch {log_to_edit_del}!")
-                        st.rerun()
+                        col_eb1, col_eb2 = st.columns(2)
+                        with col_eb1:
+                            submit_update_log = st.form_submit_button("💾 Cập Nhật Điểm Danh", type="primary")
+                        with col_eb2:
+                            submit_delete_log = st.form_submit_button("❌ Xóa Bản Ghi Này", type="secondary")
+                            
+                        if submit_update_log:
+                            with engine.begin() as conn:
+                                conn.execute(text('''
+                                    UPDATE diem_danh 
+                                    SET trang_thai = :stt, nhan_xet = :nx 
+                                    WHERE id = :id
+                                '''), {"stt": edit_stt_val, "nx": edit_nx_val.strip(), "id": log_to_edit_del})
+                            st.success(f"✅ Đã cập nhật thành công Mã Lịch {log_to_edit_del}!")
+                            st.rerun()
+                            
+                        if submit_delete_log:
+                            with engine.begin() as conn:
+                                conn.execute(text("DELETE FROM diem_danh WHERE id = :id"), {"id": log_to_edit_del})
+                            st.success(f"✅ Đã xóa thành công Mã Lịch {log_to_edit_del}!")
+                            st.rerun()
+                else:
+                    available_classes = sorted(df_logs['Lớp'].dropna().unique().tolist())
+                    sel_class_action = st.selectbox("Chọn Lớp cần thao tác trong ngày:", available_classes, key="sel_class_action_key")
+                    
+                    df_class_logs = df_logs[df_logs['Lớp'] == sel_class_action]
+                    st.write(f"📌 Lớp **{sel_class_action}** có {len(df_class_logs)} học sinh được điểm danh trong ngày này:")
+                    st.dataframe(df_class_logs[['Mã Lịch', 'Họ Tên', 'Ca Học', 'Trạng Thái', 'Nhận Xét']], use_container_width=True)
+                    
+                    class_action_type = st.radio("Chọn hành động cho lớp này:", ["🗑️ Xóa toàn bộ điểm danh của lớp này trong ngày", "✏️ Cập nhật (Sửa) hàng loạt cho lớp này"], horizontal=True, key="class_action_type_radio")
+                    
+                    if class_action_type == "🗑️ Xóa toàn bộ điểm danh của lớp này trong ngày":
+                        confirm_del_class = st.checkbox(f"Tôi xác nhận muốn XÓA toàn bộ điểm danh của lớp {sel_class_action} trong ngày {sel_date_filter.strftime('%d/%m/%Y')}", key="confirm_del_class_chk")
+                        if st.button("❌ XÓA TOÀN BỘ ĐIỂM DANH LỚP NÀY", type="primary", key="btn_exec_del_class"):
+                            if confirm_del_class:
+                                record_ids_to_del = df_class_logs['Mã Lịch'].tolist()
+                                with engine.begin() as conn:
+                                    for rec_id in record_ids_to_del:
+                                        conn.execute(text("DELETE FROM diem_danh WHERE id = :id"), {"id": rec_id})
+                                st.success(f"✅ Đã xóa toàn bộ điểm danh của lớp {sel_class_action} ngày {sel_date_filter.strftime('%d/%m/%Y')} thành công!")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Vui lòng tích chọn xác nhận trước khi xóa!")
+                    else:
+                        with st.form("form_batch_update_class"):
+                            st.markdown(f"**Cập nhật hàng loạt cho lớp {sel_class_action}:**")
+                            batch_stt = st.selectbox("Trạng thái mới chung cho cả lớp:", ["Có mặt", "Vắng có phép", "Vắng không phép"], key="batch_stt_sel")
+                            batch_nx = st.text_input("Ghi chú / Nhận xét chung mới (nếu có):", key="batch_nx_input")
+                            
+                            if st.form_submit_button("💾 CẬP NHẬT HÀNG LOẠT CHO LỚP", type="primary"):
+                                record_ids_to_update = df_class_logs['Mã Lịch'].tolist()
+                                with engine.begin() as conn:
+                                    for rec_id in record_ids_to_update:
+                                        conn.execute(text('''
+                                            UPDATE diem_danh 
+                                            SET trang_thai = :stt, nhan_xet = :nx 
+                                            WHERE id = :id
+                                        '''), {"stt": batch_stt, "nx": batch_nx.strip(), "id": rec_id})
+                                st.success(f"✅ Đã cập nhật hàng loạt cho lớp {sel_class_action} thành công!")
+                                st.rerun()
             else:
                 st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
                 
