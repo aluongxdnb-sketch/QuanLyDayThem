@@ -912,67 +912,134 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
                             st.rerun()
 
         with sub_tab_manage_t:
-            st.subheader("📋 Danh Sách Lịch Học Tạm Thời")
+            st.subheader("📋 Danh Sách & Quản Lý Lịch Học Tạm Thời Theo Lớp")
             df_temp_manage = pd.read_sql_query('''
-                SELECT t.id, h.ho_ten, h.lop_hoc, t.ngay_bat_dau, t.ngay_ket_thuc, t.thu, t.ca_hoc, t.loai_thay_doi
+                SELECT t.id, t.hoc_sinh_id, h.ho_ten, h.lop_hoc, t.ngay_bat_dau, t.ngay_ket_thuc, t.thu, t.ca_hoc, t.loai_thay_doi
                 FROM lich_hoc_tam_thoi t
                 JOIN hoc_sinh h ON t.hoc_sinh_id = h.id
                 ORDER BY t.ngay_bat_dau DESC
             ''', engine)
+            
             if df_temp_manage.empty:
                 st.info("💡 Chưa có thiết lập lịch tạm thời nào.")
             else:
-                st.dataframe(df_temp_manage, use_container_width=True)
+                st.dataframe(df_temp_manage[['id', 'ho_ten', 'lop_hoc', 'ngay_bat_dau', 'ngay_ket_thuc', 'thu', 'ca_hoc', 'loai_thay_doi']], use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader("✏️ Sửa Hoặc Xóa Lịch Tạm Thời")
+                st.subheader("🏫 Sửa / Xóa Hàng Loạt Lịch Tạm Thời Theo Lớp")
+                available_classes_temp = sorted(df_temp_manage['lop_hoc'].dropna().unique().tolist())
+                sel_class_temp_action = st.selectbox("Chọn Lớp cần thao tác:", available_classes_temp, key="sel_class_temp_action_key")
                 
-                selected_edit_id = st.selectbox("Chọn ID thiết lập cần sửa hoặc xóa:", df_temp_manage['id'].tolist(), key="sel_edit_tmp_id")
-                row_to_edit = df_temp_manage[df_temp_manage['id'] == selected_edit_id].iloc[0]
+                df_class_temp_logs = df_temp_manage[df_temp_manage['lop_hoc'] == sel_class_temp_action]
                 
-                with st.form("form_edit_lich_tam_thoi"):
-                    st.write(f"Đang sửa thiết lập cho học sinh: **{row_to_edit['ho_ten']}** (Lớp {row_to_edit['lop_hoc']})")
-                    e_start = st.date_input("🗓️ Hiệu lực TỪ ngày", value=datetime.strptime(str(row_to_edit['ngay_bat_dau']), "%Y-%m-%d").date(), key="e_start_date")
-                    e_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", value=datetime.strptime(str(row_to_edit['ngay_ket_thuc']), "%Y-%m-%d").date(), key="e_end_date")
-                    
-                    loai_options = ["Đổi ca / Học bù", "Học thêm buổi", "Nghỉ tạm thời trong khoảng thời gian này"]
-                    default_loai_idx = loai_options.index(row_to_edit['loai_thay_doi']) if row_to_edit['loai_thay_doi'] in loai_options else 0
-                    e_loai = st.selectbox("Loại thay đổi", loai_options, index=default_loai_idx, key="e_loai_td")
-                    
-                    thu_options = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-                    default_thu_idx = thu_options.index(row_to_edit['thu']) if row_to_edit['thu'] in thu_options else 0
-                    e_thu = st.selectbox("Vào Thứ", thu_options, index=default_thu_idx, key="e_thu_sel")
-                    
-                    e_ca = st.text_input("Ca học:", value=row_to_edit['ca_hoc'], key="e_ca_input")
-                    
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        submit_edit = st.form_submit_button("💾 Cập Nhật Lịch Tạm Thời", type="primary")
-                    with col_b2:
-                        submit_del = st.form_submit_button("❌ Xóa Lịch Tạm Thời Này", type="secondary")
+                with st.form(f"form_class_batch_edit_temp_{sel_class_temp_action}"):
+                    st.markdown(f"**Danh sách thiết lập lịch tạm thời của lớp {sel_class_temp_action} ({len(df_class_temp_logs)} bản ghi):**")
+                    class_temp_updates = []
+                    for idx, r in df_class_temp_logs.iterrows():
+                        st.markdown(f"**👤 {r['ho_ten']}** - Từ: {r['ngay_bat_dau']} đến {r['ngay_ket_thuc']} ({r['thu']} - Ca: {r['ca_hoc']})")
+                        c_s, c_e, c_l, c_t, c_c = st.columns(5)
                         
-                    if submit_edit:
+                        loai_options = ["Đổi ca / Học bù", "Học thêm buổi", "Nghỉ tạm thời trong khoảng thời gian này"]
+                        curr_loai_idx = loai_options.index(r['loai_thay_doi']) if r['loai_thay_doi'] in loai_options else 0
+                        
+                        thu_options = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
+                        curr_thu_idx = thu_options.index(r['thu']) if r['thu'] in thu_options else 0
+                        
+                        with c_s:
+                            new_start = st.date_input("Từ ngày", value=datetime.strptime(str(r['ngay_bat_dau']), "%Y-%m-%d").date(), key=f"t_start_{r['id']}")
+                        with c_e:
+                            new_end = st.date_input("Đến ngày", value=datetime.strptime(str(r['ngay_ket_thuc']), "%Y-%m-%d").date(), key=f"t_end_{r['id']}")
+                        with c_l:
+                            new_loai = st.selectbox("Loại thay đổi", loai_options, index=curr_loai_idx, key=f"t_loai_{r['id']}")
+                        with c_t:
+                            new_thu = st.selectbox("Thứ", thu_options, index=curr_thu_idx, key=f"t_thu_{r['id']}")
+                        with c_c:
+                            new_ca = st.text_input("Ca học", value=r['ca_hoc'], key=f"t_ca_{r['id']}")
+                        
+                        class_temp_updates.append((r['id'], new_start, new_end, new_loai, new_thu, new_ca))
+                        st.divider()
+                        
+                    col_sub1, col_sub2 = st.columns(2)
+                    with col_sub1:
+                        submit_batch_temp = st.form_submit_button("💾 Lưu Cập Nhật Lịch Tạm Thời Cho Lớp Này", type="primary", use_container_width=True)
+                    with col_sub2:
+                        submit_del_class_temp = st.form_submit_button("❌ Xóa Toàn Bộ Lịch Tạm Thời Lớp Này", type="secondary", use_container_width=True)
+                        
+                    if submit_batch_temp:
                         with engine.begin() as conn:
-                            conn.execute(text('''
-                                UPDATE lich_hoc_tam_thoi
-                                SET ngay_bat_dau = :start, ngay_ket_thuc = :end, thu = :thu, ca_hoc = :ca, loai_thay_doi = :loai
-                                WHERE id = :id
-                            '''), {
-                                "start": e_start.strftime("%Y-%m-%d"),
-                                "end": e_end.strftime("%Y-%m-%d"),
-                                "thu": e_thu,
-                                "ca": e_ca.strip(),
-                                "loai": e_loai,
-                                "id": selected_edit_id
-                            })
-                        st.success("✅ Đã cập nhật thiết lập lịch tạm thời thành công!")
+                            for rec_id, start, end, loai, thu, ca in class_temp_updates:
+                                conn.execute(text('''
+                                    UPDATE lich_hoc_tam_thoi 
+                                    SET ngay_bat_dau = :start, ngay_ket_thuc = :end, loai_thay_doi = :loai, thu = :thu, ca_hoc = :ca 
+                                    WHERE id = :id
+                                '''), {
+                                    "start": start.strftime("%Y-%m-%d"),
+                                    "end": end.strftime("%Y-%m-%d"),
+                                    "loai": loai,
+                                    "thu": thu,
+                                    "ca": ca.strip(),
+                                    "id": rec_id
+                                })
+                        st.success(f"✅ Đã cập nhật thành công lịch tạm thời cho lớp {sel_class_temp_action}!")
                         st.rerun()
                         
-                    if submit_del:
+                    if submit_del_class_temp:
                         with engine.begin() as conn:
-                            conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE id = :id"), {"id": selected_edit_id})
-                        st.success("✅ Đã xóa thiết lập lịch tạm thời thành công!")
+                            for rec_id, _, _, _, _, _ in class_temp_updates:
+                                conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE id = :id"), {"id": rec_id})
+                        st.success(f"✅ Đã xóa toàn bộ lịch tạm thời của lớp {sel_class_temp_action}!")
                         st.rerun()
+
+                st.markdown("---")
+                with st.expander("⚙️ Hoặc sửa / xóa từng bản ghi lẻ riêng biệt"):
+                    temp_dict = {f"ID: {row['id']} - {row['ho_ten']} [{row['lop_hoc']}] ({row['ngay_bat_dau']} -> {row['ngay_ket_thuc']}, {row['thu']}, Ca: {row['ca_hoc']})": row['id'] for _, row in df_temp_manage.iterrows()}
+                    selected_temp_label = st.selectbox("Chọn bản ghi cần sửa hoặc xóa:", list(temp_dict.keys()), key="temp_sel_id_indiv")
+                    temp_to_edit_del = temp_dict[selected_temp_label]
+                    row_temp_item = df_temp_manage[df_temp_manage['id'] == temp_to_edit_del].iloc[0]
+                    
+                    with st.form("form_edit_delete_temp_record"):
+                        st.write(f"Đang thao tác Bản ghi ID **{temp_to_edit_del}**: {row_temp_item['ho_ten']} [{row_temp_item['lop_hoc']}]")
+                        e_start = st.date_input("🗓️ Hiệu lực TỪ ngày", value=datetime.strptime(str(row_temp_item['ngay_bat_dau']), "%Y-%m-%d").date(), key="e_start_date_indiv")
+                        e_end = st.date_input("🗓️ Hiệu lực ĐẾN ngày", value=datetime.strptime(str(row_temp_item['ngay_ket_thuc']), "%Y-%m-%d").date(), key="e_end_date_indiv")
+                        
+                        loai_options = ["Đổi ca / Học bù", "Học thêm buổi", "Nghỉ tạm thời trong khoảng thời gian này"]
+                        default_loai_idx = loai_options.index(row_temp_item['loai_thay_doi']) if row_temp_item['loai_thay_doi'] in loai_options else 0
+                        e_loai = st.selectbox("Loại thay đổi", loai_options, index=default_loai_idx, key="e_loai_td_indiv")
+                        
+                        thu_options = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
+                        default_thu_idx = thu_options.index(row_temp_item['thu']) if row_temp_item['thu'] in thu_options else 0
+                        e_thu = st.selectbox("Vào Thứ", thu_options, index=default_thu_idx, key="e_thu_sel_indiv")
+                        
+                        e_ca = st.text_input("Ca học:", value=row_temp_item['ca_hoc'], key="e_ca_input_indiv")
+                        
+                        col_eb1, col_eb2 = st.columns(2)
+                        with col_eb1:
+                            submit_update_temp = st.form_submit_button("💾 Cập Nhật Bản Ghi Này", type="primary")
+                        with col_eb2:
+                            submit_delete_temp = st.form_submit_button("❌ Xóa Bản Ghi Này", type="secondary")
+                            
+                        if submit_update_temp:
+                            with engine.begin() as conn:
+                                conn.execute(text('''
+                                    UPDATE lich_hoc_tam_thoi
+                                    SET ngay_bat_dau = :start, ngay_ket_thuc = :end, thu = :thu, ca_hoc = :ca, loai_thay_doi = :loai
+                                    WHERE id = :id
+                                '''), {
+                                    "start": e_start.strftime("%Y-%m-%d"),
+                                    "end": e_end.strftime("%Y-%m-%d"),
+                                    "thu": e_thu,
+                                    "ca": e_ca.strip(),
+                                    "loai": e_loai,
+                                    "id": temp_to_edit_del
+                                })
+                            st.success(f"✅ Đã cập nhật thành công bản ghi ID {temp_to_edit_del}!")
+                            st.rerun()
+                            
+                        if submit_delete_temp:
+                            with engine.begin() as conn:
+                                conn.execute(text("DELETE FROM lich_hoc_tam_thoi WHERE id = :id"), {"id": temp_to_edit_del})
+                            st.success(f"✅ Đã xóa thành công bản ghi ID {temp_to_edit_del}!")
+                            st.rerun()
 
     with tab_export:
         st.markdown("### 📥 Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
