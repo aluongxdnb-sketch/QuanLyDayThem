@@ -201,7 +201,7 @@ def get_buoi_from_ca(ca_str):
         return "🌅 Sáng" if h < 12 else ("☀️ Chiều" if h < 18 else "🌙 Tối")
     return "☀️ Chiều"
 
-# --- HÀM MA TRẬN LỊCH HỌC & XUẤT ẢNH LỊCH ---
+# --- HÀM MA TRẬN LỊCH HỌC & XUẤT ẢNH LỊCH (ĐÃ CÂN CHỈNH KHOẢNG CÁCH, KHÔNG SÁT VẠCH) ---
 def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     if ref_date is None: ref_date = date.today()
     cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
@@ -236,7 +236,13 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
                     items = []
                     for lop, g in matched.groupby('lop_hoc'):
                         names_list = [f"{row['ho_ten']}" + (f" ({row['nguon']})" if row.get('nguon') != 'Lịch gốc' else "") for _, row in g.iterrows()]
-                        items.append(", ".join(names_list) if (filter_lop or filter_hs_id) else f"<b>[{lop}]</b><br>" + "<br>".join(names_list))
+                        # Thêm khoảng trắng đệm để tên học sinh nằm gọn trong ô, không sát vạch kẻ
+                        formatted_names = [f" {name} " for name in names_list]
+                        if filter_lop or filter_hs_id:
+                            items.extend(formatted_names)
+                        else:
+                            names_str = "<br>".join(formatted_names)
+                            items.append(f"<b>[{lop}]</b><br>{names_str}")
                     row_dict[t] = "<br>".join(items)
         matrix_rows.append(row_dict)
     return pd.DataFrame(matrix_rows)[["Buổi", "Ca học"] + cac_thu]
@@ -248,13 +254,32 @@ def render_schedule_matrix(engine, ref_date=None):
 
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None: ref_date = date.today()
-    fig, ax = plt.subplots(figsize=(24, len(df_matrix) * 0.8 + 5.0))
+    
+    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
+    max_lines_overall = 1
+    cleaned_data = []
+    for row in table_data:
+        cleaned_row = []
+        row_max_lines = 1
+        for cell in row:
+            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
+            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
+            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
+            lines = clean_cell.count('\n') + 1
+            if lines > row_max_lines: row_max_lines = lines
+            cleaned_row.append(clean_cell)
+        cleaned_data.append(cleaned_row)
+        if row_max_lines > max_lines_overall: max_lines_overall = row_max_lines
+
+    # Cân chỉnh độ rộng và cao dòng hoàn hảo, chữ không bị sát vạch
+    fig, ax = plt.subplots(figsize=(24, len(df_matrix) * max(1.8, max_lines_overall * 0.7) + 5.0))
     ax.axis('off'); ax.axis('tight')
     start_w, end_w = ref_date - timedelta(days=ref_date.weekday()), ref_date - timedelta(days=ref_date.weekday()) + timedelta(days=6)
     
-    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=[0.08, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12])
-    table.auto_set_font_size(False); table.set_fontsize(12); table.scale(1, 2.5)
+    col_widths = [0.08, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
+    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
+    table.auto_set_font_size(False); table.set_fontsize(12)
+    table.scale(1, max(3.5, max_lines_overall * 1.25))
     
     ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, fontsize=17, fontweight='bold', color='#1E3A8A', ha='center')
     ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, fontsize=14, fontweight='bold', color='#0F172A', ha='center')
@@ -262,8 +287,17 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        if row == 0: cell.set_facecolor('#1E3A8A'); cell.set_text_props(color='white', weight='bold')
-        else: cell.set_facecolor('#FEF3C7' if col == 0 else ('#E0F2FE' if col == 1 else ('#F8FAFC' if row % 2 == 0 else 'white')))
+        cell.PAD = 0.25  # Tạo khoảng đệm cách lề các vạch kẻ ô
+        if row == 0: 
+            cell.set_facecolor('#1E3A8A'); cell.set_text_props(color='white', weight='bold', size=12.5)
+        else:
+            if col == 0:
+                cell.set_facecolor('#FEF3C7'); cell.set_text_props(weight='bold', color='#B45309', size=12)
+            elif col == 1:
+                cell.set_facecolor('#E0F2FE'); cell.set_text_props(weight='bold', color='#0369A1', size=11.5)
+            else:
+                cell.set_text_props(color='#1E293B', size=12, weight='normal')
+                cell.set_facecolor('#F8FAFC' if row % 2 == 0 else 'white')
         
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
@@ -525,12 +559,35 @@ elif choice == "2. 🗺️ Quản Lý & Ma Trận Lịch Học":
         if not df_hs_all.empty:
             sel_d = st.date_input("Tuần xuất ảnh:", date.today())
             f_mode = st.radio("Phạm vi xuất:", ["Tất cả", "Theo Lớp", "Theo Học Sinh"], horizontal=True)
-            l_sel = st.selectbox("Chọn lớp:", sorted(df_hs_all['lop_hoc'].dropna().unique())) if f_mode == "Theo Lớp" else None
-            h_dict = {f"{r['ho_ten']} [{r['lop_hoc']}]": r['id'] for _, r in df_hs_all.iterrows()}
-            h_sel = h_dict[st.selectbox("Chọn HS:", list(h_dict.keys()))] if f_mode == "Theo Học Sinh" else None
+            
+            l_sel = None
+            h_sel = None
+            file_name_prefix = "Tat_Ca"
+            
+            if f_mode == "Theo Lớp":
+                l_sel = st.selectbox("Chọn lớp:", sorted(df_hs_all['lop_hoc'].dropna().unique()))
+                file_name_prefix = f"Lich_Hoc_Lop_{re.sub(r'[^\w\s-]', '', str(l_sel)).strip().replace(' ', '_')}"
+            elif f_mode == "Theo Học Sinh":
+                h_dict = {f"{r['ho_ten']} [{r['lop_hoc']}]": r for _, r in df_hs_all.iterrows()}
+                h_lbl = st.selectbox("Chọn HS:", list(h_dict.keys()))
+                sel_hs_info = h_dict[h_lbl]
+                h_sel = sel_hs_info['id']
+                clean_hs_name = re.sub(r'[^\w\s-]', '', str(sel_hs_info['ho_ten'])).strip().replace(' ', '_')
+                clean_hs_lop = re.sub(r'[^\w\s-]', '', str(sel_hs_info['lop_hoc'])).strip().replace(' ', '_')
+                file_name_prefix = f"Lich_Hoc_{clean_hs_name}_{clean_hs_lop}"
+
             df_mat = get_schedule_matrix_df(engine, filter_lop=l_sel, filter_hs_id=h_sel, ref_date=sel_d)
             if not df_mat.empty and HAS_MATPLOTLIB:
-                st.download_button("🖼️ Tải Ảnh Lịch Học", create_weekly_schedule_image("Tất cả" if f_mode=="Tất cả" else (l_sel if f_mode=="Theo Lớp" else list(h_dict.keys())[0]), df_mat, ref_date=sel_d), file_name="Lich_Hoc.png", mime="image/png", type="primary")
+                title_target = "Tất cả học sinh" if f_mode == "Tất cả" else (l_sel if f_mode == "Theo Lớp" else h_lbl)
+                prefix_text = "Toàn bộ hệ thống" if f_mode == "Tất cả" else ("Lớp: " if f_mode == "Theo Lớp" else "Học sinh: ")
+                
+                st.download_button(
+                    "🖼️ Tải Ảnh Lịch Học", 
+                    create_weekly_schedule_image(title_target, df_mat, ref_date=sel_d, prefix=prefix_text), 
+                    file_name=f"{file_name_prefix}.png", 
+                    mime="image/png", 
+                    type="primary"
+                )
 
 # =========================================================
 # --- CHỨC NĂNG 3: THỐNG KÊ SỐ CA & QUẢN LÝ HỌC PHÍ ---
@@ -611,7 +668,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
         c_sum2.metric("💰 Tổng tiền học phí", f"{combined_df['Tổng Tiền (VNĐ)'].sum():,.0f} đ")
         st.markdown("---")
 
-        # Nút xuất ZIP hàng loạt hóa đơn các học sinh có phát sinh
         if HAS_MATPLOTLIB:
             if st.button("📦 Xuất ZIP Hàng Loạt Hóa Đơn Các Học Sinh Có Phát Sinh", type="primary"):
                 df_active_students = combined_df[combined_df['Số Ca Có Mặt'] > 0]
