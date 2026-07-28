@@ -537,7 +537,6 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
 
         if sel_thangs:
             thang_queries = [f"'{nam_sel}-{th:02d}'" for th in sel_thangs]
-            # Nếu chọn 1 tháng, lấy đúng trạng thái thanh toán của tháng đó. Nếu chọn nhiều tháng, gom nhóm kiểm tra
             if len(sel_thangs) == 1:
                 th_key = f"{sel_thangs[0]:02d}/{nam_sel}"
                 q = f'''
@@ -640,7 +639,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=create_tuition_slip_image_multi(row['Họ và Tên'], row['Lớp'], row['Môn Học'] or 'Chung', month_details, int(row['Số Ca Có Mặt']), row['Tổng Tiền (VNĐ)'], row['Trạng Thái'], qr_path),
-                        file_name=f"Phieu_{row['Họ y Tên']}.png", mime="image/png", key=f"img_{hs_id}_{idx}"
+                        file_name=f"Phieu_{row['Họ và Tên'].replace(' ', '_')}.png", mime="image/png", key=f"img_{hs_id}_{idx}"
                     )
             st.divider()
 
