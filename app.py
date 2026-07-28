@@ -261,7 +261,7 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM LẤY MA TRẬN LỊCH HỌC ---
+# --- HÀM LẤY MA TRẬN LỊCH HỌC (ĐÃ TỐI ƯU CÁCH XUỐNG DÒNG TỪNG HỌC SINH) ---
 def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -312,11 +312,13 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
                             if nguon != 'Lịch gốc':
                                 name_str += f" ({nguon})"
                             names_list.append(name_str)
-                        names_str = ", ".join(names_list)
+                        
                         if filter_lop or filter_hs_id:
-                            items.append(names_str)
+                            for ns in names_list:
+                                items.append(ns)
                         else:
-                            items.append(f"[{lop}]: {names_str}")
+                            names_str = "<br>".join(names_list)
+                            items.append(f"<b>[{lop}]</b><br>{names_str}")
                     row_dict[t] = "<br>".join(items)
         matrix_rows.append(row_dict)
 
@@ -331,12 +333,12 @@ def render_schedule_matrix(engine, ref_date=None):
         return
     st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
+# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN (MỞ RỘNG CỘT & CÂN CHỈNH TRÌNH BÀY) ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
         ref_date = date.today()
         
-    fig, ax = plt.subplots(figsize=(20, len(df_matrix) * 1.2 + 4.5))
+    fig, ax = plt.subplots(figsize=(22, len(df_matrix) * 1.4 + 4.5))
     ax.axis('off')
     ax.axis('tight')
     
@@ -352,32 +354,23 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
             clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
             clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
             clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
-            
-            if col_idx >= 2 and len(clean_cell) > 14:
-                parts = clean_cell.split(', ')
-                wrapped_parts = []
-                for p in parts:
-                    wrapped_parts.append('\n'.join(textwrap.wrap(p, width=15)))
-                clean_cell = '\n'.join(wrapped_parts)
-            elif col_idx == 1 and len(clean_cell) > 12:
-                clean_cell = '\n'.join(textwrap.wrap(clean_cell, width=12))
-                
             cleaned_row.append(clean_cell)
         cleaned_data.append(cleaned_row)
         
-    col_widths = [0.08, 0.12, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11]
+    # Phân bổ rộng rãi kích thước các cột để thể hiện hết tên học sinh
+    col_widths = [0.07, 0.11, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
     
     table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
-    table.set_fontsize(9.5)
-    table.scale(1, 2.6)
+    table.set_fontsize(10)
+    table.scale(1, 2.8)
     
     ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
-            fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+            fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
     ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
-            fontsize=12.5, fontweight='bold', color='#0F172A', ha='center', va='bottom')
+            fontsize=13.5, fontweight='bold', color='#0F172A', ha='center', va='bottom')
     ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
-            fontsize=10.5, fontweight='normal', color='#475569', ha='center', va='bottom')
+            fontsize=11, fontweight='normal', color='#475569', ha='center', va='bottom')
     
     plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", ha='center', fontsize=10, style='italic', color='#475569', weight='bold')
     
@@ -385,9 +378,9 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
         cell.set_edgecolor('#CBD5E1')
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=11)
+            cell.set_text_props(color='white', weight='bold', size=11.5)
         else:
-            cell.set_text_props(color='#1E293B', size=9.5)
+            cell.set_text_props(color='#1E293B', size=10)
             if col == 0 or col == 1:
                 cell.set_facecolor('#F1F5F9')
                 cell.set_text_props(weight='bold', color='#1E3A8A')
@@ -1294,7 +1287,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
-                        file_name=f"Phieu_{row['Họ và Tên']}_{str(row['Thời gian']).replace('/', '_')}.png",
+                        file_name=f"Phieu_{row['Họ and Tên']}_{str(row['Thời gian']).replace('/', '_')}.png",
                         mime="image/png",
                         key=f"img_fee_{row['hoc_sinh_id']}_{row['Thời gian']}_{idx}"
                     )
