@@ -797,9 +797,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
         with c_m: sel_thangs = st.multiselect("Chọn Tháng:", list(range(1, 13)), default=[datetime.now().month], format_func=lambda x: f"Tháng {x}")
 
         if sel_thangs:
-            # Truy vấn gom nhóm theo học sinh qua các tháng được chọn để tính tổng dồn
             thang_queries = [f"'{nam_sel}-{th:02d}'" for th in sel_thangs]
-            thang_keys = [f"{th:02d}/{nam_sel}" for th in sel_thangs]
             
             q = f'''
                 SELECT 
@@ -855,9 +853,8 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
 
         for idx, row in combined_df.iterrows():
             hs_id = row['hoc_sinh_id']
-            
-            # Lấy chi tiết từng tháng cho học sinh này nếu đang ở chế độ nhiều tháng
             month_details = []
+            
             if che_do_xem == "Theo Tháng (Hỗ trợ chọn nhiều tháng)" and sel_thangs:
                 for th in sel_thangs:
                     t_str = f"{nam_sel}-{th:02d}"
@@ -865,7 +862,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     sub_q = f'''
                         SELECT COUNT(id) as sc FROM diem_danh 
                         WHERE hoc_sinh_id = {hs_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{t_str}' AND trang_thai = 'Có mặt'
-                    ''']
+                    '''
                     sc_res = pd.read_sql_query(sub_q, engine)
                     sc_val = int(sc_res.iloc[0]['sc']) if not sc_res.empty else 0
                     don_gia = row['Đơn Giá/Ca (VNĐ)']
@@ -884,7 +881,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                 })
 
             c1, c2, c3, c4, c5 = st.columns([2.5, 1.2, 1.5, 1.8, 1.8])
-            c1.write(f"**{row['Họ와 Tên']}**\n\n*Lớp: {row['Lớp']}*")
+            c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']}*")
             c2.write(f"{int(row['Số Ca Có Mặt'])} ca")
             c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
             
@@ -901,7 +898,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                         qr_path=qr_path
                     )
                     st.download_button(
-                        label=f"📥 Tải Về Ngay",
+                        label="📥 Tải Về Ngay",
                         data=img_b,
                         file_name=f"Hoa_Don_{row['Họ và Tên'].replace(' ', '_')}.png",
                         mime="image/png",
