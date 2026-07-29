@@ -1447,11 +1447,13 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
         combined_df['is_multi'] = False
         combined_df['details'] = [[] for _ in range(len(combined_df))]
 
-    search_query = st.text_input("🔍 Tìm kiếm học sinh theo tên:")
+    # Lấy danh sách tên học sinh độc lập để đưa vào multiselect chọn nhanh
+    all_student_options = sorted(combined_df['Họ và Tên'].unique().tolist()) if not combined_df.empty else []
+    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách (để trống nếu muốn xem tất cả):", options=all_student_options)
     st.divider()
 
-    if not combined_df.empty and search_query.strip():
-        combined_df = combined_df[combined_df['Họ và Tên'].str.contains(search_query.strip(), case=False, na=False)]
+    if not combined_df.empty and selected_students_filter:
+        combined_df = combined_df[combined_df['Họ và Tên'].isin(selected_students_filter)]
 
     if combined_df.empty:
         st.info("ℹ️ Không tìm thấy dữ liệu thống kê phù hợp.")
