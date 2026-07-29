@@ -1,12 +1,13 @@
+from datetime import date, datetime, timedelta
 import io
 import json
 import os
 import re
 import textwrap
 import zipfile
-from datetime import date, datetime, timedelta
 import pandas as pd
 from sqlalchemy import create_engine, text
+import streamlit as st
 
 # Thử import Matplotlib để xuất lịch học, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
@@ -2449,7 +2450,7 @@ elif choice == '3. 💳 Thống Kê Số Ca & Quản Lý Học Phí':
               label='🖼️ Tải Ảnh Phiếu',
               data=img_bytes,
               file_name=(
-                  f"Phieu_{row['Họ dan và Tên']}_{row['Lớp']}_{safe_filename_time}.png"
+                  f"Phieu_{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}.png"
               ),
               mime='application/png',
               key=f"img_fee_{row['hoc_sinh_id']}_{idx}",
