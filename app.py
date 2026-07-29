@@ -1099,7 +1099,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                 if sua_mode == "Sửa / Xóa theo Lớp":
                     all_lops_goc = sorted(df_goc_all['lop_hoc'].dropna().unique().tolist())
                     selected_lop_sua = st.selectbox("Chọn Lớp cần sửa/xóa lịch học gốc:", all_lops_goc, key="sel_lop_sua_goc")
-                    df_lop_goc_records = df_goc_all[df_lop_goc_records := df_goc_all[df_goc_all['lop_hoc'] == selected_lop_sua]]
+                    df_lop_goc_records = df_goc_all[df_goc_all['lop_hoc'] == selected_lop_sua]
                     
                     st.write(f"📋 Danh sách các ca học gốc của lớp **{selected_lop_sua}** ({len(df_lop_goc_records)} bản ghi):")
                     st.dataframe(df_lop_goc_records[['id', 'ho_ten', 'thu', 'ca_hoc']], use_container_width=True)
