@@ -1083,7 +1083,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                     st.rerun()
 
         with sub_tab_goc_sua:
-            st.subheader("🗑️ Xóa Lịch Học Gốc Theo Lớp Hoặc Học Sinh (Tùy chọn Thứ & Ca)")
+            st.subheader("🗑️ Xóa Lịch Học Gốc Theo Lớp Hoặc Học Sinh")
             df_goc_all = pd.read_sql_query('''
                 SELECT l.id, l.hoc_sinh_id, h.ho_ten, h.lop_hoc, l.thu, l.ca_hoc
                 FROM lich_hoc_tuan l
@@ -1106,42 +1106,38 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                         st.dataframe(df_lop_goc_records[['id', 'ho_ten', 'thu', 'ca_hoc']], use_container_width=True)
                         
                         with st.form(f"form_xoa_goc_lop_{selected_lop_xoa}"):
-                            hinh_thuc_xoa_lop = st.radio("Chọn hình thức xóa:", ["Xóa TOÀN BỘ lịch gốc của lớp này", "Chỉ xóa theo Thứ và Ca cụ thể"], key="hinh_thuc_xoa_lop_key")
+                            # Tự động lấy danh sách các ngày học (Thứ) và ca học thực tế của lớp này để chọn
+                            unique_slots = df_lop_goc_records[['thu', 'ca_hoc']].drop_duplicates().values.tolist()
+                            slot_options = [f"{thu} | {ca}" for thu, ca in unique_slots]
                             
-                            thu_ca_chon_xoa = []
-                            if hinh_thuc_xoa_lop == "Chỉ xóa theo Thứ và Ca cụ thể":
-                                available_thu_lop = sorted(df_lop_goc_records['thu'].unique().tolist())
-                                available_ca_lop = sorted(df_lop_goc_records['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
-                                
-                                sel_thu_list = st.multiselect("Chọn các Thứ cần xóa:", available_thu_lop, default=available_thu_lop)
-                                sel_ca_list = st.multiselect("Chọn các Ca học cần xóa:", available_ca_lop, default=available_ca_lop)
-                                thu_ca_chon_xoa = (sel_thu_list, sel_ca_list)
+                            sel_slots_to_delete = st.multiselect(
+                                "📌 Chọn ngày học và ca học cần xóa:",
+                                options=slot_options,
+                                default=slot_options,
+                                key="sel_slots_lop_del"
+                            )
                             
-                            confirm_del_lop = st.checkbox(f"Tôi xác nhận muốn thực hiện xóa lịch gốc của lớp {selected_lop_xoa}")
-                            sub_btn_del_lop = st.form_submit_button("❌ Thực Hiện Xóa Lịch Gốc", type="primary")
+                            confirm_del_lop = st.checkbox(f"Tôi xác nhận muốn xóa các ca học đã chọn của lớp {selected_lop_xoa}")
+                            sub_btn_del_lop = st.form_submit_button("❌ Xóa Lịch Học Gốc Đã Chọn", type="primary")
                             
                             if sub_btn_del_lop:
                                 if confirm_del_lop:
-                                    hs_ids_in_lop = df_lop_goc_records['hoc_sinh_id'].unique().tolist()
-                                    with engine.begin() as conn:
-                                        if hinh_thuc_xoa_lop == "Xóa TOÀN BỘ lịch gốc của lớp này":
-                                            for hs_id_item in hs_ids_in_lop:
-                                                conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": hs_id_item})
-                                            st.success(f"✅ Đã xóa toàn bộ lịch gốc của lớp {selected_lop_xoa}!")
-                                        else:
-                                            s_thu, s_ca = thu_ca_chon_xoa
-                                            if not s_thu or not s_ca:
-                                                st.warning("⚠️ Vui lòng chọn ít nhất một Thứ và một Ca học!")
-                                            else:
-                                                for hs_id_item in hs_ids_in_lop:
-                                                    for t_val in s_thu:
-                                                        for c_val in s_ca:
-                                                            conn.execute(text('''
-                                                                DELETE FROM lich_hoc_tuan 
-                                                                WHERE hoc_sinh_id = :id AND thu = :thu AND ca_hoc = :ca
-                                                            '''), {"id": hs_id_item, "thu": t_val, "ca": c_val})
-                                                st.success(f"✅ Đã xóa các ca và thứ đã chọn trong lịch gốc của lớp {selected_lop_xoa}!")
-                                    st.rerun()
+                                    if not sel_slots_to_delete:
+                                        st.warning("⚠️ Vui lòng chọn ít nhất một ngày và ca học để xóa!")
+                                    else:
+                                        hs_ids_in_lop = df_lop_goc_records['hoc_sinh_id'].unique().tolist()
+                                        with engine.begin() as conn:
+                                            for slot_str in sel_slots_to_delete:
+                                                parts = slot_str.split(" | ")
+                                                if len(parts) == 2:
+                                                    t_val, c_val = parts[0].strip(), parts[1].strip()
+                                                    for hs_id_item in hs_ids_in_lop:
+                                                        conn.execute(text('''
+                                                            DELETE FROM lich_hoc_tuan 
+                                                            WHERE hoc_sinh_id = :id AND thu = :thu AND ca_hoc = :ca
+                                                        '''), {"id": hs_id_item, "thu": t_val, "ca": c_val})
+                                        st.success(f"✅ Đã xóa các ngày và ca học đã chọn của lớp {selected_lop_xoa}!")
+                                        st.rerun()
                                 else:
                                     st.warning("⚠️ Vui lòng tích chọn xác nhận để thực hiện xóa.")
                     else:
@@ -1162,39 +1158,36 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                         st.dataframe(df_single_goc[['id', 'thu', 'ca_hoc']], use_container_width=True)
                         
                         with st.form(f"form_xoa_goc_hs_{sel_hs_id_goc}"):
-                            hinh_thuc_xoa_hs = st.radio("Chọn hình thức xóa:", ["Xóa TOÀN BỘ lịch gốc của học sinh này", "Chỉ xóa theo Thứ và Ca cụ thể"], key="hinh_thuc_xoa_hs_key")
+                            # Tự động lấy danh sách các ngày học (Thứ) và ca học thực tế của học sinh này để chọn
+                            unique_slots_hs = df_single_goc[['thu', 'ca_hoc']].drop_duplicates().values.tolist()
+                            slot_options_hs = [f"{thu} | {ca}" for thu, ca in unique_slots_hs]
                             
-                            thu_ca_chon_xoa_hs = []
-                            if hinh_thuc_xoa_hs == "Chỉ xóa theo Thứ và Ca cụ thể":
-                                available_thu_hs = sorted(df_single_goc['thu'].unique().tolist())
-                                available_ca_hs = sorted(df_single_goc['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
-                                
-                                sel_thu_list_hs = st.multiselect("Chọn các Thứ cần xóa:", available_thu_hs, default=available_thu_hs)
-                                sel_ca_list_hs = st.multiselect("Chọn các Ca học cần xóa:", available_ca_hs, default=available_ca_hs)
-                                thu_ca_chon_xoa_hs = (sel_thu_list_hs, sel_ca_list_hs)
+                            sel_slots_hs_to_delete = st.multiselect(
+                                "📌 Chọn ngày học và ca học cần xóa:",
+                                options=slot_options_hs,
+                                default=slot_options_hs,
+                                key="sel_slots_hs_del"
+                            )
                             
-                            confirm_del_hs = st.checkbox("Tôi xác nhận muốn thực hiện xóa lịch gốc của học sinh này")
-                            sub_btn_del_hs = st.form_submit_button("❌ Thực Hiện Xóa Lịch Gốc", type="primary")
+                            confirm_del_hs = st.checkbox("Tôi xác nhận muốn xóa các ca học đã chọn của học sinh này")
+                            sub_btn_del_hs = st.form_submit_button("❌ Xóa Lịch Học Gốc Đã Chọn", type="primary")
                             
                             if sub_btn_del_hs:
                                 if confirm_del_hs:
-                                    with engine.begin() as conn:
-                                        if hinh_thuc_xoa_hs == "Xóa TOÀN BỘ lịch gốc của học sinh này":
-                                            conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": sel_hs_id_goc})
-                                            st.success("✅ Đã xóa toàn bộ lịch gốc của học sinh!")
-                                        else:
-                                            s_thu_hs, s_ca_hs = thu_ca_chon_xoa_hs
-                                            if not s_thu_hs or not s_ca_hs:
-                                                st.warning("⚠️ Vui lòng chọn ít nhất một Thứ và một Ca học!")
-                                            else:
-                                                for t_val in s_thu_hs:
-                                                    for c_val in s_ca_hs:
-                                                        conn.execute(text('''
-                                                            DELETE FROM lich_hoc_tuan 
-                                                            WHERE hoc_sinh_id = :id AND thu = :thu AND ca_hoc = :ca
-                                                        '''), {"id": sel_hs_id_goc, "thu": t_val, "ca": c_val})
-                                                st.success("✅ Đã xóa các ca và thứ đã chọn trong lịch gốc của học sinh!")
-                                    st.rerun()
+                                    if not sel_slots_hs_to_delete:
+                                        st.warning("⚠️ Vui lòng chọn ít nhất một ngày và ca học để xóa!")
+                                    else:
+                                        with engine.begin() as conn:
+                                            for slot_str in sel_slots_hs_to_delete:
+                                                parts = slot_str.split(" | ")
+                                                if len(parts) == 2:
+                                                    t_val, c_val = parts[0].strip(), parts[1].strip()
+                                                    conn.execute(text('''
+                                                        DELETE FROM lich_hoc_tuan 
+                                                        WHERE hoc_sinh_id = :id AND thu = :thu AND ca_hoc = :ca
+                                                    '''), {"id": sel_hs_id_goc, "thu": t_val, "ca": c_val})
+                                        st.success("✅ Đã xóa các ngày và ca học đã chọn của học sinh!")
+                                        st.rerun()
                                 else:
                                     st.warning("⚠️ Vui lòng tích chọn xác nhận để thực hiện xóa.")
 
