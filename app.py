@@ -1252,6 +1252,111 @@ elif choice == '1. Điểm danh & Nhận xét':
       )
 
       st.markdown('---')
+      # THÊM TÍNH NĂNG SỬA/XÓA THEO LỚP SAU KHI CHỌN NGÀY
+      with st.expander('🏫 Sửa hoặc Xóa Điểm Danh Theo Lớp'):
+        available_lops_log = sorted(df_logs['Lớp'].dropna().unique().tolist())
+        if available_lops_log:
+          sel_lop_edit = st.selectbox(
+              'Chọn Lớp cần thao tác:',
+              available_lops_log,
+              key='sel_lop_edit_log_date',
+          )
+          df_lop_log_subset = df_logs[df_logs['Lớp'] == sel_lop_edit]
+
+          st.write(
+              f"📋 Các học sinh thuộc lớp **{sel_lop_edit}** trong ngày"
+              f" {sel_date_filter.strftime('%d/%m/%Y')} ({len(df_lop_log_subset)}"
+              ' bản ghi):'
+          )
+
+          with st.form(f'form_edit_delete_by_lop_{sel_lop_edit}'):
+            lop_updates = []
+            for _, r_item in df_lop_log_subset.iterrows():
+              st.markdown(
+                  f"**👤 {r_item['Họ Tên']}** (Ca cũ:"
+                  f" {r_item['Ca Học']} - Trạng thái cũ:"
+                  f" {r_item['Trạng Thái']})"
+              )
+              col_l1, col_l2, col_l3 = st.columns([2, 2, 3])
+
+              with col_l1:
+                stt_opts = ['Có mặt', 'Vắng có phép', 'Vắng không phép']
+                curr_stt_idx = (
+                    stt_opts.index(r_item['Trạng Thái'])
+                    if r_item['Trạng Thái'] in stt_opts
+                    else 0
+                )
+                new_stt_lop = st.selectbox(
+                    'Trạng thái:',
+                    stt_opts,
+                    index=curr_stt_idx,
+                    key=f"lop_stt_{r_item['Mã Lịch']}",
+                )
+
+              with col_l2:
+                new_dg_lop = st.number_input(
+                    'Đơn giá (đ):',
+                    min_value=0,
+                    step=10000,
+                    value=int(r_item['Đơn Giá']),
+                    key=f"lop_dg_{r_item['Mã Lịch']}",
+                )
+
+              with col_l3:
+                new_nx_lop = st.text_input(
+                    'Nhận xét:',
+                    value=r_item['Nhận Xét'] or '',
+                    key=f"lop_nx_{r_item['Mã Lịch']}",
+                )
+
+              lop_updates.append((r_item['Mã Lịch'], new_stt_lop, new_dg_lop, new_nx_lop))
+              st.divider()
+
+            col_btn_l1, col_btn_l2 = st.columns(2)
+            with col_btn_l1:
+              submit_update_lop = st.form_submit_button(
+                  f'💾 Cập Nhật Tất Cả Lớp {sel_lop_edit}', type='primary'
+              )
+            with col_btn_l2:
+              submit_delete_lop = st.form_submit_button(
+                  f'❌ Xóa Toàn Bộ Lớp {sel_lop_edit} Trong Ngày',
+                  type='secondary',
+              )
+
+            if submit_update_lop:
+              with engine.begin() as conn:
+                for lid, stt_val, dg_val, nx_val in lop_updates:
+                  conn.execute(
+                      text("""
+                                    UPDATE diem_danh 
+                                    SET trang_thai = :stt, nhan_xet = :nx, don_gia = :dg 
+                                    WHERE id = :id
+                                """),
+                      {
+                          'stt': stt_val,
+                          'nx': nx_val.strip(),
+                          'dg': dg_val,
+                          'id': lid,
+                      },
+                  )
+              st.success(
+                  f'✅ Đã cập nhật thành công điểm danh lớp {sel_lop_edit}!'
+              )
+              st.rerun()
+
+            if submit_delete_lop:
+              with engine.begin() as conn:
+                for lid, _, _, _ in lop_updates:
+                  conn.execute(
+                      text('DELETE FROM diem_danh WHERE id = :id'),
+                      {'id': lid},
+                  )
+              st.success(f'✅ Đã xóa toàn bộ điểm danh lớp {sel_lop_edit}!')
+              st.rerun()
+        else:
+          st.info('Không có lớp nào trong danh sách ngày này.')
+
+      st.markdown('---')
       with st.expander('⚙️ Sửa / Xóa từng bản ghi điểm danh lẻ'):
         log_dict = {
             (
