@@ -668,7 +668,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
     tab_dd_moi, tab_dd_quanly, tab_dd_lich_su = st.tabs([
         "📝 Điểm danh mới & Xem kết quả", 
         "⚙️ Quản lý, Sửa & Xóa Nhật ký Điểm danh",
-        "📊 Lịch sử Điểm danh & Xuất Ảnh"
+        "🖼️ Lịch sử Điểm danh & Xuất Ảnh"
     ])
     
     with tab_dd_moi:
@@ -916,7 +916,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
             st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
 
     with tab_dd_lich_su:
-        st.subheader("📊 Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
+        st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
         df_hs_ls = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
         if df_hs_ls.empty:
             st.warning("Chưa có học sinh nào trong hệ thống.")
@@ -931,9 +931,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
             thang_nam_k = f"{thang_ls:02d}/{nam_ls}"
             
             st.markdown("---")
-            st.markdown("##### 📦 Xuất ZIP Hàng Loạt Ảnh Lịch Sử Điểm Danh Tất Cả Học Sinh Trong Tháng")
+            st.markdown("##### 🖼️ Xuất ZIP Hàng Loạt Ảnh Lịch Sử Điểm Danh Tất Cả Học Sinh Trong Tháng")
             if HAS_MATPLOTLIB:
-                if st.button("📦 Tải ZIP Lịch Sử Điểm Danh TẤT CẢ Học Sinh Có Điểm Danh", type="primary", key="btn_zip_all_attendance"):
+                if st.button("🖼️ Tải ZIP Lịch Sử Điểm Danh TẤT CẢ Học Sinh Có Điểm Danh", type="primary", key="btn_zip_all_attendance"):
                     zip_buffer_att = io.BytesIO()
                     count_added = 0
                     with zipfile.ZipFile(zip_buffer_att, "w", zipfile.ZIP_DEFLATED) as zf_att:
@@ -972,7 +972,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     zip_buffer_att.seek(0)
                     if count_added > 0:
                         st.download_button(
-                            label=f"📥 Bấm Tải Xuống ZIP Lịch Sử Điểm Danh ({count_added} học sinh)",
+                            label=f"🖼️ Bấm Tải Xuống ZIP Lịch Sử Điểm Danh ({count_added} học sinh)",
                             data=zip_buffer_att,
                             file_name=f"Tat_Ca_Lich_Su_Diem_Danh_Thang_{thang_ls}_{nam_ls}.zip",
                             mime="application/zip",
@@ -1037,19 +1037,19 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
     st.subheader("📅 Quản lý Thời khoá Biểu & Lịch Học")
 
     tab_matrix, tab_goc, tab_export = st.tabs([
-        "🗺️ Lịch Học Tổng Quan", 
-        "📅 Lịch Gốc Hàng Tuần", 
-        "📥 Xuất Ảnh Lịch Học"
+        "📅 Lịch học tổng quan", 
+        "📅 Xếp lịch học", 
+        "🖼️ Xuất Ảnh Lịch Học"
     ])
 
     with tab_matrix:
-        st.markdown("##### 🗓️ Chọn mốc tuần cần xem lịch học tổng quan:")
+        st.markdown("##### 📅 Chọn mốc tuần cần xem lịch học tổng quan:")
         sel_date_matrix = st.date_input("Xem tuần chứa ngày:", date.today(), key="sel_date_matrix_main")
         st.divider()
         render_schedule_matrix(engine, ref_date=sel_date_matrix)
 
     with tab_goc:
-        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc)")
+        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần")
         
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
@@ -1115,7 +1115,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.rerun()
 
     with tab_export:
-        st.markdown("### 📥 Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
+        st.markdown("### 🖼️ Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
         df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
 
         if df_hs_all.empty:
@@ -1166,11 +1166,11 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                             type="primary"
                         )
                     with col_ex2:
-                        st.markdown("##### 📦 Xuất File ZIP Hàng Loạt")
+                        st.markdown("##### 🖼️ Xuất File ZIP Hàng Loạt")
                         zip_choice = st.radio("Chọn nội dung file ZIP:", ["Tất cả học sinh", "Tất cả các lớp"], horizontal=True, key="zip_choice_schedule")
                         
                         if zip_choice == "Tất cả học sinh":
-                            if st.button("📦 Tải ZIP Lịch Học TẤT CẢ Học Sinh", type="secondary"):
+                            if st.button("🖼️ Tải ZIP Lịch Học TẤT CẢ Học Sinh", type="secondary"):
                                 zip_buffer_s = io.BytesIO()
                                 processed_base_names = set()
                                 with zipfile.ZipFile(zip_buffer_s, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1190,7 +1190,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                             zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
                                 zip_buffer_s.seek(0)
                                 st.download_button(
-                                    label="📥 Bấm Tải Xuống ZIP Tất Cả Học Sinh",
+                                    label="🖼️ Bấm Tải Xuống ZIP Tất Cả Học Sinh",
                                     data=zip_buffer_s,
                                     file_name=f"Tat_Ca_Lich_Hoc_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
@@ -1198,7 +1198,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                     key="btn_download_zip_schedule_hs"
                                 )
                         else:
-                            if st.button("📦 Tải ZIP Lịch Học TẤT CẢ Các Lớp", type="secondary"):
+                            if st.button("🖼️ Tải ZIP Lịch Học TẤT CẢ Các Lớp", type="secondary"):
                                 zip_buffer_l = io.BytesIO()
                                 all_lops_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                                 with zipfile.ZipFile(zip_buffer_l, "w", zipfile.ZIP_DEFLATED) as zf_l:
@@ -1210,7 +1210,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                             zf_l.writestr(f"Lich_Hoc_Lop_{safe_lop_n}.png", img_lop_b.getvalue())
                                 zip_buffer_l.seek(0)
                                 st.download_button(
-                                    label="📥 Bấm Tải Xuống ZIP Tất Cả Các Lớp",
+                                    label="🖼️ Bấm Tải Xuống ZIP Tất Cả Các Lớp",
                                     data=zip_buffer_l,
                                     file_name=f"Tat_Ca_Lich_Hoc_Cac_Lop_{sel_date_export.strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
@@ -1500,7 +1500,7 @@ elif choice == "💳 Quản lý học phí":
         st.markdown("---")
 
         if HAS_MATPLOTLIB:
-            if st.button("📦 Xuất ZIP Hàng Loạt Phiếu Thống Kê / Hóa Đơn", type="primary"):
+            if st.button("🖼️ Xuất ZIP Hàng Loạt Phiếu Thống Kê / Hóa Đơn", type="primary"):
                 zip_buffer_f = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
                     for _, row_fee in combined_df.iterrows():
@@ -1523,7 +1523,7 @@ elif choice == "💳 Quản lý học phí":
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
-                    label="📥 Bấm Tải Xuống File ZIP Hóa Đơn",
+                    label="🖼️ Bấm Tải Xuống File ZIP Hóa Đơn",
                     data=zip_buffer_f,
                     file_name=f"Tong_Hop_Thong_Ke_{datetime.now().strftime('%Y%m%d')}.zip",
                     mime="application/zip",
