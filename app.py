@@ -634,9 +634,9 @@ elif choice == "1. Điểm danh & Nhận xét":
         df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
         df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
-        # 2 tùy chọn điểm danh mới theo yêu cầu
+        # 2 tùy chọn điểm danh mới
         che_do_nguon = st.radio(
-            "📌 Chọn chế độ nguồn học sinh điểm danh:",
+            "📌 Chọn chế độ điểm danh:",
             [
                 "1. Điểm danh tất cả học sinh hôm nay", 
                 "2. Điểm danh học sinh / lớp KHÔNG có lịch học hôm nay (Học bù, phát sinh...)"
@@ -644,46 +644,37 @@ elif choice == "1. Điểm danh & Nhận xét":
             key="che_do_nguon_diem_danh"
         )
         
-        if che_do_nguon.startswith("1."):
-            df_source = df_active_today
-        else:
-            if not df_all_hs.empty:
-                df_source = df_all_hs.copy()
-                df_source['ca_hoc'] = "17h30 - 19h30"
-                df_source['nguon'] = "Ngoài lịch"
-            else:
-                df_source = pd.DataFrame(columns=['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon'])
-
-        type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
-        st.divider()
-
         target_students = pd.DataFrame()
 
         if df_all_hs.empty:
             st.warning("⚠️ Chưa có học sinh nào trong hệ thống!")
         else:
-            if type_mode == "🏫 Điểm danh theo LỚP":
-                available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
-                options_class = ["🌟 All Lớp (Tất cả học sinh)"] + available_classes
-                selected_class_opt = st.selectbox("Chọn Lớp cần điểm danh", options_class)
-
-                if selected_class_opt.startswith("🌟 All Lớp"):
-                    target_students = df_source
-                else:
-                    target_students = df_source[df_source['lop_hoc'] == selected_class_opt] if not df_source.empty else pd.DataFrame()
+            if che_do_nguon.startswith("1."):
+                target_students = df_active_today
             else:
-                student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
-                options_hs = ["🌟 All Học sinh (Tất cả học sinh)"] + list(student_dict.keys())
-                selected_hs_opt = st.selectbox("Chọn học sinh điểm danh", options_hs)
-
-                if selected_hs_opt.startswith("🌟 All Học sinh"):
-                    target_students = df_source
-                else:
-                    selected_hs_id = student_dict[selected_hs_opt]
-                    target_students = df_source[df_source['hoc_sinh_id'] == selected_hs_id] if not df_source.empty else pd.DataFrame()
+                # Tùy chọn 2: Tìm kiếm lớp hoặc học sinh ở hộp tìm kiếm / lựa chọn bên dưới
+                available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
+                class_options_lbl = [f"🏫 Cả Lớp: {cls}" for cls in available_classes]
+                student_dict = {f"👤 {row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
+                
+                all_options_opt2 = ["-- Vui lòng chọn Lớp hoặc Học sinh cần điểm danh --"] + class_options_lbl + list(student_dict.keys())
+                selected_opt2 = st.selectbox("🔍 Tìm kiếm và chọn Lớp hoặc Học sinh:", all_options_opt2, key="sel_opt2_custom")
+                
+                if selected_opt2.startswith("🏫 Cả Lớp:"):
+                    selected_lop_name = selected_opt2.replace("🏫 Cả Lớp: ", "").strip()
+                    df_lop_filtered = df_all_hs[df_all_hs['lop_hoc'] == selected_lop_name].copy()
+                    df_lop_filtered['ca_hoc'] = "17h30 - 19h30"
+                    df_lop_filtered['nguon'] = "Ngoài lịch"
+                    target_students = df_lop_filtered
+                elif selected_opt2.startswith("👤 "):
+                    sel_hs_id_val = student_dict[selected_opt2]
+                    df_hs_filtered = df_all_hs[df_all_hs['hoc_sinh_id'] == sel_hs_id_val].copy()
+                    df_hs_filtered['ca_hoc'] = "17h30 - 19h30"
+                    df_hs_filtered['nguon'] = "Ngoài lịch"
+                    target_students = df_hs_filtered
 
             if target_students.empty:
-                st.info("ℹ️ Không tìm thấy học sinh nào phù hợp trong danh sách.")
+                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách lịch học hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
                 with st.form("form_diem_danh_execution"):
