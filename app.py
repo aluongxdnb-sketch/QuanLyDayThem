@@ -118,10 +118,8 @@ def sync_weekly_schedule_to_google(
 
   try:
     scopes = ['https://www.googleapis.com/auth/calendar']
-
     creds_info = json.loads(st.secrets['GOOGLE_CREDENTIALS_JSON'])
     creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
-
     service = build('calendar', 'v3', credentials=creds)
 
     today = date.today()
@@ -211,7 +209,6 @@ def sync_weekly_schedule_to_google(
         f'✅ Đã dọn dẹp lịch cũ & đồng bộ thành công {count_events} ca dạy trong'
         f' {days_ahead} ngày tới lên iPhone!',
     )
-
   except Exception as e:
     return False, f'❌ Lỗi khi đồng bộ lịch tuần: {str(e)}'
 
@@ -380,7 +377,6 @@ def create_weekly_schedule_image(
   )
 
   col_widths = [0.08, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
-
   table = ax.table(
       cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths
   )
@@ -463,7 +459,7 @@ def create_weekly_schedule_image(
   return buffer
 
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHI TIẾT ĐƠN GIÁ & NHIỀU THÁNG) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
 def create_tuition_slip_image(
     student_name,
     lop_hoc,
@@ -537,9 +533,7 @@ def create_tuition_slip_image(
     for d in details_list:
       bd_parts = []
       for item in d.get('breakdown_items', []):
-        bd_parts.append(
-            f"{item['so_ca']} ca x {item['don_gia']:,.0f}đ"
-        )
+        bd_parts.append(f"{item['so_ca']} ca x {item['don_gia']:,.0f}đ")
       bd_text = (
           ' + '.join(bd_parts)
           if bd_parts
@@ -1552,7 +1546,6 @@ elif choice == '2. 🗺️ Quản Lý & Lịch Học Tổng Quan':
             'Thứ 7',
             'Chủ Nhật',
         ]
-
         st.markdown(
             f'##### ⏰ Chọn ca học cho từng ngày trong tuần của'
             f' **{target_name_label}**:'
@@ -2456,7 +2449,7 @@ elif choice == '3. 💳 Thống Kê Số Ca & Quản Lý Học Phí':
               label='🖼️ Tải Ảnh Phiếu',
               data=img_bytes,
               file_name=(
-                  f"Phieu_{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}.png"
+                  f"Phieu_{row['Họ dan và Tên']}_{row['Lớp']}_{safe_filename_time}.png"
               ),
               mime='application/png',
               key=f"img_fee_{row['hoc_sinh_id']}_{idx}",
