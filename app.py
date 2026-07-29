@@ -1484,7 +1484,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                             details_list=row_fee.get('details', [])
                         )
                         safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ and Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
@@ -1767,6 +1767,3 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
                     conn.execute(text("DELETE FROM hoc_sinh WHERE id = :id"), {"id": selected_del_id})
                 st.success("✅ Đã xóa thành công!")
                 st.rerun()
-
-    st.markdown("### 📋 Danh Sách Toàn Bộ Học Sinh")
-    st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Số ĐT/Phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
