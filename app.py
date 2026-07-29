@@ -9,7 +9,7 @@ import io
 import textwrap
 import zipfile
 
-# Thử import Matplotlib để xuất lịch học, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
+# Thử import Matplotlib để xuất thời khóa biểu, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
     import matplotlib.pyplot as plt
     import matplotlib
@@ -70,7 +70,7 @@ def get_family_student_ids(engine, hs_id):
             matched_ids.append(r['id'])
     return list(set(matched_ids))
 
-# --- HÀM LẤY LỊCH HỌC HIỆU LỰC CHO MỘT NGÀY (LỊCH GỐC) ---
+# --- HÀM LẤY THỜI KHOÁ BIỂU HIỆU LỰC CHO MỘT NGÀY (LỊCH GỐC) ---
 def get_active_schedule_for_date(engine, check_date, hs_ids=None):
     target_day_str = get_vietnamese_weekday(check_date)
     where_clause = f"l.thu = '{target_day_str}'"
@@ -178,7 +178,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
         return True, f"✅ Đã dọn dẹp lịch cũ & đồng bộ thành công {count_events} ca dạy trong {days_ahead} ngày tới lên iPhone!"
 
     except Exception as e:
-        return False, f"❌ Lỗi khi đồng bộ lịch tuần: {str(e)}"
+        return False, f"❌ Lỗi khi đồng bộ thời khóa biểu: {str(e)}"
 
 # --- HÀM SẮP XẾP CA HỌC THEO GIỜ ---
 def ca_hoc_sort_key(ca_str):
@@ -211,7 +211,7 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM LẤY MA TRẬN LỊCH HỌC (HỖ TRỢ GỘP NHIỀU ID HỌC SINH) ---
+# --- HÀM LẤY MA TRẬN THỜI KHÓA BIỂU (HỖ TRỢ GỘP NHIỀU ID HỌC SINH) ---
 def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -271,15 +271,15 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
     cols = ["Buổi", "Ca học"] + cac_thu
     return df_matrix[cols]
 
-# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC (RENDER) ---
+# --- HÀM HIỂN THỊ MA TRẬN THỜI KHÓA BIỂU (RENDER) ---
 def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     df_matrix = get_schedule_matrix_df(engine, filter_lop=filter_lop, filter_hs_id=filter_hs_id, ref_date=ref_date)
     if df_matrix.empty:
-        st.info("ℹ️ Không có lịch học nào trong tuần này.")
+        st.info("ℹ️ Không có thời khóa biểu nào trong tuần này.")
     else:
         st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
+# --- HÀM TẠO FILE ẢNH PNG THỜI KHÓA BIỂU HÀNG TUẦN ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
         ref_date = date.today()
@@ -321,14 +321,14 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     v_scale = max(3.2, max_lines_overall * 1.15)
     table.scale(1, v_scale)
     
-    ax.text(0.5, 1.15, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=ax.transAxes, 
+    ax.text(0.5, 1.15, "THỜI KHÓA BIỂU HÀNG TUẦN", transform=ax.transAxes, 
             fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
     ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
             fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='bottom')
     ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
             fontsize=11.5, fontweight='normal', color='#475569', ha='center', va='bottom')
     
-    plt.figtext(0.5, 0.02, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo.", ha='center', fontsize=10.5, style='italic', color='#475569', weight='bold')
+    plt.figtext(0.5, 0.02, "Ghi chú: Thời khóa biểu được áp dụng ổn định cho các tuần tiếp theo.", ha='center', fontsize=10.5, style='italic', color='#475569', weight='bold')
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
@@ -647,7 +647,7 @@ if choice == "🏠 Trang chủ":
         st.dataframe(display_debt_df, use_container_width=True)
         
     st.markdown("---")
-    st.markdown("#### 🏫 Chi Tiết Lịch Dạy & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
+    st.markdown("#### 🏫 Chi Tiết Thời Khóa Biểu & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
     if df_today.empty:
         st.info("💡 Hôm nay không có ca dạy nào được lên lịch.")
     else:
@@ -684,7 +684,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
             "📌 Chọn chế độ điểm danh:",
             [
                 "1. Điểm danh tất cả học sinh hôm nay", 
-                "2. Điểm danh học sinh / lớp KHÔNG có lịch học hôm nay (Học bù, phát sinh...)"
+                "2. Điểm danh học sinh / lớp KHÔNG có thời khóa biểu hôm nay (Học bù, phát sinh...)"
             ],
             key="che_do_nguon_diem_danh"
         )
@@ -718,7 +718,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     target_students = df_hs_filtered
 
             if target_students.empty:
-                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách lịch học hôm nay.")
+                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
                 with st.form("form_diem_danh_execution"):
@@ -1034,35 +1034,35 @@ elif choice == "📝 Điểm danh & Nhận xét":
 # --- QUẢN LÝ THỜI KHÓA BIỂU ---
 # =========================================================
 elif choice == "📅 Quản lý Thời khoá Biểu":
-    st.subheader("📅 Quản lý Thời khoá Biểu & Lịch Học")
+    st.subheader("📅 Quản lý Thời khóa Biểu")
 
     tab_matrix, tab_goc, tab_export = st.tabs([
-        "📅 Lịch học tổng quan", 
-        "📅 Xếp lịch học", 
-        "🖼️ Xuất Ảnh Lịch Học"
+        "🗓️ Thời khóa biểu tổng quan", 
+        "⏰ Xếp thời khóa biểu mới", 
+        "🖼️ Tải ảnh thời khóa biểu"
     ])
 
     with tab_matrix:
-        st.markdown("##### 📅 Chọn mốc tuần cần xem lịch học tổng quan:")
+        st.markdown("##### 🗓️ Chọn mốc tuần cần xem thời khóa biểu tổng quan:")
         sel_date_matrix = st.date_input("Xem tuần chứa ngày:", date.today(), key="sel_date_matrix_main")
         st.divider()
         render_schedule_matrix(engine, ref_date=sel_date_matrix)
 
     with tab_goc:
-        st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần")
+        st.subheader("📅 Xếp Thời Khóa Biểu Cố Định Hàng Tuần")
         
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
         if df_hs.empty:
             st.warning("Chưa có học sinh.")
         else:
-            mode_goc = st.radio("Phạm vi xếp lịch gốc:", ["Theo Lớp (Áp dụng chung cả lớp)", "Theo Từng Học Sinh Riêng Biệt"], horizontal=True, key="mode_goc_sched")
+            mode_goc = st.radio("Phạm vi xếp thời khóa biểu gốc:", ["Theo Lớp (Áp dụng chung cả lớp)", "Theo Từng Học Sinh Riêng Biệt"], horizontal=True, key="mode_goc_sched")
             
             target_hs_ids = []
             target_name_label = ""
             if mode_goc == "Theo Lớp (Áp dụng chung cả lớp)":
                 all_lops = sorted(df_hs['lop_hoc'].dropna().unique().tolist())
-                selected_lop = st.selectbox("Chọn Lớp để xếp lịch gốc", all_lops, key="select_goc_lop")
+                selected_lop = st.selectbox("Chọn Lớp để xếp thời khóa biểu gốc", all_lops, key="select_goc_lop")
                 target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
                 target_name_label = f"Lớp {selected_lop}"
             else:
@@ -1100,7 +1100,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                     if all_cas_for_day:
                         schedule_dict_to_save[t] = list(set(all_cas_for_day))
 
-            if st.button(f"💾 Lưu Lịch Học Gốc Cho {target_name_label}", type="primary"):
+            if st.button(f"💾 Lưu Thời Khóa Biểu Gốc Cho {target_name_label}", type="primary"):
                 with engine.begin() as conn:
                     for hs_id in target_hs_ids:
                         conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": hs_id})
@@ -1111,24 +1111,24 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                     VALUES (:hs_id, :thu, :ca)
                                     ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
                                 '''), {"hs_id": hs_id, "thu": t_val, "ca": ca_val})
-                st.success(f"✅ Đã lưu lịch gốc cho {target_name_label} thành công lên Supabase!")
+                st.success(f"✅ Đã lưu thời khóa biểu gốc cho {target_name_label} thành công lên Supabase!")
                 st.rerun()
 
     with tab_export:
-        st.markdown("### 🖼️ Xuất File Lịch Học Hàng Tuần Dạng Ảnh PNG")
+        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần Dạng Ảnh PNG")
         df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
 
         if df_hs_all.empty:
             st.warning("Chưa có dữ liệu học sinh.")
         else:
-            sel_date_export = st.date_input("🗓️ Chọn tuần để xuất ảnh:", date.today(), key="sel_date_export_img_m")
-            filter_mode = st.radio("Chọn phạm vi xuất lịch học:", ["Theo Lớp cụ thể", "Theo Học sinh cụ thể"], horizontal=True, key="filter_mode_exp_m")
+            sel_date_export = st.date_input("🗓️ Chọn tuần để tải ảnh:", date.today(), key="sel_date_export_img_m")
+            filter_mode = st.radio("Chọn phạm vi tải thời khóa biểu:", ["Theo Lớp cụ thể", "Theo Học sinh cụ thể"], horizontal=True, key="filter_mode_exp_m")
             
             target_title = "Lớp học"
             selected_lop_exp = None
             selected_hs_exp = None
             prefix_label = "Học sinh / Lớp: "
-            file_name_download = "Lich_Hoc.png"
+            file_name_download = "Thoi_Khoa_Bieu.png"
 
             if filter_mode == "Theo Lớp cụ thể":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
@@ -1136,7 +1136,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 target_title = f"Lớp {selected_lop_exp}"
                 prefix_label = "Lớp: "
                 safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", f"{selected_lop_exp}".replace(" ", "_"))
-                file_name_download = f"Lich_Hoc_Lop_{safe_lop_name}.png"
+                file_name_download = f"Thoi_Khoa_Bieu_Lop_{safe_lop_name}.png"
             elif filter_mode == "Theo Học sinh cụ thể":
                 hs_dict_exp = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_all.iterrows()}
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()), key="sel_hs_label_exp_m")
@@ -1147,30 +1147,30 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 target_title = f"{base_n_exp} - Lớp {lop_n_exp}"
                 prefix_label = "Học sinh / Lớp: "
                 safe_hs_name = re.sub(r'[\\/*?:"<>|]', "", f"{base_n_exp}_{lop_n_exp}".replace(" ", "_"))
-                file_name_download = f"Lich_Hoc_{safe_hs_name}.png"
+                file_name_download = f"Thoi_Khoa_Bieu_{safe_hs_name}.png"
 
             df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
 
             if df_export_matrix.empty:
-                st.info("ℹ️ Không tìm thấy lịch học phù hợp đối với lựa chọn này.")
+                st.info("ℹ️ Không tìm thấy thời khóa biểu phù hợp đối với lựa chọn này.")
             else:
                 if HAS_MATPLOTLIB:
                     col_ex1, col_ex2 = st.columns(2)
                     with col_ex1:
                         img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
                         st.download_button(
-                            label=f"🖼️ Tải Ảnh Lịch Học ({target_title})",
+                            label=f"🖼️ Tải Ảnh Thời Khóa Biểu ({target_title})",
                             data=img_bytes,
                             file_name=file_name_download,
                             mime="image/png",
                             type="primary"
                         )
                     with col_ex2:
-                        st.markdown("##### 🖼️ Xuất File ZIP Hàng Loạt")
+                        st.markdown("##### 🖼️ Tải File ZIP Hàng Loạt")
                         zip_choice = st.radio("Chọn nội dung file ZIP:", ["Tất cả học sinh", "Tất cả các lớp"], horizontal=True, key="zip_choice_schedule")
                         
                         if zip_choice == "Tất cả học sinh":
-                            if st.button("🖼️ Tải ZIP Lịch Học TẤT CẢ Học Sinh", type="secondary"):
+                            if st.button("🖼️ Tải ZIP Thời Khóa Biểu TẤT CẢ Học Sinh", type="secondary"):
                                 zip_buffer_s = io.BytesIO()
                                 processed_base_names = set()
                                 with zipfile.ZipFile(zip_buffer_s, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1187,18 +1187,18 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                         if not df_hs_mat.empty:
                                             img_hs_b = create_weekly_schedule_image(f"{hs_name_val} - Lớp {hs_lop_val}", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh / Lớp: ")
                                             safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
-                                            zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
+                                            zf.writestr(f"Thoi_Khoa_Bieu_{safe_n}.png", img_hs_b.getvalue())
                                 zip_buffer_s.seek(0)
                                 st.download_button(
                                     label="🖼️ Bấm Tải Xuống ZIP Tất Cả Học Sinh",
                                     data=zip_buffer_s,
-                                    file_name=f"Tat_Ca_Lich_Hoc_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
                                     type="primary",
                                     key="btn_download_zip_schedule_hs"
                                 )
                         else:
-                            if st.button("🖼️ Tải ZIP Lịch Học TẤT CẢ Các Lớp", type="secondary"):
+                            if st.button("🖼️ Tải ZIP Thời Khóa Biểu TẤT CẢ Các Lớp", type="secondary"):
                                 zip_buffer_l = io.BytesIO()
                                 all_lops_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                                 with zipfile.ZipFile(zip_buffer_l, "w", zipfile.ZIP_DEFLATED) as zf_l:
@@ -1207,12 +1207,12 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                         if not df_lop_mat.empty:
                                             img_lop_b = create_weekly_schedule_image(f"Lớp {lop_val}", df_lop_mat, ref_date=sel_date_export, prefix="Lớp: ")
                                             safe_lop_n = re.sub(r'[\\/*?:"<>|]', "", f"{lop_val}".replace(" ", "_"))
-                                            zf_l.writestr(f"Lich_Hoc_Lop_{safe_lop_n}.png", img_lop_b.getvalue())
+                                            zf_l.writestr(f"Thoi_Khoa_Bieu_Lop_{safe_lop_n}.png", img_lop_b.getvalue())
                                 zip_buffer_l.seek(0)
                                 st.download_button(
                                     label="🖼️ Bấm Tải Xuống ZIP Tất Cả Các Lớp",
                                     data=zip_buffer_l,
-                                    file_name=f"Tat_Ca_Lich_Hoc_Cac_Lop_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Cac_Lop_{sel_date_export.strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
                                     type="primary",
                                     key="btn_download_zip_schedule_lop"
@@ -1476,6 +1476,8 @@ elif choice == "💳 Quản lý học phí":
         combined_df = get_aggregated_tuition_df(raw_df)
 
     if not combined_df.empty:
+        combined_df['lua_chon_lbl'] = combined_df['Họ와 Tên'] if 'Họ와 Tên' in combined_df else combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
+        # Fix typo check:
         combined_df['lua_chon_lbl'] = combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
         all_student_options = sorted(combined_df['lua_chon_lbl'].unique().tolist())
     else:
@@ -1722,7 +1724,7 @@ elif choice == "📋 Thông tin học sinh":
             
             st.markdown("---")
             
-            st.markdown("#### 🗓️ Lịch Học Cố Định Hàng Tuần (Gộp chung)")
+            st.markdown("#### 🗓️ Thời Khóa Biểu Cố Định Hàng Tuần (Gộp chung)")
             df_hs_sched = pd.read_sql_query(f'''
                 SELECT h.ho_ten AS "Hồ sơ", l.thu AS "Thứ", l.ca_hoc AS "Ca học"
                 FROM lich_hoc_tuan l
@@ -1731,7 +1733,7 @@ elif choice == "📋 Thông tin học sinh":
                 ORDER BY l.id
             ''', engine)
             if df_hs_sched.empty:
-                st.info("ℹ️ Học sinh chưa có lịch học cố định nào.")
+                st.info("ℹ️ Học sinh chưa có thời khóa biểu cố định nào.")
             else:
                 st.dataframe(df_hs_sched, use_container_width=True)
                 
