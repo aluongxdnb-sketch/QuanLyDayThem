@@ -551,7 +551,7 @@ if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_widt
     st.rerun()
 
 menu = [
-    "📊 Trang chủ",
+    "🏠 Trang chủ",
     "📝 Điểm danh & Nhận xét", 
     "📅 Lịch học tổng quan",
     "💳 Quản lý học phí", 
@@ -585,8 +585,8 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 # =========================================================
 # --- TRANG CHỦ ---
 # =========================================================
-if choice == "📊 Trang chủ":
-    st.subheader("📊 Trang Chủ Dashboard Tổng Quan Trong Ngày")
+if choice == "🏠 Trang chủ":
+    st.subheader("🏠 Tổng Quan Trong Ngày")
     today = date.today()
     thu_hom_nay = get_vietnamese_weekday(today)
     st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
