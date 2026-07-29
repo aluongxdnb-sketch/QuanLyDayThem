@@ -19,7 +19,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 # --- CẤU HÌNH TRANG WEB ---
-st.set_page_config(page_title="Quản Lý Học Sinh Học Thêm", layout="wide", page_icon="📚")
+st.set_page_config(page_title="Phần Mềm Quản Lý Dạy Thêm", layout="wide", page_icon="📚")
 
 # --- KẾT NỐI SUPABASE (POSTGRESQL) QUA DATABASE_URL TRONG SECRETS ---
 db_url = st.secrets["DATABASE_URL"]
@@ -35,39 +35,6 @@ DANH_SACH_CA_MAU = [
     "17h30 - 19h30", 
     "19h30 - 21h30"
 ]
-
-# =========================================================
-# 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ỨNG DỤNG
-# =========================================================
-def check_password():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-
-    if st.session_state.logged_in:
-        return True
-
-    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.subheader("🔐 Đăng Nhập Hệ Thống")
-        username_input = st.text_input("👤 Tên đăng nhập:", value="admin")
-        password_input = st.text_input("🔑 Mật khẩu:", type="password")
-        
-        if st.button("🚀 Đăng Nhập", type="primary", use_container_width=True):
-            valid_user = st.secrets.get("USERNAME", "admin")
-            valid_pass = st.secrets.get("PASSWORD", "120809")
-            
-            if username_input == valid_user and password_input == valid_pass:
-                st.session_state.logged_in = True
-                st.success("✅ Đăng nhập thành công!")
-                st.rerun()
-            else:
-                st.error("❌ Mật khẩu hoặc Tên đăng nhập không chính xác!")
-    return False
-
-if not check_password():
-    st.stop()
 
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
 def get_vietnamese_weekday(dt):
@@ -97,10 +64,8 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
 
     try:
         scopes = ['https://www.googleapis.com/auth/calendar']
-        
         creds_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
-        
         service = build('calendar', 'v3', credentials=creds)
 
         today = date.today()
@@ -267,13 +232,6 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
     df_matrix = pd.DataFrame(matrix_rows)
     cols = ["Buổi", "Ca học"] + cac_thu
     return df_matrix[cols]
-
-def render_schedule_matrix(engine, ref_date=None):
-    df_matrix = get_schedule_matrix_df(engine, ref_date=ref_date)
-    if df_matrix.empty:
-        st.info("💡 Chưa có lịch học tuần nào được thiết lập trong hệ thống cho mốc thời gian này.")
-        return
-    st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
 # --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
@@ -447,7 +405,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- 1. KHỞI TẠO BẢNG TRÊN SUPABASE & TỰ ĐỘNG BỔ SUNG CỘT ---
+# --- KHỞI TẠO BẢNG TRÊN SUPABASE & TỰ ĐỘNG BỔ SUNG CỘT ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -497,11 +455,302 @@ with engine.begin() as conn:
     except Exception:
         pass
 
-# --- 2. GIAO DIỆN CHÍNH ---
+# =========================================================
+# 🔐 HỆ THỐNG CHỌN VAI TRÒ & ĐĂNG NHẬP
+# =========================================================
+if "app_mode" not in st.session_state:
+    st.session_state.app_mode = None
+
+if st.session_state.app_mode is None:
+    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #475569;'>Vui lòng chọn vai trò truy cập bên dưới:</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    with col_l2:
+        if st.button("👨‍🏫 Đăng Nhập Giao Diện Giáo Viên (Admin)", type="primary", use_container_width=True):
+            st.session_state.app_mode = "admin"
+            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("👨‍👩‍👧‍👦 Tra Cứu Thông Tin Dành Cho Phụ Huynh", type="secondary", use_container_width=True):
+            st.session_state.app_mode = "parent"
+            st.rerun()
+    st.stop()
+
+# =========================================================
+# 👨‍👩‍👧‍👦 CỔNG THÔNG TIN PHỤ HUYNH (PARENT PORTAL)
+# =========================================================
+if st.session_state.app_mode == "parent":
+    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>🌟 Cổng Thông Tin Học Tập & Học Phí Phụ Huynh</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #475569;'>Tra cứu lịch học, lịch sử điểm danh và học phí của học sinh.</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    if st.button("⬅️ Quay lại màn hình chọn vai trò", type="secondary"):
+        st.session_state.app_mode = None
+        st.rerun()
+        
+    col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+    with col_p2:
+        st.subheader("🔍 Tra Cứu Thông Tin Học Sinh")
+        sdt_phu_huynh_input = st.text_input("📞 Nhập Số Điện Thoại Phụ Huynh (hoặc thông tin liên hệ đã đăng ký):", placeholder="VD: 0912345678")
+        
+        btn_tra_cuu = st.button("🚀 Tra Cứu Ngay", type="primary", use_container_width=True)
+        
+    if btn_tra_cuu:
+        if not sdt_phu_huynh_input.strip():
+            st.error("❌ Vui lòng nhập số điện thoại phụ huynh để tra cứu!")
+        else:
+            query_parent_hs = text('''
+                SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh 
+                FROM hoc_sinh 
+                WHERE thong_tin_phu_huynh ILIKE :sdt
+            ''')
+            df_my_kids = pd.read_sql_query(query_parent_hs, engine, params={"sdt": f"%{sdt_phu_huynh_input.strip()}%"})
+            
+            if df_my_kids.empty:
+                st.warning("⚠️ Không tìm thấy học sinh nào liên kết với số điện thoại này. Vui lòng kiểm tra lại hoặc liên hệ giáo viên!")
+            else:
+                st.success(f"✅ Tìm thấy **{len(df_my_kids)}** học sinh thuộc số điện thoại của bạn!")
+                st.session_state.df_my_kids = df_my_kids
+                st.session_state.searched_parent = True
+
+    if st.session_state.get("searched_parent", False) and "df_my_kids" in st.session_state:
+        df_my_kids = st.session_state.df_my_kids
+        if not df_my_kids.empty:
+            st.markdown("---")
+            kid_dict = {f"👤 {row['ho_ten']} - Lớp: {row['lop_hoc']} (Môn: {row['mon_hoc']})": row['id'] for _, row in df_my_kids.iterrows()}
+            selected_kid_label = st.selectbox("📌 Chọn học sinh để xem chi tiết:", list(kid_dict.keys()))
+            selected_kid_id = kid_dict[selected_kid_label]
+            kid_row = df_my_kids[df_my_kids['id'] == selected_kid_id].iloc[0]
+            
+            st.markdown(f"### 📋 Thông Tin Chi Tiết Của Em: {kid_row['ho_ten']}")
+            
+            tab_p_info, tab_p_lich, tab_p_diemdanh, tab_p_hocphi = st.tabs([
+                "👤 Thông tin chung", 
+                "🗓️ Thời khóa biểu tuần", 
+                "📝 Lịch sử điểm danh & Nhận xét", 
+                "💳 Tra cứu học phí & Tải hóa đơn"
+            ])
+            
+            with tab_p_info:
+                st.info("💡 Dưới đây là thông tin học tập cơ bản được ghi nhận tại trung tâm.")
+                c_i1, c_i2 = st.columns(2)
+                c_i1.metric("👤 Họ và tên", kid_row['ho_ten'])
+                c_i1.metric("🏫 Lớp học", kid_row['lop_hoc'])
+                c_i2.metric("📚 Môn học", kid_row['mon_hoc'] or "Chưa cập nhật")
+                c_i2.metric("💵 Đơn giá học phí/ca", f"{kid_row['hoc_phi_buoi']:,.0f} VNĐ")
+                st.write(f"**📞 Thông tin liên hệ phụ huynh:** {kid_row['thong_tin_phu_huynh']}")
+                
+            with tab_p_lich:
+                st.markdown(f"#### 🗓️ Thời Khóa Biểu Hàng Tuần Của {kid_row['ho_ten']}")
+                ref_date_p = st.date_input("Chọn tuần cần xem lịch:", date.today(), key="ref_date_p_sched")
+                df_matrix_kid = get_schedule_matrix_df(engine, filter_hs_id=selected_kid_id, ref_date=ref_date_p)
+                
+                if df_matrix_kid.empty:
+                    st.info("ℹ️ Học sinh chưa có lịch học cố định nào trong tuần này.")
+                else:
+                    st.write(df_matrix_kid.to_html(index=False, escape=False), unsafe_allow_html=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if HAS_MATPLOTLIB:
+                        img_s_bytes = create_weekly_schedule_image(
+                            title_target=f"{kid_row['ho_ten']} ({kid_row['lop_hoc']})",
+                            df_matrix=df_matrix_kid,
+                            ref_date=ref_date_p,
+                            prefix="Học sinh: "
+                        )
+                        safe_n_s = re.sub(r'[\\/*?:"<>|]', "", f"{kid_row['ho_ten']}_{kid_row['lop_hoc']}".replace(" ", "_"))
+                        st.download_button(
+                            label="🖼️ Tải Ảnh Lịch Học Về Máy",
+                            data=img_s_bytes,
+                            file_name=f"Lich_Hoc_{safe_n_s}.png",
+                            mime="image/png",
+                            type="primary"
+                        )
+                        
+            with tab_p_diemdanh:
+                st.markdown(f"#### 📊 Lịch Sử Điểm Danh & Nhận Xét Của Giáo Viên")
+                col_py, col_pm = st.columns(2)
+                with col_py:
+                    p_nam = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="p_nam_pick")
+                with col_pm:
+                    p_thang = st.selectbox("Chọn Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="p_thang_pick")
+                
+                p_thang_q = f"{p_nam}-{p_thang:02d}"
+                p_thang_k = f"{p_thang:02d}/{p_nam}"
+                
+                df_p_att = pd.read_sql_query(f'''
+                    SELECT 
+                        TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                        d.ca_hoc AS "Ca học",
+                        d.trang_thai AS "Trạng thái",
+                        COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                    FROM diem_danh d
+                    WHERE d.hoc_sinh_id = {selected_kid_id} AND TO_CHAR(d.ngay, 'YYYY-MM') = '{p_thang_q}'
+                    ORDER BY d.ngay ASC, d.id ASC
+                ''', engine)
+                
+                if df_p_att.empty:
+                    st.info(f"ℹ️ Chưa có lịch sử điểm danh nào trong Tháng {p_thang_k}.")
+                else:
+                    p_co_mat = len(df_p_att[df_p_att['Trạng thái'] == 'Có mặt'])
+                    st.metric("🟢 Tổng số buổi đi học (Có mặt) trong tháng", f"{p_co_mat} buổi")
+                    st.dataframe(df_p_att, use_container_width=True)
+                    
+                    if HAS_MATPLOTLIB:
+                        img_att_p = create_student_attendance_history_image(
+                            student_name=kid_row['ho_ten'],
+                            lop_hoc=kid_row['lop_hoc'],
+                            month_year=p_thang_k,
+                            df_history=df_p_att,
+                            total_present=p_co_mat
+                        )
+                        safe_n_att = re.sub(r'[\\/*?:"<>|]', "", f"{kid_row['ho_ten']}_{kid_row['lop_hoc']}".replace(" ", "_"))
+                        st.download_button(
+                            label="🖼️ Tải Ảnh Lịch Sử Điểm Danh",
+                            data=img_att_p,
+                            file_name=f"Lich_Su_Diem_Danh_{safe_n_att}_Thang_{p_thang}_{p_nam}.png",
+                            mime="image/png",
+                            type="primary",
+                            key="btn_dl_att_parent"
+                        )
+                        
+            with tab_p_hocphi:
+                st.markdown(f"#### 💳 Tra Cứu Học Phí & Hóa Đơn Chi Tiết")
+                p_fee_nam = st.number_input("Chọn Năm xem học phí", min_value=2020, max_value=2035, value=datetime.now().year, key="fee_nam_p")
+                p_fee_thangs = st.multiselect("Chọn Tháng cần xem học phí:", list(range(1, 13)), default=[datetime.now().month], format_func=lambda x: f"Tháng {x}", key="fee_thangs_p")
+                
+                if p_fee_thangs:
+                    total_ca_p = 0
+                    total_tien_p = 0
+                    valid_details_p = []
+                    
+                    for th in sorted(p_fee_thangs):
+                        th_q = f"{p_fee_nam}-{th:02d}"
+                        th_k = f"{th:02d}/{p_fee_nam}"
+                        
+                        df_ca_t = pd.read_sql_query(f'''
+                            SELECT COUNT(*) AS so_ca FROM diem_danh 
+                            WHERE hoc_sinh_id = {selected_kid_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{th_q}' AND trang_thai = 'Có mặt'
+                        ''', engine)
+                        so_ca = int(df_ca_t.iloc[0]['so_ca']) if not df_ca_t.empty else 0
+                        
+                        if so_ca == 0:
+                            continue
+                            
+                        df_pay_t = pd.read_sql_query(f'''
+                            SELECT trang_thai FROM thanh_toan 
+                            WHERE hoc_sinh_id = {selected_kid_id} AND thang_nam = '{th_k}'
+                        ''', engine)
+                        trang_thai_th = df_pay_t.iloc[0]['trang_thai'] if not df_pay_t.empty else 'Chưa đóng'
+                        
+                        thanh_tien = so_ca * kid_row['hoc_phi_buoi']
+                        total_ca_p += so_ca
+                        total_tien_p += thanh_tien
+                        
+                        valid_details_p.append({
+                            'thang_key': th_k,
+                            'so_ca': so_ca,
+                            'don_gia': kid_row['hoc_phi_buoi'],
+                            'thanh_tien': thanh_tien,
+                            'trang_thai': trang_thai_th
+                        })
+                        
+                    if not valid_details_p:
+                        st.info("ℹ️ Không có ca học nào trong các tháng đã chọn.")
+                    else:
+                        st.markdown("---")
+                        c_sum_p1, c_sum_p2 = st.columns(2)
+                        c_sum_p1.metric("📚 Tổng số ca học", f"{total_ca_p} ca")
+                        c_sum_p2.metric("💰 Tổng tiền học phí", f"{total_tien_p:,.0f} VNĐ")
+                        st.markdown("---")
+                        
+                        is_multi_p = len(valid_details_p) > 1
+                        time_label_p = " - ".join([d['thang_key'] for d in valid_details_p]) if is_multi_p else valid_details_p[0]['thang_key']
+                        
+                        if is_multi_p:
+                            all_paid_p = all(d['trang_thai'] == 'Đã đóng' for d in valid_details_p)
+                            status_p_display = "Đã đóng tất cả" if all_paid_p else ("Đóng một phần" if any(d['trang_thai'] == 'Đã đóng' for d in valid_details_p) else "Chưa đóng")
+                        else:
+                            status_p_display = valid_details_p[0]['trang_thai']
+                            
+                        st.write(f"**Trạng thái thanh toán:** {status_p_display}")
+                        
+                        qr_path_p = "qr_code.png" if os.path.exists("qr_code.png") else None
+                        if qr_path_p:
+                            st.image(qr_path_p, caption="Mã QR Chuyển Khoản Học Phí", width=250)
+                            
+                        if HAS_MATPLOTLIB:
+                            img_fee_p = create_tuition_slip_image(
+                                student_name=kid_row['ho_ten'],
+                                lop_hoc=kid_row['lop_hoc'],
+                                subject=kid_row['mon_hoc'] or 'Chung',
+                                price_per_lesson=kid_row['hoc_phi_buoi'],
+                                month_year=time_label_p,
+                                total_lessons=total_ca_p,
+                                total_fee=total_tien_p,
+                                status=status_p_display,
+                                qr_path=qr_path_p,
+                                is_multi=is_multi_p,
+                                details_list=valid_details_p
+                            )
+                            safe_n_fee_p = re.sub(r'[\\/*?:"<>|]', "", f"{kid_row['ho_ten']}_{kid_row['lop_hoc']}".replace(" ", "_"))
+                            st.download_button(
+                                label="🖼️ Tải Ảnh Phiếu Báo Học Phí",
+                                data=img_fee_p,
+                                file_name=f"Phieu_Hoc_Phi_{safe_n_fee_p}.png",
+                                mime="image/png",
+                                type="primary",
+                                key="btn_dl_fee_parent"
+                            )
+    st.stop()
+
+# =========================================================
+# 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ADMIN
+# =========================================================
+def check_password():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if st.session_state.logged_in:
+        return True
+
+    st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>📚 Đăng Nhập Quản Trị Hệ Thống</h2>", unsafe_allow_html=True)
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("⬅️ Quay lại màn hình chọn vai trò", type="secondary"):
+            st.session_state.app_mode = None
+            st.rerun()
+            
+        st.subheader("🔐 Đăng Nhập Admin")
+        username_input = st.text_input("👤 Tên đăng nhập:", value="admin")
+        password_input = st.text_input("🔑 Mật khẩu:", type="password")
+        
+        if st.button("🚀 Đăng Nhập", type="primary", use_container_width=True):
+            valid_user = st.secrets.get("USERNAME", "admin")
+            valid_pass = st.secrets.get("PASSWORD", "120809")
+            
+            if username_input == valid_user and password_input == valid_pass:
+                st.session_state.logged_in = True
+                st.success("✅ Đăng nhập thành công!")
+                st.rerun()
+            else:
+                st.error("❌ Mật khẩu hoặc Tên đăng nhập không chính xác!")
+    return False
+
+if not check_password():
+    st.stop()
+
+# --- 2. GIAO DIỆN CHÍNH (ADMIN) ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
 
-if st.sidebar.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
+col_logout1, col_logout2 = st.sidebar.columns(2)
+if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
     st.session_state.logged_in = False
+    st.rerun()
+if col_logout2.button("🔄 Đổi vai trò", type="secondary", use_container_width=True):
+    st.session_state.logged_in = False
+    st.session_state.app_mode = None
     st.rerun()
 
 menu = [
@@ -634,7 +883,6 @@ elif choice == "1. Điểm danh & Nhận xét":
         df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
         df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
-        # 2 tùy chọn điểm danh mới
         che_do_nguon = st.radio(
             "📌 Chọn chế độ điểm danh:",
             [
@@ -652,7 +900,6 @@ elif choice == "1. Điểm danh & Nhận xét":
             if che_do_nguon.startswith("1."):
                 target_students = df_active_today
             else:
-                # Tùy chọn 2: Tìm kiếm lớp hoặc học sinh ở hộp tìm kiếm / lựa chọn bên dưới
                 available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
                 class_options_lbl = [f"🏫 Cả Lớp: {cls}" for cls in available_classes]
                 student_dict = {f"👤 {row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
@@ -970,7 +1217,6 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                     target_hs_ids = [hs_dict_goc[selected_hs_label]]
                     target_name_label = selected_hs_label
 
-                # Tự động reset ca đã chọn khi chuyển sang Lớp hoặc Học sinh mới
                 if "last_goc_target" not in st.session_state:
                     st.session_state.last_goc_target = target_name_label
 
@@ -1534,10 +1780,10 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                 mon_new = st.text_input("Môn học", value="Toán")
             with c2:
                 hoc_phi_new = st.number_input("Học phí mỗi ca (VNĐ)", min_value=0, step=10000, value=150000)
-                thong_tin_phu_huynh_new = st.text_input("Thông tin phụ huynh")
+                thong_tin_phu_huynh_new = st.text_input("Số điện thoại / Thông tin phụ huynh (*)")
             
             if st.form_submit_button("💾 Thêm Học Sinh Mới", type="primary"):
-                if ten_new.strip():
+                if ten_new.strip() and thong_tin_phu_huynh_new.strip():
                     with engine.begin() as conn:
                         conn.execute(text('''
                             INSERT INTO hoc_sinh (ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh)
@@ -1545,6 +1791,8 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                         '''), {"ten": ten_new.strip(), "lop": lop_new.strip(), "mon": mon_new.strip(), "hp": hoc_phi_new, "ttph": thong_tin_phu_huynh_new.strip()})
                     st.success(f"✅ Đã thêm học sinh **{ten_new}** thành công!")
                     st.rerun()
+                else:
+                    st.warning("⚠️ Vui lòng nhập đầy đủ Tên học sinh và Số điện thoại phụ huynh!")
 
     with sub_tab_sua:
         df_hs_edit = pd.read_sql_query("SELECT * FROM hoc_sinh ORDER BY id DESC", engine)
@@ -1561,7 +1809,7 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                     mon_edit = st.text_input("Môn", value=selected_hs_row['mon_hoc'] or "")
                 with c2:
                     hoc_phi_edit = st.number_input("Học phí mỗi ca", min_value=0, step=10000, value=int(selected_hs_row['hoc_phi_buoi'] or 150000))
-                    thong_tin_phu_huynh_edit = st.text_input("Thông tin phụ huynh", value=selected_hs_row['thong_tin_phu_huynh'] or "")
+                    thong_tin_phu_huynh_edit = st.text_input("Số điện thoại / Thông tin phụ huynh", value=selected_hs_row['thong_tin_phu_huynh'] or "")
                 
                 if st.form_submit_button("💾 Lưu Thay Đổi", type="primary"):
                     with engine.begin() as conn:
@@ -1590,4 +1838,4 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                 st.rerun()
 
     st.markdown("### 📋 Danh Sách Học Sinh")
-    st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Thông tin phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
+    st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Số ĐT/Phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
