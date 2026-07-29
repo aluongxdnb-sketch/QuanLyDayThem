@@ -1014,7 +1014,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
 
     with tab_goc:
         st.subheader("📅 Xếp Lịch Học Cố Định Hàng Tuần (Lịch Gốc)")
-        sub_tab_goc_tao, sub_tab_goc_sua = st.tabs(["➕ Thêm / Thiết lập lịch gốc mới", "✏️ Sửa / Xóa lịch gốc theo lớp hoặc học sinh"])
+        sub_tab_goc_tao, sub_tab_goc_sua = st.tabs(["➕ Thêm lịch gốc mới", "✏️ Sửa lịch học gốc"])
         
         df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
@@ -1083,6 +1083,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                     st.rerun()
 
         with sub_tab_goc_sua:
+            st.subheader("✏️ Sửa & Quản Lý Lịch Học Gốc")
             df_goc_all = pd.read_sql_query('''
                 SELECT l.id, l.hoc_sinh_id, h.ho_ten, h.lop_hoc, l.thu, l.ca_hoc
                 FROM lich_hoc_tuan l
@@ -1093,18 +1094,17 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
             if df_goc_all.empty:
                 st.info("💡 Chưa có lịch học gốc nào được thiết lập trong hệ thống.")
             else:
-                edit_mode_goc = st.radio("Chọn phạm vi quản lý lịch gốc:", ["Sửa / Xóa theo Lớp", "Sửa / Xóa theo Học sinh cụ thể"], horizontal=True, key="edit_mode_goc_scope")
+                sua_mode = st.radio("Chọn phạm vi thao tác:", ["Sửa / Xóa theo Lớp", "Sửa / Xóa theo Học sinh cụ thể"], horizontal=True, key="sua_mode_goc_scope")
                 
-                if edit_mode_goc == "Sửa / Xóa theo Lớp":
+                if sua_mode == "Sửa / Xóa theo Lớp":
                     all_lops_goc = sorted(df_goc_all['lop_hoc'].dropna().unique().tolist())
-                    selected_lop_edit = st.selectbox("Chọn Lớp cần sửa/xóa lịch gốc:", all_lops_goc, key="sel_lop_edit_goc")
-                    df_lop_goc_records = df_goc_all[df_goc_all['lop_hoc'] == selected_lop_edit]
+                    selected_lop_sua = st.selectbox("Chọn Lớp cần sửa/xóa lịch học gốc:", all_lops_goc, key="sel_lop_sua_goc")
+                    df_lop_goc_records = df_goc_all[df_lop_goc_records := df_goc_all[df_goc_all['lop_hoc'] == selected_lop_sua]]
                     
-                    st.write(f"📋 Danh sách các ca học gốc của lớp **{selected_lop_edit}** ({len(df_lop_goc_records)} bản ghi):")
+                    st.write(f"📋 Danh sách các ca học gốc của lớp **{selected_lop_sua}** ({len(df_lop_goc_records)} bản ghi):")
                     st.dataframe(df_lop_goc_records[['id', 'ho_ten', 'thu', 'ca_hoc']], use_container_width=True)
                     
-                    with st.form(f"form_edit_goc_lop_{selected_lop_edit}"):
-                        st.markdown(f"**Cập nhật hoặc xóa nhanh cho toàn bộ học sinh lớp {selected_lop_edit}**")
+                    with st.form(f"form_sua_goc_lop_{selected_lop_sua}"):
                         action_goc_lop = st.selectbox("Thao tác:", ["Xóa toàn bộ lịch gốc của lớp này", "Thay thế lịch gốc mới cho toàn bộ lớp này"], key="act_goc_lop")
                         
                         cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
@@ -1119,7 +1119,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                                         if c_sel:
                                             new_goc_dict[t] = c_sel
                                             
-                        sub_btn_goc_lop = st.form_submit_button("💾 Thực Hiện Thay Đổi Lịch Gốc Lớp", type="primary")
+                        sub_btn_goc_lop = st.form_submit_button("💾 Thực Hiện Thay Đổi", type="primary")
                         if sub_btn_goc_lop:
                             hs_ids_in_lop = df_lop_goc_records['hoc_sinh_id'].unique().tolist()
                             with engine.begin() as conn:
@@ -1133,12 +1133,12 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                                                     VALUES (:hs_id, :thu, :ca)
                                                     ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
                                                 '''), {"hs_id": hs_id_item, "thu": t_val, "ca": ca_val})
-                            st.success(f"✅ Đã cập nhật thành công lịch gốc cho lớp {selected_lop_edit}!")
+                            st.success(f"✅ Đã cập nhật thành công lịch gốc cho lớp {selected_lop_sua}!")
                             st.rerun()
                 else:
-                    hs_dict_edit_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
-                    sel_hs_edit_goc_lbl = st.selectbox("Chọn học sinh cụ thể cần sửa/xóa lịch gốc:", list(hs_dict_edit_goc.keys()), key="sel_hs_edit_goc_key")
-                    sel_hs_id_goc = hs_dict_edit_goc[sel_hs_edit_goc_lbl]
+                    hs_dict_sua_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
+                    sel_hs_sua_goc_lbl = st.selectbox("Chọn học sinh cụ thể cần sửa/xóa lịch học:", list(hs_dict_sua_goc.keys()), key="sel_hs_sua_goc_key")
+                    sel_hs_id_goc = hs_dict_sua_goc[sel_hs_sua_goc_lbl]
                     
                     df_single_goc = df_goc_all[df_goc_all['hoc_sinh_id'] == sel_hs_id_goc]
                     st.write(f"📋 Lịch gốc hiện tại của học sinh:")
@@ -1147,7 +1147,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                     else:
                         st.info("Học sinh này chưa có lịch gốc nào.")
                         
-                    with st.form(f"form_edit_goc_hs_{sel_hs_id_goc}"):
+                    with st.form(f"form_sua_goc_hs_{sel_hs_id_goc}"):
                         st.markdown(f"**Cập nhật lại toàn bộ lịch gốc cho học sinh này**")
                         cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
                         new_single_dict = {}
@@ -1734,8 +1734,8 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
-                        file_name=f"Phieu_{row['Họ and Tên']}_{row['Lớp']}_{safe_filename_time}.png",
-                        mime="image/png",
+                        file_name=f"Phieu_{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}.png",
+                        mime="application/png",
                         key=f"img_fee_{row['hoc_sinh_id']}_{idx}"
                     )
             st.divider()
