@@ -560,10 +560,10 @@ menu = [
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📲 Đồng Bộ Lịch Sang iPhone")
+st.sidebar.subheader("📲 Đồng bộ thời khóa biểu 7 ngày tới sang iPhone")
 user_gmail = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
 
-if st.sidebar.button("🔄 Đồng Bộ Lịch 7 Ngày Tới Sang iPhone", type="primary"):
+if st.sidebar.button("🔄 Đồng bộ thời khóa biểu 7 ngày tới sang iPhone", type="primary"):
     target_cal_id = user_gmail.strip() if user_gmail.strip() else 'primary'
     success, msg = sync_weekly_schedule_to_google(calendar_id=target_cal_id, days_ahead=7)
     if success: st.sidebar.success(msg)
@@ -1476,8 +1476,6 @@ elif choice == "💳 Quản lý học phí":
         combined_df = get_aggregated_tuition_df(raw_df)
 
     if not combined_df.empty:
-        combined_df['lua_chon_lbl'] = combined_df['Họ와 Tên'] if 'Họ와 Tên' in combined_df else combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
-        # Fix typo check:
         combined_df['lua_chon_lbl'] = combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
         all_student_options = sorted(combined_df['lua_chon_lbl'].unique().tolist())
     else:
