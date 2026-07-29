@@ -758,7 +758,7 @@ menu = [
     "1. Điểm danh & Nhận xét", 
     "2. 🗺️ Quản Lý & Lịch Học Tổng Quan",
     "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí", 
-    "4. Sửa & Xóa dữ liệu"
+    "4. 📋 Thông Tin Học Sinh"
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
@@ -1816,13 +1816,103 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
             st.divider()
 
 # =========================================================
-# --- CHỨC NĂNG 4: SỬA & XÓA DỮ LIỆU (QUẢN LÝ HỌC SINH) ---
+# --- CHỨC NĂNG 4: THÔNG TIN HỌC SINH (TỔNG QUAN, THÊM, SỬA, XÓA) ---
 # =========================================================
-elif choice == "4. Sửa & Xóa dữ liệu":
-    st.subheader("⚙️ Quản Lý Dữ Liệu Học Sinh")
+elif choice == "4. 📋 Thông Tin Học Sinh":
+    st.subheader("📋 Quản Lý & Tổng Quan Thông Tin Học Sinh")
     
-    sub_tab_them, sub_tab_sua, sub_tab_xoa = st.tabs(["➕ Thêm Học Sinh", "✏️ Sửa Thông Tin", "❌ Xóa Học Sinh"])
+    sub_tab_tongquan, sub_tab_them, sub_tab_sua, sub_tab_xoa = st.tabs([
+        "📋 Tổng Quan Thông Tin", 
+        "➕ Thêm Học Sinh", 
+        "✏️ Sửa Thông Tin", 
+        "❌ Xóa Học Sinh"
+    ])
     
+    with sub_tab_tongquan:
+        st.markdown("##### 🔍 Chọn học sinh để xem bảng thông tin tổng quát:")
+        df_hs_all_info = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh ORDER BY id DESC", engine)
+        
+        if df_hs_all_info.empty:
+            st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
+        else:
+            hs_info_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all_info.iterrows()}
+            selected_info_label = st.selectbox("Chọn học sinh:", list(hs_info_dict.keys()), key="select_hs_info_overview")
+            selected_hs_id = hs_info_dict[selected_info_label]
+            selected_hs_row = df_hs_all_info[df_hs_all_info['id'] == selected_hs_id].iloc[0]
+            
+            st.markdown("---")
+            st.markdown(f"### 👤 Bảng Tổng Quan Thông Tin: **{selected_hs_row['ho_ten']}**")
+            
+            # 1. Thông tin cá nhân cơ bản
+            c_info1, c_info2, c_info3 = st.columns(3)
+            c_info1.metric("🏫 Lớp học", selected_hs_row['lop_hoc'] or "N/A")
+            c_info2.metric("📚 Môn học", selected_hs_row['mon_hoc'] or "N/A")
+            c_info3.metric("💵 Học phí/ca", f"{selected_hs_row['hoc_phi_buoi']:,.0f} đ")
+            st.write(f"**📞 Số ĐT / Thông tin phụ huynh:** {selected_hs_row['thong_tin_phu_huynh'] or 'Chưa cập nhật'}")
+            
+            # 2. Thống kê số ca học & Học phí chưa đóng (Không tính tháng hiện tại)
+            today_obj = date.today()
+            start_curr_m_str = f"{today_obj.year}-{today_obj.month:02d}-01"
+            
+            # Tổng số ca đã đi học (Có mặt)
+            df_att_count = pd.read_sql_query(f"SELECT COUNT(*) AS total FROM diem_danh WHERE hoc_sinh_id = {selected_hs_id} AND trang_thai = 'Có mặt'", engine)
+            total_attended = int(df_att_count.iloc[0]['total']) if not df_att_count.empty else 0
+            
+            # Học phí chưa đóng (các tháng trước, trừ tháng hiện tại)
+            df_debt_hs = pd.read_sql_query(f'''
+                SELECT TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam, COUNT(d.id) AS so_ca
+                FROM diem_danh d
+                WHERE d.hoc_sinh_id = {selected_hs_id}
+                  AND d.trang_thai = 'Có mặt'
+                  AND d.ngay < '{start_curr_m_str}'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM thanh_toan t 
+                      WHERE t.hoc_sinh_id = {selected_hs_id} 
+                        AND t.thang_nam = TO_CHAR(d.ngay, 'MM/YYYY') 
+                        AND t.trang_thai = 'Đã đóng'
+                  )
+                GROUP BY TO_CHAR(d.ngay, 'MM/YYYY')
+            ''', engine)
+            
+            if not df_debt_hs.empty:
+                df_debt_hs['tien_no'] = df_debt_hs['so_ca'] * selected_hs_row['hoc_phi_buoi']
+                total_debt_val = df_debt_hs['tien_no'].sum()
+                debt_str = f"{total_debt_val:,.0f} đ ({df_debt_hs['thang_nam'].tolist()})"
+            else:
+                debt_str = "0 đ (Đã hoàn thành các tháng trước)"
+                
+            c_stat1, c_stat2 = st.columns(2)
+            c_stat1.metric("📚 Tổng số ca học đã tham gia", f"{total_attended} ca")
+            c_stat2.metric("💳 Học phí chưa đóng (Các tháng trước)", debt_str)
+            
+            st.markdown("---")
+            
+            # 3. Lịch học cố định (Lịch gốc)
+            st.markdown("#### 🗓️ Lịch Học Cố Định Hàng Tuần")
+            df_hs_sched = pd.read_sql_query(f'''
+                SELECT thu AS "Thứ", ca_hoc AS "Ca học"
+                FROM lich_hoc_tuan
+                WHERE hoc_sinh_id = {selected_hs_id}
+                ORDER BY id
+            ''', engine)
+            if df_hs_sched.empty:
+                st.info("ℹ️ Học sinh chưa có lịch học cố định nào.")
+            else:
+                st.dataframe(df_hs_sched, use_container_width=True)
+                
+            # 4. Lịch sử điểm danh
+            st.markdown("#### 📝 Lịch Sử Điểm Danh & Nhận Xét")
+            df_hs_att_all = pd.read_sql_query(f'''
+                SELECT TO_CHAR(ngay, 'DD/MM/YYYY') AS "Ngày", ca_hoc AS "Ca học", trang_thai AS "Trạng thái", COALESCE(nhan_xet, '') AS "Nhận xét"
+                FROM diem_danh
+                WHERE hoc_sinh_id = {selected_hs_id}
+                ORDER BY ngay DESC, id DESC
+            ''', engine)
+            if df_hs_att_all.empty:
+                st.info("ℹ️ Chưa có lịch sử điểm danh nào.")
+            else:
+                st.dataframe(df_hs_att_all, use_container_width=True)
+
     with sub_tab_them:
         with st.form("form_add_student_full"):
             c1, c2 = st.columns(2)
@@ -1889,5 +1979,5 @@ elif choice == "4. Sửa & Xóa dữ liệu":
                 st.success("✅ Đã xóa thành công!")
                 st.rerun()
 
-    st.markdown("### 📋 Danh Sách Học Sinh")
+    st.markdown("### 📋 Danh Sách Toàn Bộ Học Sinh")
     st.dataframe(pd.read_sql_query("SELECT id AS \"Mã HS\", ho_ten AS \"Họ và tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn\", hoc_phi_buoi AS \"Học phí/Ca (VNĐ)\", thong_tin_phu_huynh AS \"Số ĐT/Phụ huynh\" FROM hoc_sinh ORDER BY id DESC", engine), use_container_width=True)
