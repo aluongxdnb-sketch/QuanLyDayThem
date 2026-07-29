@@ -684,7 +684,11 @@ if choice == "0. 📊 Trang Chủ Dashboard":
 elif choice == "1. Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     
-    tab_dd_moi, tab_dd_quanly = st.tabs(["📝 Điểm danh mới & Xem kết quả", "⚙️ Quản lý, Sửa & Xóa Nhật ký Điểm danh"])
+    tab_dd_moi, tab_dd_quanly, tab_dd_lich_su = st.tabs([
+        "📝 Điểm danh mới & Xem kết quả", 
+        "⚙️ Quản lý, Sửa & Xóa Nhật ký Điểm danh",
+        "📊 Lịch sử Điểm danh & Xuất Ảnh"
+    ])
     
     with tab_dd_moi:
         ngay_hoc = st.date_input("🗓️ Chọn ngày điểm danh", date.today())
@@ -932,6 +936,62 @@ elif choice == "1. Điểm danh & Nhận xét":
                         st.rerun()
         else:
             st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
+
+    with tab_dd_lich_su:
+        st.subheader("📊 Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
+        df_hs_ls = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
+        if df_hs_ls.empty:
+            st.warning("Chưa có học sinh nào trong hệ thống.")
+        else:
+            c_y_ls, c_m_ls, c_hs_ls = st.columns([1, 1, 2])
+            with c_y_ls:
+                nam_ls = st.number_input("Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="nam_ls_pick")
+            with c_m_ls:
+                thang_ls = st.selectbox("Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="thang_ls_pick")
+            with c_hs_ls:
+                hs_dict_ls = {f"{r['ho_ten']} [{r['lop_hoc']}] - ID:{r['id']}": r['id'] for _, r in df_hs_ls.iterrows()}
+                sel_hs_ls_lbl = st.selectbox("Chọn học sinh", list(hs_dict_ls.keys()), key="sel_hs_ls_key")
+                sel_hs_id_ls = hs_dict_ls[sel_hs_ls_lbl]
+                sel_hs_row_ls = df_hs_ls[df_hs_ls['id'] == sel_hs_id_ls].iloc[0]
+            
+            thang_nam_q = f"{nam_ls}-{thang_ls:02d}"
+            thang_nam_k = f"{thang_ls:02d}/{nam_ls}"
+            
+            df_hs_att_history = pd.read_sql_query(f'''
+                SELECT 
+                    TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                    d.ca_hoc AS "Ca học",
+                    d.trang_thai AS "Trạng thái",
+                    COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                FROM diem_danh d
+                WHERE d.hoc_sinh_id = {sel_hs_id_ls} AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
+                ORDER BY d.ngay ASC, d.id ASC
+            ''', engine)
+            
+            if df_hs_att_history.empty:
+                st.info(f"ℹ️ Học sinh {sel_hs_row_ls['ho_ten']} chưa có lịch sử điểm danh trong Tháng {thang_nam_k}.")
+            else:
+                total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
+                st.metric("🟢 Tổng số buổi đi học (Có mặt)", f"{total_co_mat} buổi", f"Tổng số bản ghi: {len(df_hs_att_history)} buổi")
+                st.dataframe(df_hs_att_history, use_container_width=True)
+                
+                if HAS_MATPLOTLIB:
+                    img_ls_bytes = create_student_attendance_history_image(
+                        student_name=sel_hs_row_ls['ho_ten'],
+                        lop_hoc=sel_hs_row_ls['lop_hoc'],
+                        month_year=thang_nam_k,
+                        df_history=df_hs_att_history,
+                        total_present=total_co_mat
+                    )
+                    safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{sel_hs_row_ls['ho_ten']}_{sel_hs_row_ls['lop_hoc']}".replace(" ", "_"))
+                    st.download_button(
+                        label=f"🖼️ Tải Ảnh Lịch Sử Điểm Danh ({sel_hs_row_ls['ho_ten']})",
+                        data=img_ls_bytes,
+                        file_name=f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png",
+                        mime="image/png",
+                        type="primary",
+                        key="btn_download_student_att_img"
+                    )
 
 # =========================================================
 # --- CHỨC NĂNG 2: QUẢN LÝ & MA TRẬN LỊCH HỌC ---
@@ -1592,7 +1652,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
             st.divider()
 
 # =========================================================
-# --- CHỨC NĂNG 4: SỬA & XÓA DỮ LIỆU ---
+# --- CHỨC NĂNG 4: SỬA & XÓA DỮ LIỆU (QUẢN LÝ HỌC SINH) ---
 # =========================================================
 elif choice == "4. Sửa & Xóa dữ liệu":
     st.subheader("⚙️ Quản Lý Dữ Liệu Học Sinh")
