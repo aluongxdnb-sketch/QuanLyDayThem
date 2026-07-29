@@ -543,7 +543,7 @@ if not check_password():
     st.stop()
 
 # --- 2. GIAO DIỆN CHÍNH (ADMIN) ---
-st.title("📚 Phần Mềm Quản Lý Dạy Thêm Tại Nhà (Supabase)")
+st.title("📚 Phần Mềm Quản Lý Dạy Thêm")
 
 col_logout1, col_logout2 = st.sidebar.columns(2)
 if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_width=True):
@@ -551,11 +551,11 @@ if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_widt
     st.rerun()
 
 menu = [
-    "0. 📊 Trang Chủ Dashboard",
-    "1. 📝 Điểm danh & Nhận xét", 
-    "2. 📅 Lịch Học Tổng Quan",
-    "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí", 
-    "4. 📋 Thông Tin Học Sinh"
+    "📊 Trang chủ",
+    "📝 Điểm danh & Nhận xét", 
+    "📅 Lịch học tổng quan",
+    "💳 Quản lý học phí", 
+    "📋 Thông tin học sinh"
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
@@ -583,9 +583,9 @@ st.sidebar.markdown("---")
 st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và lưu trữ vĩnh viễn trên **Supabase Cloud**.")
 
 # =========================================================
-# --- CHỨC NĂNG 0: TRANG CHỦ DASHBOARD TỔNG QUAN ---
+# --- TRANG CHỦ ---
 # =========================================================
-if choice == "0. 📊 Trang Chủ Dashboard":
+if choice == "📊 Trang chủ":
     st.subheader("📊 Trang Chủ Dashboard Tổng Quan Trong Ngày")
     today = date.today()
     thu_hom_nay = get_vietnamese_weekday(today)
@@ -660,9 +660,9 @@ if choice == "0. 📊 Trang Chủ Dashboard":
                     st.write(f"• **Lớp {lop}:** {ds_names}")
 
 # =========================================================
-# --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
+# --- ĐIỂM DANH & NHẬN XÉT ---
 # =========================================================
-elif choice == "1. 📝 Điểm danh & Nhận xét":
+elif choice == "📝 Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     
     tab_dd_moi, tab_dd_quanly, tab_dd_lich_su = st.tabs([
@@ -1031,9 +1031,9 @@ elif choice == "1. 📝 Điểm danh & Nhận xét":
                     )
 
 # =========================================================
-# --- CHỨC NĂNG 2: LỊCH HỌC TỔNG QUAN ---
+# --- LỊCH HỌC TỔNG QUAN ---
 # =========================================================
-elif choice == "2. 📅 Lịch Học Tổng Quan":
+elif choice == "📅 Lịch học tổng quan":
     st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
 
     tab_matrix, tab_goc, tab_export = st.tabs([
@@ -1219,9 +1219,9 @@ elif choice == "2. 📅 Lịch Học Tổng Quan":
                                 )
 
 # =========================================================
-# --- CHỨC NĂNG 3: THỐNG KÊ SỐ CA & QUẢN LÝ HỌC PHÍ ---
+# --- QUẢN LÝ HỌC PHÍ ---
 # =========================================================
-elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
+elif choice == "💳 Quản lý học phí":
     st.subheader("💳 Thống Kê Số Ca & Quản Lý Học Phí")
     
     che_do_xem = st.radio("⏱️ Chọn chế độ xem thống kê:", ["Theo Tháng", "Theo Tuần", "Theo Ngày"], horizontal=True)
@@ -1608,9 +1608,9 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
             st.divider()
 
 # =========================================================
-# --- CHỨC NĂNG 4: THÔNG TIN HỌC SINH (TỔNG QUAN, THÊM, SỬA, XÓA) ---
+# --- THÔNG TIN HỌC SINH ---
 # =========================================================
-elif choice == "4. 📋 Thông Tin Học Sinh":
+elif choice == "📋 Thông tin học sinh":
     st.subheader("📋 Quản Lý & Tổng Quan Thông Tin Học Sinh")
     
     sub_tab_tongquan, sub_tab_them, sub_tab_sua, sub_tab_xoa = st.tabs([
