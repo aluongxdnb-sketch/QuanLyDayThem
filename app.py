@@ -634,17 +634,25 @@ elif choice == "1. Điểm danh & Nhận xét":
         df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
         df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
         
-        mo_rong_hs = st.checkbox("➕ Cho phép điểm danh cả học sinh KHÔNG CÓ LỊCH HỌC trong ngày (Học bù, phát sinh,...)", value=False)
+        # 2 tùy chọn điểm danh mới theo yêu cầu
+        che_do_nguon = st.radio(
+            "📌 Chọn chế độ nguồn học sinh điểm danh:",
+            [
+                "1. Điểm danh tất cả học sinh hôm nay", 
+                "2. Điểm danh học sinh / lớp KHÔNG có lịch học hôm nay (Học bù, phát sinh...)"
+            ],
+            key="che_do_nguon_diem_danh"
+        )
         
-        if mo_rong_hs:
+        if che_do_nguon.startswith("1."):
+            df_source = df_active_today
+        else:
             if not df_all_hs.empty:
                 df_source = df_all_hs.copy()
                 df_source['ca_hoc'] = "17h30 - 19h30"
                 df_source['nguon'] = "Ngoài lịch"
             else:
                 df_source = pd.DataFrame(columns=['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon'])
-        else:
-            df_source = df_active_today
 
         type_mode = st.radio("Chế độ điểm danh", ["🏫 Điểm danh theo LỚP", "👤 Điểm danh từng HỌC SINH"], horizontal=True)
         st.divider()
@@ -656,7 +664,7 @@ elif choice == "1. Điểm danh & Nhận xét":
         else:
             if type_mode == "🏫 Điểm danh theo LỚP":
                 available_classes = sorted(df_all_hs['lop_hoc'].dropna().unique().tolist())
-                options_class = ["🌟 All Lớp (Tất cả học sinh)"] + available_classes if mo_rong_hs else ["🌟 All Lớp (Tất cả học sinh có lịch học hôm nay)"] + available_classes
+                options_class = ["🌟 All Lớp (Tất cả học sinh)"] + available_classes
                 selected_class_opt = st.selectbox("Chọn Lớp cần điểm danh", options_class)
 
                 if selected_class_opt.startswith("🌟 All Lớp"):
@@ -665,7 +673,7 @@ elif choice == "1. Điểm danh & Nhận xét":
                     target_students = df_source[df_source['lop_hoc'] == selected_class_opt] if not df_source.empty else pd.DataFrame()
             else:
                 student_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['hoc_sinh_id']}": row['hoc_sinh_id'] for _, row in df_all_hs.iterrows()}
-                options_hs = ["🌟 All Học sinh (Tất cả học sinh)"] + list(student_dict.keys()) if mo_rong_hs else ["🌟 All Học sinh (Tất cả học sinh có lịch học hôm nay)"] + list(student_dict.keys())
+                options_hs = ["🌟 All Học sinh (Tất cả học sinh)"] + list(student_dict.keys())
                 selected_hs_opt = st.selectbox("Chọn học sinh điểm danh", options_hs)
 
                 if selected_hs_opt.startswith("🌟 All Học sinh"):
