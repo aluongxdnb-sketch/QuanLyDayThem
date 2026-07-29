@@ -1083,7 +1083,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                     st.rerun()
 
         with sub_tab_goc_sua:
-            st.subheader("✏️ Sửa & Quản Lý Lịch Học Gốc")
+            st.subheader("🗑️ Xóa Lịch Học Gốc Theo Lớp Hoặc Học Sinh")
             df_goc_all = pd.read_sql_query('''
                 SELECT l.id, l.hoc_sinh_id, h.ho_ten, h.lop_hoc, l.thu, l.ca_hoc
                 FROM lich_hoc_tuan l
@@ -1094,84 +1094,58 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
             if df_goc_all.empty:
                 st.info("💡 Chưa có lịch học gốc nào được thiết lập trong hệ thống.")
             else:
-                sua_mode = st.radio("Chọn phạm vi thao tác:", ["Sửa / Xóa theo Lớp", "Sửa / Xóa theo Học sinh cụ thể"], horizontal=True, key="sua_mode_goc_scope")
+                xoa_mode = st.radio("Chọn phạm vi xóa lịch gốc:", ["Xóa theo Lớp", "Xóa theo Học sinh cụ thể"], horizontal=True, key="xoa_mode_goc_scope")
                 
-                if sua_mode == "Sửa / Xóa theo Lớp":
+                if xoa_mode == "Xóa theo Lớp":
                     all_lops_goc = sorted(df_goc_all['lop_hoc'].dropna().unique().tolist())
-                    selected_lop_sua = st.selectbox("Chọn Lớp cần sửa/xóa lịch học gốc:", all_lops_goc, key="sel_lop_sua_goc")
-                    df_lop_goc_records = df_goc_all[df_goc_all['lop_hoc'] == selected_lop_sua]
+                    selected_lop_xoa = st.selectbox("Chọn Lớp cần xóa lịch gốc:", all_lops_goc, key="sel_lop_xoa_goc")
+                    df_lop_goc_records = df_goc_all[df_goc_all['lop_hoc'] == selected_lop_xoa]
                     
-                    st.write(f"📋 Danh sách các ca học gốc của lớp **{selected_lop_sua}** ({len(df_lop_goc_records)} bản ghi):")
-                    st.dataframe(df_lop_goc_records[['id', 'ho_ten', 'thu', 'ca_hoc']], use_container_width=True)
-                    
-                    with st.form(f"form_sua_goc_lop_{selected_lop_sua}"):
-                        action_goc_lop = st.selectbox("Thao tác:", ["Xóa toàn bộ lịch gốc của lớp này", "Thay thế lịch gốc mới cho toàn bộ lớp này"], key="act_goc_lop")
+                    st.write(f"📋 Danh sách các ca học gốc của lớp **{selected_lop_xoa}** ({len(df_lop_goc_records)} bản ghi):")
+                    if not df_lop_goc_records.empty:
+                        st.dataframe(df_lop_goc_records[['id', 'ho_ten', 'thu', 'ca_hoc']], use_container_width=True)
                         
-                        cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-                        new_goc_dict = {}
-                        if action_goc_lop == "Thay thế lịch gốc mới cho toàn bộ lớp này":
-                            st.markdown("Chọn lại các ca học trong tuần:")
-                            for t in cac_thu:
-                                with st.expander(f"🗓️ Ngày {t}", expanded=False):
-                                    has_c = st.checkbox(f"Có học vào {t}", key=f"edit_lop_chk_{t}")
-                                    if has_c:
-                                        c_sel = st.multiselect(f"Ca học vào {t}:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key=f"edit_lop_multi_{t}")
-                                        if c_sel:
-                                            new_goc_dict[t] = c_sel
-                                            
-                        sub_btn_goc_lop = st.form_submit_button("💾 Thực Hiện Thay Đổi", type="primary")
-                        if sub_btn_goc_lop:
-                            hs_ids_in_lop = df_lop_goc_records['hoc_sinh_id'].unique().tolist()
-                            with engine.begin() as conn:
-                                for hs_id_item in hs_ids_in_lop:
-                                    conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": hs_id_item})
-                                    if action_goc_lop == "Thay thế lịch gốc mới cho toàn bộ lớp này":
-                                        for t_val, list_ca in new_goc_dict.items():
-                                            for ca_val in list_ca:
-                                                conn.execute(text('''
-                                                    INSERT INTO lich_hoc_tuan (hoc_sinh_id, thu, ca_hoc) 
-                                                    VALUES (:hs_id, :thu, :ca)
-                                                    ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
-                                                '''), {"hs_id": hs_id_item, "thu": t_val, "ca": ca_val})
-                            st.success(f"✅ Đã cập nhật thành công lịch gốc cho lớp {selected_lop_sua}!")
-                            st.rerun()
-                else:
-                    hs_dict_sua_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
-                    sel_hs_sua_goc_lbl = st.selectbox("Chọn học sinh cụ thể cần sửa/xóa lịch học:", list(hs_dict_sua_goc.keys()), key="sel_hs_sua_goc_key")
-                    sel_hs_id_goc = hs_dict_sua_goc[sel_hs_sua_goc_lbl]
-                    
-                    df_single_goc = df_goc_all[df_goc_all['hoc_sinh_id'] == sel_hs_id_goc]
-                    st.write(f"📋 Lịch gốc hiện tại của học sinh:")
-                    if not df_single_goc.empty:
-                        st.dataframe(df_single_goc[['id', 'thu', 'ca_hoc']], use_container_width=True)
+                        with st.form(f"form_xoa_goc_lop_{selected_lop_xoa}"):
+                            confirm_del_lop = st.checkbox(f"Tôi xác nhận muốn xóa toàn bộ lịch gốc của lớp {selected_lop_xoa}")
+                            sub_btn_del_lop = st.form_submit_button("❌ Xóa Lịch Gốc Lớp Này", type="primary")
+                            if sub_btn_del_lop:
+                                if confirm_del_lop:
+                                    hs_ids_in_lop = df_lop_goc_records['hoc_sinh_id'].unique().tolist()
+                                    with engine.begin() as conn:
+                                        for hs_id_item in hs_ids_in_lop:
+                                            conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": hs_id_item})
+                                    st.success(f"✅ Đã xóa toàn bộ lịch gốc của lớp {selected_lop_xoa}!")
+                                    st.rerun()
+                                else:
+                                    st.warning("⚠️ Vui lòng tích chọn xác nhận để thực hiện xóa.")
                     else:
-                        st.info("Học sinh này chưa có lịch gốc nào.")
+                        st.info("Lớp này không có lịch gốc nào.")
+                else:
+                    hs_with_schedule_ids = df_goc_all['hoc_sinh_id'].unique().tolist()
+                    df_hs_goc = df_hs[df_hs['id'].isin(hs_with_schedule_ids)]
+                    
+                    if df_hs_goc.empty:
+                        st.info("Không có học sinh nào có lịch gốc.")
+                    else:
+                        hs_dict_xoa_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_goc.iterrows()}
+                        sel_hs_xoa_goc_lbl = st.selectbox("Chọn học sinh cụ thể cần xóa lịch học gốc:", list(hs_dict_xoa_goc.keys()), key="sel_hs_xoa_goc_key")
+                        sel_hs_id_goc = hs_dict_xoa_goc[sel_hs_xoa_goc_lbl]
                         
-                    with st.form(f"form_sua_goc_hs_{sel_hs_id_goc}"):
-                        st.markdown(f"**Cập nhật lại toàn bộ lịch gốc cho học sinh này**")
-                        cac_thu = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']
-                        new_single_dict = {}
-                        for t in cac_thu:
-                            with st.expander(f"🗓️ Ngày {t}", expanded=False):
-                                has_c = st.checkbox(f"Có học vào {t}", key=f"edit_hs_chk_{t}")
-                                if has_c:
-                                    c_sel = st.multiselect(f"Ca học vào {t}:", DANH_SACH_CA_MAU, default=["17h30 - 19h30"], key=f"edit_hs_multi_{t}")
-                                    if c_sel:
-                                        new_single_dict[t] = c_sel
-                                        
-                        sub_btn_goc_hs = st.form_submit_button("💾 Lưu Lịch Gốc Mới Cho Học Sinh", type="primary")
-                        if sub_btn_goc_hs:
-                            with engine.begin() as conn:
-                                conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": sel_hs_id_goc})
-                                for t_val, list_ca in new_single_dict.items():
-                                    for ca_val in list_ca:
-                                        conn.execute(text('''
-                                            INSERT INTO lich_hoc_tuan (hoc_sinh_id, thu, ca_hoc) 
-                                            VALUES (:hs_id, :thu, :ca)
-                                            ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
-                                        '''), {"hs_id": sel_hs_id_goc, "thu": t_val, "ca": ca_val})
-                            st.success(f"✅ Đã cập nhật thành công lịch gốc cho học sinh!")
-                            st.rerun()
+                        df_single_goc = df_goc_all[df_goc_all['hoc_sinh_id'] == sel_hs_id_goc]
+                        st.write(f"📋 Lịch gốc hiện tại của học sinh:")
+                        st.dataframe(df_single_goc[['id', 'thu', 'ca_hoc']], use_container_width=True)
+                        
+                        with st.form(f"form_xoa_goc_hs_{sel_hs_id_goc}"):
+                            confirm_del_hs = st.checkbox("Tôi xác nhận muốn xóa lịch gốc của học sinh này")
+                            sub_btn_del_hs = st.form_submit_button("❌ Xóa Lịch Gốc Học Sinh Này", type="primary")
+                            if sub_btn_del_hs:
+                                if confirm_del_hs:
+                                    with engine.begin() as conn:
+                                        conn.execute(text("DELETE FROM lich_hoc_tuan WHERE hoc_sinh_id = :id"), {"id": sel_hs_id_goc})
+                                    st.success("✅ Đã xóa thành công lịch gốc của học sinh!")
+                                    st.rerun()
+                                else:
+                                    st.warning("⚠️ Vui lòng tích chọn xác nhận để thực hiện xóa.")
 
     with tab_tam:
         sub_tab_add_t, sub_tab_manage_t = st.tabs(["➕ Thêm lịch tạm thời mới", "📋 Danh sách, Sửa & Xóa lịch tạm thời"])
