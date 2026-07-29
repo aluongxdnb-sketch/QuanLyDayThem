@@ -357,7 +357,7 @@ def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix=
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (LINH HOẠT GỘP HOẶC BÌNH THƯỜNG) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 12 if (has_multiple_components or is_multi) else 10))
@@ -378,7 +378,6 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
         ax.text(0.1, y_pos, line, fontsize=11.5, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
         y_pos -= 0.045
         
-    # Chỉ hiển thị chi tiết các lớp khi thực sự có từ 2 lớp/hồ sơ phát sinh ca học trở lên
     if has_multiple_components:
         ax.text(0.1, y_pos, "Chi tiết học phí các lớp/nhóm:", fontsize=11, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
         y_pos -= 0.04
@@ -1244,7 +1243,7 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                 lop_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                 selected_lop_exp = st.selectbox("Chọn Lớp:", lop_list, key="sel_lop_exp_m")
                 target_title = f"Lớp {selected_lop_exp}"
-                prefix_label = "Học sinh / Lớp: "
+                prefix_label = "Lớp: "
                 safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", f"{selected_lop_exp}".replace(" ", "_"))
                 file_name_download = f"Lich_Hoc_Lop_{safe_lop_name}.png"
             elif filter_mode == "Theo Học sinh cụ thể":
@@ -1252,9 +1251,11 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                 sel_hs_label = st.selectbox("Chọn Học sinh:", list(hs_dict_exp.keys()), key="sel_hs_label_exp_m")
                 selected_hs_row = hs_dict_exp[sel_hs_label]
                 selected_hs_exp = selected_hs_row['id']
-                target_title = f"{get_base_name(selected_hs_row['ho_ten'])}"
-                prefix_label = "Học sinh: "
-                safe_hs_name = re.sub(r'[\\/*?:"<>|]', "", f"{target_title}".replace(" ", "_"))
+                base_n_exp = get_base_name(selected_hs_row['ho_ten'])
+                lop_n_exp = selected_hs_row['lop_hoc']
+                target_title = f"{base_n_exp} - Lớp {lop_n_exp}"
+                prefix_label = "Học sinh / Lớp: "
+                safe_hs_name = re.sub(r'[\\/*?:"<>|]', "", f"{base_n_exp}_{lop_n_exp}".replace(" ", "_"))
                 file_name_download = f"Lich_Hoc_{safe_hs_name}.png"
 
             df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
@@ -1285,14 +1286,16 @@ elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
                                     for _, hs_r in df_hs_all.iterrows():
                                         hs_id_val = hs_r['id']
                                         hs_name_val = get_base_name(hs_r['ho_ten'])
-                                        if hs_name_val in processed_base_names:
+                                        hs_lop_val = hs_r['lop_hoc']
+                                        key_check = (hs_name_val.lower(), hs_lop_val.lower())
+                                        if key_check in processed_base_names:
                                             continue
-                                        processed_base_names.add(hs_name_val)
+                                        processed_base_names.add(key_check)
                                         
                                         df_hs_mat = get_schedule_matrix_df(engine, filter_hs_id=hs_id_val, ref_date=sel_date_export)
                                         if not df_hs_mat.empty:
-                                            img_hs_b = create_weekly_schedule_image(f"{hs_name_val}", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh: ")
-                                            safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}".replace(" ", "_"))
+                                            img_hs_b = create_weekly_schedule_image(f"{hs_name_val} - Lớp {hs_lop_val}", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh / Lớp: ")
+                                            safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
                                             zf.writestr(f"Lich_Hoc_{safe_n}.png", img_hs_b.getvalue())
                                 zip_buffer_s.seek(0)
                                 st.download_button(
@@ -1396,12 +1399,11 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                     if row['Trạng Thái'] != g['Trạng Thái']:
                         g['Trạng Thái'] = 'Đóng một phần'
                         
-        # Tinh chỉnh hiển thị: Nếu nhóm chỉ có 1 hồ sơ phát sinh ca (>0 ca), hiển thị như học sinh bình thường
         result_rows = []
         for g in grouped_dict.values():
             subs = g['sub_components']
             if len(subs) == 1:
-                g['Họ và Tên'] = subs[0]['ten'] # Xuất tên học sinh có ca học như bình thường
+                g['Họ và Tên'] = subs[0]['ten']
                 g['Lớp'] = subs[0]['lop']
                 g['Đơn Giá/Ca (VNĐ)'] = subs[0]['don_gia']
             elif len(subs) > 1:
@@ -1705,10 +1707,11 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
-                        file_name=f"Phieu_{row['Họ và Tên']}_{safe_filename_time}.png",
+                        file_name=f"Phieu_{safe_n_fee}.png",
                         mime="application/png",
                         key=f"img_fee_{row['hoc_sinh_id']}_{idx}"
                     )
@@ -1753,14 +1756,12 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
             st.markdown("---")
             st.markdown(f"### 👤 Bảng Tổng Quan Thông Tin: **{base_name_overview}** (Gộp nhóm gia đình)")
             
-            # 1. Thông tin cá nhân cơ bản
             c_info1, c_info2, c_info3 = st.columns(3)
             c_info1.metric("🏫 Lớp học", selected_hs_row['lop_hoc'] or "N/A")
             c_info2.metric("📚 Môn học", selected_hs_row['mon_hoc'] or "N/A")
             c_info3.metric("💵 Học phí/ca", f"{selected_hs_row['hoc_phi_buoi']:,.0f} đ")
             st.write(f"**📞 Số ĐT / Thông tin phụ huynh:** {selected_hs_row['thong_tin_phu_huynh'] or 'Chưa cập nhật'}")
             
-            # 2. Số ca học trong tháng/tháng đã chọn (Gộp toàn bộ ID gia đình)
             total_ca_selected_months = 0
             selected_month_details = []
             
