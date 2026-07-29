@@ -553,7 +553,7 @@ if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_widt
 menu = [
     "🏠 Trang chủ",
     "📝 Điểm danh & Nhận xét", 
-    "📅 Lịch học tổng quan",
+    "📅 Quản lý Thời khoá Biểu",
     "💳 Quản lý học phí", 
     "📋 Thông tin học sinh"
 ]
@@ -1031,10 +1031,10 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     )
 
 # =========================================================
-# --- LỊCH HỌC TỔNG QUAN ---
+# --- QUẢN LÝ THỜI KHÓA BIỂU ---
 # =========================================================
-elif choice == "📅 Lịch học tổng quan":
-    st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
+elif choice == "📅 Quản lý Thời khoá Biểu":
+    st.subheader("📅 Quản lý Thời khoá Biểu & Lịch Học")
 
     tab_matrix, tab_goc, tab_export = st.tabs([
         "🗺️ Lịch Học Tổng Quan", 
@@ -1222,7 +1222,7 @@ elif choice == "📅 Lịch học tổng quan":
 # --- QUẢN LÝ HỌC PHÍ ---
 # =========================================================
 elif choice == "💳 Quản lý học phí":
-    st.subheader("💳 Thống Kê Số Ca & Quản Lý Học Phí")
+    st.subheader("💳 Quản lý học phí")
     
     che_do_xem = st.radio("⏱️ Chọn chế độ xem thống kê:", ["Theo Tháng", "Theo Tuần", "Theo Ngày"], horizontal=True)
     
