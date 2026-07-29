@@ -1637,7 +1637,7 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
                         'trang_thai': trang_thai_m
                     })
 
-            # Học phí chưa đóng (không bao gồm các tháng được chọn)
+            # Học phí chưa đóng (không bao gồm các tháng được chọn) -> Chỉ hiển thị số tiền
             exclude_clauses = []
             for th in info_months:
                 exclude_clauses.append(f"TO_CHAR(d.ngay, 'YYYY-MM') != '{info_year}-{th:02d}'")
@@ -1661,21 +1661,13 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
             if not df_debt_other.empty:
                 df_debt_other['tien_no'] = df_debt_other['so_ca'] * selected_hs_row['hoc_phi_buoi']
                 total_debt_other = df_debt_other['tien_no'].sum()
-                debt_other_str = f"{total_debt_other:,.0f} đ (Các tháng ngoài lựa chọn: {', '.join(df_debt_other['thang_nam'].tolist())})"
+                debt_other_str = f"{total_debt_other:,.0f} đ"
             else:
-                debt_other_str = "0 đ (Đã hoàn thành các tháng ngoài lựa chọn)"
+                debt_other_str = "0 đ"
                 
-            # Học phí tính đến hiện tại (bao gồm các tháng được chọn)
+            # Học phí tính đến hiện tại (bao gồm các tháng được chọn) -> Chỉ hiển thị số tiền
             total_fee_selected_months = sum(d['thanh_tien'] for d in selected_month_details)
-            if len(selected_month_details) > 1:
-                all_paid_sel = all(d['trang_thai'] == 'Đã đóng' for d in selected_month_details)
-                status_sel_str = "Đã đóng tất cả" if all_paid_sel else ("Đóng một phần" if any(d['trang_thai'] == 'Đã đóng' for d in selected_month_details) else "Chưa đóng")
-            elif len(selected_month_details) == 1:
-                status_sel_str = selected_month_details[0]['trang_thai']
-            else:
-                status_sel_str = "Không có ca"
-                
-            fee_selected_str = f"{total_fee_selected_months:,.0f} đ [{status_sel_str}]"
+            fee_selected_str = f"{total_fee_selected_months:,.0f} đ"
 
             c_stat1, c_stat2, c_stat3 = st.columns(3)
             c_stat1.metric("📚 Tổng số ca học trong tháng đã chọn", f"{total_ca_selected_months} ca")
