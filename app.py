@@ -233,6 +233,14 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
     cols = ["Buổi", "Ca học"] + cac_thu
     return df_matrix[cols]
 
+# --- HÀM HIỂN THỊ MA TRẬN LỊCH HỌC (RENDER) ---
+def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
+    df_matrix = get_schedule_matrix_df(engine, filter_lop=filter_lop, filter_hs_id=filter_hs_id, ref_date=ref_date)
+    if df_matrix.empty:
+        st.info("ℹ️ Không có lịch học nào trong tuần này.")
+    else:
+        st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
+
 # --- HÀM TẠO FILE ẢNH PNG LỊCH HỌC HÀNG TUẦN ---
 def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
     if ref_date is None:
@@ -1829,14 +1837,21 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
     ])
     
     with sub_tab_tongquan:
-        st.markdown("##### 🔍 Chọn học sinh để xem bảng thông tin tổng quát:")
+        st.markdown("##### 🔍 Chọn học sinh và thời gian để xem bảng thông tin tổng quát:")
         df_hs_all_info = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh ORDER BY id DESC", engine)
         
         if df_hs_all_info.empty:
             st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
         else:
-            hs_info_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all_info.iterrows()}
-            selected_info_label = st.selectbox("Chọn học sinh:", list(hs_info_dict.keys()), key="select_hs_info_overview")
+            c_sel_hs, c_sel_y, c_sel_m = st.columns([2, 1, 2])
+            with c_sel_hs:
+                hs_info_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all_info.iterrows()}
+                selected_info_label = st.selectbox("Chọn học sinh:", list(hs_info_dict.keys()), key="select_hs_info_overview")
+            with c_sel_y:
+                info_year = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="info_year_pick")
+            with c_sel_m:
+                info_months = st.multiselect("Chọn Tháng xem:", list(range(1, 13)), default=[datetime.now().month], format_func=lambda x: f"Tháng {x}", key="info_months_pick")
+            
             selected_hs_id = hs_info_dict[selected_info_label]
             selected_hs_row = df_hs_all_info[df_hs_all_info['id'] == selected_hs_id].iloc[0]
             
@@ -1850,21 +1865,47 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
             c_info3.metric("💵 Học phí/ca", f"{selected_hs_row['hoc_phi_buoi']:,.0f} đ")
             st.write(f"**📞 Số ĐT / Thông tin phụ huynh:** {selected_hs_row['thong_tin_phu_huynh'] or 'Chưa cập nhật'}")
             
-            # 2. Thống kê số ca học & Học phí chưa đóng (Không tính tháng hiện tại)
-            today_obj = date.today()
-            start_curr_m_str = f"{today_obj.year}-{today_obj.month:02d}-01"
+            # 2. Số ca học trong tháng/tháng đã chọn
+            total_ca_selected_months = 0
+            selected_month_details = []
             
-            # Tổng số ca đã đi học (Có mặt)
-            df_att_count = pd.read_sql_query(f"SELECT COUNT(*) AS total FROM diem_danh WHERE hoc_sinh_id = {selected_hs_id} AND trang_thai = 'Có mặt'", engine)
-            total_attended = int(df_att_count.iloc[0]['total']) if not df_att_count.empty else 0
+            if info_months:
+                for th in sorted(info_months):
+                    th_q = f"{info_year}-{th:02d}"
+                    th_k = f"{th:02d}/{info_year}"
+                    
+                    df_ca_m = pd.read_sql_query(f'''
+                        SELECT COUNT(*) AS so_ca FROM diem_danh 
+                        WHERE hoc_sinh_id = {selected_hs_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{th_q}' AND trang_thai = 'Có mặt'
+                    ''', engine)
+                    so_ca_m = int(df_ca_m.iloc[0]['so_ca']) if not df_ca_m.empty else 0
+                    total_ca_selected_months += so_ca_m
+                    
+                    df_pay_m = pd.read_sql_query(f'''
+                        SELECT trang_thai FROM thanh_toan 
+                        WHERE hoc_sinh_id = {selected_hs_id} AND thang_nam = '{th_k}'
+                    ''', engine)
+                    trang_thai_m = df_pay_m.iloc[0]['trang_thai'] if not df_pay_m.empty else 'Chưa đóng'
+                    
+                    selected_month_details.append({
+                        'thang_key': th_k,
+                        'so_ca': so_ca_m,
+                        'thanh_tien': so_ca_m * selected_hs_row['hoc_phi_buoi'],
+                        'trang_thai': trang_thai_m
+                    })
+
+            # Học phí chưa đóng (không bao gồm các tháng được chọn)
+            exclude_clauses = []
+            for th in info_months:
+                exclude_clauses.append(f"TO_CHAR(d.ngay, 'YYYY-MM') != '{info_year}-{th:02d}'")
+            exclude_sql = " AND " + " AND ".join(exclude_clauses) if exclude_clauses else ""
             
-            # Học phí chưa đóng (các tháng trước, trừ tháng hiện tại)
-            df_debt_hs = pd.read_sql_query(f'''
+            df_debt_other = pd.read_sql_query(f'''
                 SELECT TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam, COUNT(d.id) AS so_ca
                 FROM diem_danh d
                 WHERE d.hoc_sinh_id = {selected_hs_id}
                   AND d.trang_thai = 'Có mặt'
-                  AND d.ngay < '{start_curr_m_str}'
+                  {exclude_sql}
                   AND NOT EXISTS (
                       SELECT 1 FROM thanh_toan t 
                       WHERE t.hoc_sinh_id = {selected_hs_id} 
@@ -1874,16 +1915,29 @@ elif choice == "4. 📋 Thông Tin Học Sinh":
                 GROUP BY TO_CHAR(d.ngay, 'MM/YYYY')
             ''', engine)
             
-            if not df_debt_hs.empty:
-                df_debt_hs['tien_no'] = df_debt_hs['so_ca'] * selected_hs_row['hoc_phi_buoi']
-                total_debt_val = df_debt_hs['tien_no'].sum()
-                debt_str = f"{total_debt_val:,.0f} đ ({df_debt_hs['thang_nam'].tolist()})"
+            if not df_debt_other.empty:
+                df_debt_other['tien_no'] = df_debt_other['so_ca'] * selected_hs_row['hoc_phi_buoi']
+                total_debt_other = df_debt_other['tien_no'].sum()
+                debt_other_str = f"{total_debt_other:,.0f} đ (Các tháng ngoài lựa chọn: {', '.join(df_debt_other['thang_nam'].tolist())})"
             else:
-                debt_str = "0 đ (Đã hoàn thành các tháng trước)"
+                debt_other_str = "0 đ (Đã hoàn thành các tháng ngoài lựa chọn)"
                 
-            c_stat1, c_stat2 = st.columns(2)
-            c_stat1.metric("📚 Tổng số ca học đã tham gia", f"{total_attended} ca")
-            c_stat2.metric("💳 Học phí chưa đóng (Các tháng trước)", debt_str)
+            # Học phí tính đến hiện tại (bao gồm các tháng được chọn)
+            total_fee_selected_months = sum(d['thanh_tien'] for d in selected_month_details)
+            if len(selected_month_details) > 1:
+                all_paid_sel = all(d['trang_thai'] == 'Đã đóng' for d in selected_month_details)
+                status_sel_str = "Đã đóng tất cả" if all_paid_sel else ("Đóng một phần" if any(d['trang_thai'] == 'Đã đóng' for d in selected_month_details) else "Chưa đóng")
+            elif len(selected_month_details) == 1:
+                status_sel_str = selected_month_details[0]['trang_thai']
+            else:
+                status_sel_str = "Không có ca"
+                
+            fee_selected_str = f"{total_fee_selected_months:,.0f} đ [{status_sel_str}]"
+
+            c_stat1, c_stat2, c_stat3 = st.columns(3)
+            c_stat1.metric("📚 Tổng số ca học trong tháng đã chọn", f"{total_ca_selected_months} ca")
+            c_stat2.metric("💳 Học phí chưa đóng (Không gồm tháng chọn)", debt_other_str)
+            c_stat3.metric("💰 Học phí tính đến hiện tại (Bao gồm tháng chọn)", fee_selected_str)
             
             st.markdown("---")
             
