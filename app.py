@@ -552,8 +552,8 @@ if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_widt
 
 menu = [
     "0. 📊 Trang Chủ Dashboard",
-    "1. Điểm danh & Nhận xét", 
-    "2. 🗺️ Quản Lý & Lịch Học Tổng Quan",
+    "1. 📝 Điểm danh & Nhận xét", 
+    "2. 📅 Lịch Học Tổng Quan",
     "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí", 
     "4. 📋 Thông Tin Học Sinh"
 ]
@@ -662,7 +662,7 @@ if choice == "0. 📊 Trang Chủ Dashboard":
 # =========================================================
 # --- CHỨC NĂNG 1: ĐIỂM DANH & NHẬN XÉT ---
 # =========================================================
-elif choice == "1. Điểm danh & Nhận xét":
+elif choice == "1. 📝 Điểm danh & Nhận xét":
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     
     tab_dd_moi, tab_dd_quanly, tab_dd_lich_su = st.tabs([
@@ -1031,9 +1031,9 @@ elif choice == "1. Điểm danh & Nhận xét":
                     )
 
 # =========================================================
-# --- CHỨC NĂNG 2: QUẢN LÝ & LỊCH HỌC TỔNG QUAN ---
+# --- CHỨC NĂNG 2: LỊCH HỌC TỔNG QUAN ---
 # =========================================================
-elif choice == "2. 🗺️ Quản Lý & Lịch Học Tổng Quan":
+elif choice == "2. 📅 Lịch Học Tổng Quan":
     st.subheader("🗺️ Trung Tâm Quản Lý Thời Khóa Biểu & Lịch Học")
 
     tab_matrix, tab_goc, tab_export = st.tabs([
@@ -1519,7 +1519,7 @@ elif choice == "3. 💳 Thống Kê Số Ca & Quản Lý Học Phí":
                             sub_components=row_fee.get('sub_components', [])
                         )
                         safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ y Tên'] if 'Họ y Tên' in row_fee else row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
