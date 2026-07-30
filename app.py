@@ -75,7 +75,6 @@ def get_base_name(ho_ten):
     return name
 
 def get_family_student_ids(engine, hs_id):
-    """Tìm tất cả ID học sinh thuộc về cùng 1 người (dựa vào số điện thoại phụ huynh và trùng tên gốc)"""
     df_curr = pd.read_sql_query(f"SELECT ho_ten, thong_tin_phu_huynh FROM hoc_sinh WHERE id = {hs_id}", engine)
     if df_curr.empty:
         return [hs_id]
@@ -203,7 +202,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
-# --- HÀM ĐỒNG BỘ THỦ CÔNG (CHỈ DỌN SẠCH TRONG TUẦN HIỆN TẠI VÀ ĐỒNG BỘ LẠI) ---
+# --- HÀM ĐỒNG BỘ THỦ CÔNG ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -707,7 +706,6 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 if choice == "🏠 Trang chủ":
     st.subheader("🏠 Tổng Quan Trong Ngày")
     
-    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE (THAY ĐỔI NGẪU NHIÊN SAU MỖI LẦN TRUY CẬP)
     quote_today = random.choice(THONG_DIEP_LIST)
     health_today = random.choice(SUC_KHOE_LIST)
     
@@ -766,11 +764,10 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 PHẦN CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG HIỆN TẠI
+    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (ĐẾM SỐ NGÀY XUẤT HIỆN TRÊN TKB TỔNG QUAN, LOẠI TRỪ NGÀY CÓ HỌC SINH MANG ĐUÔI HỌC THÊM)
     st.markdown("#### 🚨 Cảnh Báo & Thống Kê Nổi Bật Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
-    # 1. Cảnh báo học sinh vắng nhiều (>= 2 buổi nghỉ trong tháng)
     df_absent_alert = pd.read_sql_query(f'''
         SELECT h.ho_ten, h.lop_hoc, 
                SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS vang_phep,
@@ -783,7 +780,6 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2 & 3. TÍNH SỐ CA LỚP HỌC TRONG THÁNG DỰA TRÊN TKB TỔNG QUAN (LOẠI BỎ NGÀY CÓ HỌC SINH MANG ĐUÔI HỌC THÊM)
     num_days_m = calendar.monthrange(today.year, today.month)[1]
     start_m_date = date(today.year, today.month, 1)
     end_m_date = date(today.year, today.month, num_days_m)
@@ -797,20 +793,21 @@ if choice == "🏠 Trang chủ":
     while curr_d_loop <= end_m_date:
         df_day_sched = get_active_schedule_for_date(engine, curr_d_loop)
         if not df_day_sched.empty:
-            for (lop_val, ca_val), group_s in df_day_sched.groupby(['lop_hoc', 'ca_hoc']):
+            # Đếm số ngày xuất hiện của từng lớp (group by lop_hoc trên mỗi ngày)
+            for lop_val, group_lop in df_day_sched.groupby('lop_hoc'):
                 if lop_val not in class_shift_counts:
                     class_shift_counts[lop_val] = 0
                 
-                # Kiểm tra xem ca học này có học sinh mang đuôi học thêm (dấu '-' hoặc từ khóa học thêm/bù) không
-                has_suffix = False
-                for s_name in group_s['ho_ten']:
-                    s_name_str = str(s_name).strip()
-                    if '-' in s_name_str or 'học thêm' in s_name_str.lower() or 'bù' in s_name_str.lower():
-                        has_suffix = True
+                # Kiểm tra xem trong ngày hôm đó, lớp này có học sinh nào mang đuôi học thêm / bù không
+                has_extra_suffix = False
+                for s_name in group_lop['ho_ten']:
+                    s_name_str = str(s_name).strip().lower()
+                    if 'học thêm' in s_name_str or 'bù' in s_name_str or '- học thêm' in s_name_str or '- bù' in s_name_str:
+                        has_extra_suffix = True
                         break
                 
-                # Nếu không chứa đuôi học thêm phát sinh thì mới tính ca cho lớp chính
-                if not has_suffix:
+                # Nếu ngày đó lớp học diễn ra bình thường (không có học sinh mang đuôi học thêm), tính là 1 ca/buổi xuất hiện trong tháng
+                if not has_extra_suffix:
                     class_shift_counts[lop_val] += 1
         curr_d_loop += timedelta(days=1)
 
