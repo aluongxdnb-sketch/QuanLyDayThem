@@ -41,7 +41,7 @@ DANH_SACH_CA_MAU = [
 # --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG (TẬP TRUNG NHIỀU VÀO HỌC SINH) ---
 THONG_DIEP_LIST = [
     "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
-    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm nay nhé!",
+    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm hôm nay nhé!",
     "💡 'Không có thất bại, tất cả chỉ là bài học để trưởng thành.' Hãy luôn mạnh dạn đặt câu hỏi và cố gắng hết mình, cô luôn ở đây đồng hành cùng các em!",
     "🌱 'Mỗi ngày đến lớp là một bước tiến gần hơn đến ước mơ lớn của các em.' Chúc các em học sinh có những giờ học thật tập trung, hào hứng và hiệu quả!",
     "✨ 'Tương lai thuộc về những ai tin vào vẻ đẹp của những giấc mơ và nỗ lực vì nó.' Các em hãy tự tin vào bản thân, chăm chỉ rèn luyện mỗi ngày nhé!",
@@ -65,14 +65,14 @@ SUC_KHOE_LIST = [
 ]
 
 # --- HÀM HỖ TRỢ LÀM SẠCH NHẬN XÉT (XÓA EMOJI, ĐỊNH DẠNG HOA/THƯỜNG, DẤU CHẤM) ---
-def clean_nhan_xet(text):
-    if not text:
+def clean_nhan_xet(text_input):
+    if not text_input:
         return ""
     emoji_pattern = re.compile(
         r"[\U00010000-\U0010ffff\u2600-\u27bf\u2b50\u2b06\u2934\u2935\u2b05\u2b07\u3299\u3227\u00a9\u00ae\u203c\u2049\u2122\u2139\u2194-\u2199\u21a9\u21aa\u2328\u23cf\u23e9-\u23f3\u23f8-\u23fa\u24c2\u25aa-\u25ab\u25b6\u25c0\u25fb-\u25fe\u2600-\u2604\u260e\u2611\u2614-\u2615\u2618\u261d\u2620\u2622-\u2623\u2626\u262a\u262e-\u262f\u2638-\u263a\u2648-\u2653\u2660-\u2668\u267b\u267f\u2692-\u2694\u2696-\u2697\u2699\u269b-\u269c\u26a0-\u26a1\u26aa-\u26ab\u26b0-\u26b1\u26bd-\u26be\u26c4-\u26c5\u26c8\u26ce-\u26cf\u26d1\u26d3-\u26d4\u26e9-\u26ea\u26f0-\u26f5\u26f7-\u26fa\u26fd\u2470\u2702\u2705\u2708-\u270d\u270f\u2712\u2714\u2716\u271d\u2721\u2728\u2733-\u2734\u2744\u2747\u274c\u274e\u2753-\u2755\u2757\u2763-\u2764\u2795-\u2797\u27a1\u27b0\u27bf\u2934-\u2935\u2b05-\u2b07\u2b12-\u2b13\u2b1b-\u2b1c\u2b50\u2b55\u3030\u303d\u3297\u3299]",
         flags=re.UNICODE
     )
-    cleaned = emoji_pattern.sub(r'', text)
+    cleaned = emoji_pattern.sub(r'', text_input)
     cleaned = cleaned.replace('[', '').replace(']', '').strip()
     if cleaned:
         cleaned = cleaned[0].upper() + cleaned[1:]
@@ -91,14 +91,14 @@ def get_base_name(ho_ten):
     return name
 
 def get_family_student_ids(engine, hs_id):
-    df_curr = pd.read_sql_query(f"SELECT ho_ten, thong_tin_phu_huynh FROM hoc_sinh WHERE id = {hs_id}", engine)
+    df_curr = pd.read_sql_query(text(f"SELECT ho_ten, thong_tin_phu_huynh FROM hoc_sinh WHERE id = {hs_id}"), engine)
     if df_curr.empty:
         return [hs_id]
     curr_name = df_curr.iloc[0]['ho_ten']
     curr_phone = str(df_curr.iloc[0]['thong_tin_phu_huynh']).strip()
     base_curr = get_base_name(curr_name).lower()
     
-    df_all = pd.read_sql_query("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh", engine)
+    df_all = pd.read_sql_query(text("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh"), engine)
     matched_ids = []
     for _, r in df_all.iterrows():
         r_name = r['ho_ten']
@@ -123,12 +123,12 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None):
         ids_str = ",".join(map(str, hs_ids))
         where_clause += f" AND l.hoc_sinh_id IN ({ids_str})"
         
-    query_base = f'''
+    query_base = text(f'''
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
         FROM lich_hoc_tuan l
         JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
         WHERE {where_clause}
-    '''
+    ''')
     df_base = pd.read_sql_query(query_base, engine)
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
@@ -821,7 +821,7 @@ if choice == "🏠 Trang chủ":
     start_date_str = f"{past_y}-{past_m:02d}-01"
     end_date_str = f"{curr_y}-{curr_m:02d}-01"
     
-    query_unpaid_details = f'''
+    query_unpaid_details = text(f'''
         SELECT h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi,
                TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam,
                COUNT(d.id) AS so_ca
@@ -838,7 +838,7 @@ if choice == "🏠 Trang chủ":
           )
         GROUP BY h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi, TO_CHAR(d.ngay, 'MM/YYYY')
         ORDER BY thang_nam DESC, h.ho_ten ASC
-    '''
+    ''')
     df_unpaid_details = pd.read_sql_query(query_unpaid_details, engine)
     
     if not df_unpaid_details.empty:
@@ -865,7 +865,7 @@ if choice == "🏠 Trang chủ":
     st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
-    df_absent_alert = pd.read_sql_query(f'''
+    df_absent_alert = pd.read_sql_query(text(f'''
         SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
                SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS "Vắng có phép",
                SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS "Vắng không phép",
@@ -876,7 +876,7 @@ if choice == "🏠 Trang chủ":
         GROUP BY h.id, h.ho_ten, h.lop_hoc
         HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 2
         ORDER BY "Vắng không phép" DESC, "Vắng có phép" DESC
-    ''', engine)
+    '''), engine)
     
     if df_absent_alert.empty:
         st.success("✅ Tháng này chưa có học sinh vắng nhiều.")
@@ -925,7 +925,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
         st.caption(f"Ngày được chọn: **{ngay_hoc.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
         
         df_active_today = get_active_schedule_for_date(engine, ngay_hoc)
-        df_all_hs = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
+        df_all_hs = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh"), engine)
         
         che_do_nguon = st.radio(
             "📌 Chọn chế độ điểm danh:",
@@ -1060,13 +1060,13 @@ elif choice == "📝 Điểm danh & Nhận xét":
         st.markdown("---")
         st.subheader(f"📊 Kết quả & Thống kê điểm danh ngày {ngay_hoc.strftime('%d/%m/%Y')}")
 
-        df_dd_today = pd.read_sql_query(f'''
+        df_dd_today = pd.read_sql_query(text(f'''
             SELECT d.id, h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét"
             FROM diem_danh d
             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
             WHERE d.ngay = '{date_str}'
             ORDER BY d.id DESC
-        ''', engine)
+        '''), engine)
 
         if not df_dd_today.empty:
             df_dd_today['Nhận Xét'] = df_dd_today['Nhận Xét'].apply(clean_nhan_xet)
@@ -1088,13 +1088,13 @@ elif choice == "📝 Điểm danh & Nhận xét":
         sel_date_filter = st.date_input("🗓️ Chọn ngày cần sửa/xóa điểm danh", date.today(), key="filter_log_date_picker")
         date_filter_str = sel_date_filter.strftime("%Y-%m-%d")
         
-        df_logs = pd.read_sql_query(f'''
+        df_logs = pd.read_sql_query(text(f'''
             SELECT d.id AS "Mã Lịch", h.id AS hoc_sinh_id, h.ho_ten AS "Họ Tên", h.lop_hoc AS "Lớp", d.ngay AS "Ngày", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét" 
             FROM diem_danh d 
             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id 
             WHERE d.ngay = '{date_filter_str}'
             ORDER BY d.id DESC
-        ''', engine)
+        '''), engine)
         
         tags_options_global = [
             "chăm chú", 
@@ -1283,7 +1283,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
         
         export_mode_type = st.radio("📌 Chọn phạm vi xuất lịch sử điểm danh:", ["👤 Theo từng học sinh riêng lẻ", "🏫 Theo Cả Lớp học (Tổng hợp các ca)"], horizontal=True, key="export_mode_type_radio")
         
-        df_hs_ls = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
+        df_hs_ls = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC"), engine)
         if df_hs_ls.empty:
             st.warning("Chưa có học sinh nào trong hệ thống.")
         else:
@@ -1312,7 +1312,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                 hs_name_val = get_base_name(hs_r['ho_ten'])
                                 hs_lop_val = hs_r['lop_hoc']
                                 
-                                df_hs_att_history = pd.read_sql_query(f'''
+                                df_hs_att_history = pd.read_sql_query(text(f'''
                                     SELECT 
                                         TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
                                         d.ca_hoc AS "Ca học",
@@ -1321,7 +1321,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                     FROM diem_danh d
                                     WHERE d.hoc_sinh_id IN ({ids_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
                                     ORDER BY d.ngay ASC, d.id ASC
-                                ''', engine)
+                                '''), engine)
                                 
                                 if not df_hs_att_history.empty:
                                     df_hs_att_history['Nhận xét'] = df_hs_att_history['Nhận xét'].apply(clean_nhan_xet)
@@ -1362,7 +1362,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 sel_hs_row_ls = df_hs_ls[df_hs_ls['id'] == sel_hs_id_ls].iloc[0]
                 base_name_ls = get_base_name(sel_hs_row_ls['ho_ten'])
                 
-                df_hs_att_history = pd.read_sql_query(f'''
+                df_hs_att_history = pd.read_sql_query(text(f'''
                     SELECT 
                         TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
                         d.ca_hoc AS "Ca học",
@@ -1371,7 +1371,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     FROM diem_danh d
                     WHERE d.hoc_sinh_id IN ({ids_ls_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
                     ORDER BY d.ngay ASC, d.id ASC
-                ''', engine)
+                '''), engine)
                 
                 if df_hs_att_history.empty:
                     st.info(f"ℹ️ Học sinh {base_name_ls} chưa có lịch sử điểm danh trong Tháng {thang_nam_k}.")
@@ -1418,7 +1418,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         time_label_cls = f"Ngày {sel_date_cls.strftime('%d/%m/%Y')}"
                         file_suffix = f"Ngay_{sel_date_cls.strftime('%Y%m%d')}"
                         
-                        df_cls_history_final = pd.read_sql_query(f'''
+                        df_cls_history_final = pd.read_sql_query(text(f'''
                             SELECT 
                                 TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
                                 d.ca_hoc AS "Ca học",
@@ -1430,7 +1430,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND d.ngay = '{date_str_cls}'
                               AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
-                        ''', engine)
+                        '''), engine)
 
                     elif option_time_cls == "1 tuần":
                         sel_tuan_cls = st.date_input("Chọn ngày bất kỳ trong tuần:", date.today(), key="sel_tuan_cls_input")
@@ -1441,7 +1441,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         time_label_cls = f"Tuần từ {start_w_cls.strftime('%d/%m/%Y')} đến {end_w_cls.strftime('%d/%m/%Y')}"
                         file_suffix = f"Tuan_{start_w_cls.strftime('%Y%m%d')}"
                         
-                        df_cls_history_final = pd.read_sql_query(f'''
+                        df_cls_history_final = pd.read_sql_query(text(f'''
                             SELECT 
                                 TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
                                 d.ca_hoc AS "Ca học",
@@ -1453,7 +1453,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND d.ngay >= '{start_str_cls}' AND d.ngay <= '{end_str_cls}'
                               AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
-                        ''', engine)
+                        '''), engine)
 
                     else:
                         c_y_c, c_m_c = st.columns([1, 1])
@@ -1466,7 +1466,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         time_label_cls = f"Tháng {thang_cls_exp:02d}/{nam_cls_exp}"
                         file_suffix = f"Thang_{thang_cls_exp}_{nam_cls_exp}"
                         
-                        df_cls_history_final = pd.read_sql_query(f'''
+                        df_cls_history_final = pd.read_sql_query(text(f'''
                             SELECT 
                                 TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
                                 d.ca_hoc AS "Ca học",
@@ -1478,7 +1478,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q_cls}'
                               AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
-                        ''', engine)
+                        '''), engine)
 
                     if df_cls_history_final.empty:
                         st.info(f"ℹ️ Lớp {sel_lop_exp_cls} không có dữ liệu điểm danh trong khoảng thời gian này.")
@@ -1524,7 +1524,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
     with tab_goc:
         st.subheader("📅 Xếp Thời Khóa Biểu Cố Định Hàng Tuần")
         
-        df_hs = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh", engine)
+        df_hs = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, mon_hoc FROM hoc_sinh"), engine)
         
         if df_hs.empty:
             st.warning("Chưa có học sinh.")
@@ -1590,7 +1590,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 
     with tab_export:
         st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần Dạng Ảnh PNG")
-        df_hs_all = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh", engine)
+        df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh"), engine)
 
         if df_hs_all.empty:
             st.warning("Chưa có dữ liệu học sinh.")
@@ -1707,7 +1707,7 @@ elif choice == "💳 Quản lý học phí":
         if raw_df.empty:
             return raw_df
             
-        df_hs_meta = pd.read_sql_query("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh", engine)
+        df_hs_meta = pd.read_sql_query(text("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh"), engine)
         meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'thong_tin_phu_huynh': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_meta.iterrows()}
         
         grouped_dict = {}
@@ -1789,7 +1789,7 @@ elif choice == "💳 Quản lý học phí":
                 thang_nam_query = f"{nam_selected}-{th:02d}"
                 thang_nam_key = f"{th:02d}/{nam_selected}"
                 
-                q = f'''
+                q = text(f'''
                     SELECT 
                         h.id AS hoc_sinh_id, 
                         h.ho_ten AS "Họ và Tên", 
@@ -1804,13 +1804,13 @@ elif choice == "💳 Quản lý học phí":
                     LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_query}'
                     LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
                     GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-                '''
+                ''')
                 raw_df = pd.read_sql_query(q, engine)
                 raw_df['is_multi'] = False
                 raw_df['details'] = [[] for _ in range(len(raw_df))]
                 combined_df = get_aggregated_tuition_df(raw_df)
             else:
-                df_hs_all = pd.read_sql_query("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh", engine)
+                df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
                 rows_aggregated = []
                 
                 for _, hs in df_hs_all.iterrows():
@@ -1823,21 +1823,21 @@ elif choice == "💳 Quản lý học phí":
                         thang_nam_query = f"{nam_selected}-{th:02d}"
                         thang_nam_key = f"{th:02d}/{nam_selected}"
                         
-                        q_att = f'''
+                        q_att = text(f'''
                             SELECT COUNT(*) AS so_ca
                             FROM diem_danh
                             WHERE hoc_sinh_id = {hs_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{thang_nam_query}' AND trang_thai = 'Có mặt'
-                        '''
+                        ''')
                         df_att = pd.read_sql_query(q_att, engine)
                         so_ca = int(df_att.iloc[0]['so_ca']) if not df_att.empty else 0
                         
                         if so_ca == 0:
                             continue
                             
-                        q_pay = f'''
+                        q_pay = text(f'''
                             SELECT trang_thai FROM thanh_toan
                             WHERE hoc_sinh_id = {hs_id} AND thang_nam = '{thang_nam_key}'
-                        '''
+                        ''')
                         df_pay = pd.read_sql_query(q_pay, engine)
                         trang_thai_th = df_pay.iloc[0]['trang_thai'] if not df_pay.empty else 'Chưa đóng'
                         
@@ -1897,7 +1897,7 @@ elif choice == "💳 Quản lý học phí":
         ngay_str = ngay_chon.strftime("%Y-%m-%d")
         thang_nam_key = ngay_chon.strftime("%m/%Y")
         
-        q = f'''
+        q = text(f'''
             SELECT 
                 h.id AS hoc_sinh_id, 
                 h.ho_ten AS "Họ và Tên", 
@@ -1912,7 +1912,7 @@ elif choice == "💳 Quản lý học phí":
             LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND d.ngay = '{ngay_str}'
             LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
             GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-        '''
+        ''')
         raw_df = pd.read_sql_query(q, engine)
         raw_df['is_multi'] = False
         raw_df['details'] = [[] for _ in range(len(raw_df))]
@@ -1928,7 +1928,7 @@ elif choice == "💳 Quản lý học phí":
         
         st.info(f"📅 Thống kê tuần từ **{start_w.strftime('%d/%m/%Y')}** đến **{end_w.strftime('%d/%m/%Y')}**")
         
-        q = f'''
+        q = text(f'''
             SELECT 
                 h.id AS hoc_sinh_id, 
                 h.ho_ten AS "Họ và Tên", 
@@ -1943,7 +1943,7 @@ elif choice == "💳 Quản lý học phí":
             LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND d.ngay >= '{start_str}' AND d.ngay <= '{end_str}'
             LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
             GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-        '''
+        ''')
         raw_df = pd.read_sql_query(q, engine)
         raw_df['is_multi'] = False
         raw_df['details'] = [[] for _ in range(len(raw_df))]
@@ -2071,7 +2071,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ dan Tên'] if 'Họ dan Tên' in row else row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
@@ -2096,7 +2096,7 @@ elif choice == "📋 Thông tin học sinh":
     
     with sub_tab_tongquan:
         st.markdown("##### 🔍 Chọn học sinh và thời gian để xem bảng thông tin tổng quát:")
-        df_hs_all_info = pd.read_sql_query("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh ORDER BY id DESC", engine)
+        df_hs_all_info = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh ORDER BY id DESC"), engine)
         
         if df_hs_all_info.empty:
             st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
@@ -2134,21 +2134,21 @@ elif choice == "📋 Thông tin học sinh":
                     th_q = f"{info_year}-{th:02d}"
                     th_k = f"{th:02d}/{info_year}"
                     
-                    df_ca_m = pd.read_sql_query(f'''
+                    df_ca_m = pd.read_sql_query(text(f'''
                         SELECT COUNT(*) AS so_ca FROM diem_danh 
                         WHERE hoc_sinh_id IN ({family_ids_str}) AND TO_CHAR(ngay, 'YYYY-MM') = '{th_q}' AND trang_thai = 'Có mặt'
-                    ''', engine)
+                    '''), engine)
                     so_ca_m = int(df_ca_m.iloc[0]['so_ca']) if not df_ca_m.empty else 0
                     total_ca_selected_months += so_ca_m
                     
-                    df_pay_m = pd.read_sql_query(f'''
+                    df_pay_m = pd.read_sql_query(text(f'''
                         SELECT trang_thai FROM thanh_toan 
                         WHERE hoc_sinh_id IN ({family_ids_str}) AND thang_nam = '{th_k}'
-                    ''', engine)
+                    '''), engine)
                     trang_thai_m = 'Đã đóng' if not df_pay_m.empty and all(df_pay_m['trang_thai'] == 'Đã đóng') else 'Chưa đóng'
                     
                     total_tien_m = sum(
-                        pd.read_sql_query(f"SELECT COUNT(*) * (SELECT hoc_phi_buoi FROM hoc_sinh WHERE id = {fid}) AS s FROM diem_danh WHERE hoc_sinh_id = {fid} AND TO_CHAR(ngay, 'YYYY-MM') = '{th_q}' AND trang_thai = 'Có mặt'", engine).iloc[0]['s'] or 0
+                        pd.read_sql_query(text(f"SELECT COUNT(*) * (SELECT hoc_phi_buoi FROM hoc_sinh WHERE id = {fid}) AS s FROM diem_danh WHERE hoc_sinh_id = {fid} AND TO_CHAR(ngay, 'YYYY-MM') = '{th_q}' AND trang_thai = 'Có mặt'"), engine).iloc[0]['s'] or 0
                         for fid in family_ids_all
                     )
                     
@@ -2164,7 +2164,7 @@ elif choice == "📋 Thông tin học sinh":
                 exclude_clauses.append(f"TO_CHAR(d.ngay, 'YYYY-MM') != '{info_year}-{th:02d}'")
             exclude_sql = " AND " + " AND ".join(exclude_clauses) if exclude_clauses else ""
             
-            df_debt_other = pd.read_sql_query(f'''
+            df_debt_other = pd.read_sql_query(text(f'''
                 SELECT d.hoc_sinh_id, TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam, COUNT(d.id) AS so_ca
                 FROM diem_danh d
                 WHERE d.hoc_sinh_id IN ({family_ids_str})
@@ -2177,12 +2177,12 @@ elif choice == "📋 Thông tin học sinh":
                         AND t.trang_thai = 'Đã đóng'
                   )
                 GROUP BY d.hoc_sinh_id, TO_CHAR(d.ngay, 'MM/YYYY')
-            ''', engine)
+            '''), engine)
             
             total_debt_other = 0
             if not df_debt_other.empty:
                 for _, r_d in df_debt_other.iterrows():
-                    hp_b = pd.read_sql_query(f"SELECT hoc_phi_buoi FROM hoc_sinh WHERE id = {r_d['hoc_sinh_id']}", engine).iloc[0]['hoc_phi_buoi']
+                    hp_b = pd.read_sql_query(text(f"SELECT hoc_phi_buoi FROM hoc_sinh WHERE id = {r_d['hoc_sinh_id']}"), engine).iloc[0]['hoc_phi_buoi']
                     total_debt_other += r_d['so_ca'] * hp_b
             debt_other_str = f"{total_debt_other:,.0f} đ"
                 
@@ -2197,26 +2197,26 @@ elif choice == "📋 Thông tin học sinh":
             st.markdown("---")
             
             st.markdown("#### 🗓️ Thời Khóa Biểu Cố Định Hàng Tuần (Gộp chung)")
-            df_hs_sched = pd.read_sql_query(f'''
+            df_hs_sched = pd.read_sql_query(text(f'''
                 SELECT h.ho_ten AS "Hồ sơ", l.thu AS "Thứ", l.ca_hoc AS "Ca học"
                 FROM lich_hoc_tuan l
                 JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
                 WHERE l.hoc_sinh_id IN ({family_ids_str})
                 ORDER BY l.id
-            ''', engine)
+            '''), engine)
             if df_hs_sched.empty:
                 st.info("ℹ️ Học sinh chưa có thời khóa biểu cố định nào.")
             else:
                 st.dataframe(df_hs_sched, use_container_width=True)
                 
             st.markdown("#### 📝 Lịch Sử Điểm Danh & Nhận Xét (Gộp chung)")
-            df_hs_att_all = pd.read_sql_query(f'''
+            df_hs_att_all = pd.read_sql_query(text(f'''
                 SELECT h.ho_ten AS "Hồ sơ", TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày", d.ca_hoc AS "Ca học", d.trang_thai AS "Trạng thái", COALESCE(d.nhan_xet, '') AS "Nhận xét"
                 FROM diem_danh d
                 JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
                 WHERE d.hoc_sinh_id IN ({family_ids_str})
                 ORDER BY d.ngay DESC, d.id DESC
-            ''', engine)
+            '''), engine)
             if df_hs_att_all.empty:
                 st.info("ℹ️ Chưa có lịch sử điểm danh nào.")
             else:
@@ -2248,14 +2248,14 @@ elif choice == "📋 Thông tin học sinh":
 
         st.markdown("---")
         st.markdown("##### 📋 Danh Sách Toàn Bộ Học Sinh Hiện Tại")
-        df_hs_list_current = pd.read_sql_query('SELECT id AS "Mã HS", ho_ten AS "Họ và tên", lop_hoc AS "Lớp", mon_hoc AS "Môn", hoc_phi_buoi AS "Học phí/Ca (VNĐ)", thong_tin_phu_huynh AS "Số ĐT/Phụ huynh" FROM hoc_sinh ORDER BY id DESC', engine)
+        df_hs_list_current = pd.read_sql_query(text('SELECT id AS "Mã HS", ho_ten AS "Họ và tên", lop_hoc AS "Lớp", mon_hoc AS "Môn", hoc_phi_buoi AS "Học phí/Ca (VNĐ)", thong_tin_phu_huynh AS "Số ĐT/Phụ huynh" FROM hoc_sinh ORDER BY id DESC'), engine)
         if df_hs_list_current.empty:
             st.info("Chưa có học sinh nào.")
         else:
             st.dataframe(df_hs_list_current, use_container_width=True)
 
     with sub_tab_sua:
-        df_hs_edit = pd.read_sql_query("SELECT * FROM hoc_sinh ORDER BY id DESC", engine)
+        df_hs_edit = pd.read_sql_query(text("SELECT * FROM hoc_sinh ORDER BY id DESC"), engine)
         if not df_hs_edit.empty:
             hs_edit_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs_edit.iterrows()}
             selected_edit_label = st.selectbox("Chọn học sinh cần sửa:", list(hs_edit_dict.keys()), key="select_edit_hs")
@@ -2282,7 +2282,7 @@ elif choice == "📋 Thông tin học sinh":
                     st.rerun()
 
     with sub_tab_xoa:
-        df_hs_del = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
+        df_hs_del = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC"), engine)
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
