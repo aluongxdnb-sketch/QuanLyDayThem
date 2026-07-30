@@ -41,7 +41,7 @@ DANH_SACH_CA_MAU = [
 # --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG (TẬP TRUNG NHIỀU VÀO HỌC SINH) ---
 THONG_DIEP_LIST = [
     "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
-    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm hôm nay nhé!",
+    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm nay nhé!",
     "💡 'Không có thất bại, tất cả chỉ là bài học để trưởng thành.' Hãy luôn mạnh dạn đặt câu hỏi và cố gắng hết mình, cô luôn ở đây đồng hành cùng các em!",
     "🌱 'Mỗi ngày đến lớp là một bước tiến gần hơn đến ước mơ lớn của các em.' Chúc các em học sinh có những giờ học thật tập trung, hào hứng và hiệu quả!",
     "✨ 'Tương lai thuộc về những ai tin vào vẻ đẹp của những giấc mơ và nỗ lực vì nó.' Các em hãy tự tin vào bản thân, chăm chỉ rèn luyện mỗi ngày nhé!",
@@ -608,11 +608,31 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY CÓ GỘP NHÓM) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
+    raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
+    
+    # Xử lý gộp ngày và ca học giống nhau liên tiếp
+    processed_rows = [raw_table_data[0]]
+    last_ngay = None
+    last_ca = None
+    
+    for row in raw_table_data[1:]:
+        curr_ngay = row[0]
+        curr_ca = row[1]
+        
+        new_row = list(row)
+        if curr_ngay == last_ngay and curr_ca == last_ca:
+            new_row[0] = ""
+            new_row[1] = ""
+        else:
+            last_ngay = curr_ngay
+            last_ca = curr_ca
+        processed_rows.append(new_row)
+
     wrapped_data = []
     max_lines_overall = 1
-    for row in [df_history.columns.tolist()] + df_history.values.tolist():
+    for row in processed_rows:
         new_row = []
         row_max_lines = 1
         for col_idx, cell in enumerate(row):
@@ -649,11 +669,15 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
         cell.PAD = 0.15
+        
+        # Căn giữa dọc và ngang cho tất cả các cột
+        cell.set_text_props(ha='center', va='center')
+        
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=11)
+            cell.set_text_props(color='white', weight='bold', size=11, ha='center', va='center')
         else:
-            cell.set_text_props(color='#1E293B', size=9.5)
+            cell.set_text_props(color='#1E293B', size=9.5, ha='center', va='center')
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -2071,7 +2095,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ dan Tên'] if 'Họ dan Tên' in row else row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
