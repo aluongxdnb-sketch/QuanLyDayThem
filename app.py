@@ -38,7 +38,7 @@ DANH_SACH_CA_MAU = [
     "19h30 - 21h30"
 ]
 
-# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG (TẬP TRUNG NHIỀU VÀO HỌC SINH) ---
+# --- KHO 30 THÔNG ĐIỆP TRUYỀN CẢM HỨNG CHO HỌC SINH ---
 THONG_DIEP_LIST = [
     "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
     "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm nay nhé!",
@@ -49,9 +49,30 @@ THONG_DIEP_LIST = [
     "🚀 'Hãy học tập bằng sự say mê và tò mò khám phá, tri thức sẽ mở ra cho các em những chân trời mới rực rỡ!' Chúc các em một buổi học bùng nổ năng lượng!",
     "🔥 'Sự chăm chỉ và tập trung của các em hôm nay chính là chìa khóa vàng mở cánh cửa thành công trong tương lai. Cô tin tưởng các em sẽ làm được!'",
     "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thử thách nhé!",
-    "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'"
+    "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'",
+    "⭐ 'Sự nỗ lực của bạn ngày hôm nay sẽ là nền tảng cho sự thành công của ngày mai. Cố gắng lên các em nhé!'",
+    "📚 'Học cho chính mình, biết cho tương lai. Tri thức là sức mạnh giúp các em bay cao bay xa.'",
+    "💪 'Đừng sợ những bài toán khó, chúng chỉ đang giúp bộ não của các em thông minh hơn mà thôi!'",
+    "🌻 'Hãy tỏa sáng theo cách của riêng mình bằng sự chăm chỉ và ý chí vươn lên trong từng bài học.'",
+    "✍️ 'Mỗi nét chữ, mỗi công thức ghi lại hôm nay là một bước chuẩn bị vững chắc cho hành trang tương lai.'",
+    "🏆 'Người chiến thắng không phải là người không bao giờ vấp ngã, mà là người không bao giờ bỏ cuộc.'",
+    "🌊 'Kiên trì như giọt nước mài mòn đá, sự học tích lũy từng ngày sẽ tạo nên kỳ tích.'",
+    "🎨 'Hãy để tri thức tô điểm thêm màu sắc tươi đẹp cho ước mơ tuổi trẻ của các em.'",
+    "🧭 'Sách vở là la bàn, còn sự chăm chỉ là con thuyền đưa các em đến bến bờ vinh quang.'",
+    "⚡ 'Năng lượng tích cực và sự tập trung cao độ sẽ giúp các em giải quyết mọi bài toán khó nhằn nhất.'",
+    "🍀 'Chúc các em học sinh có một buổi học tập hăng say, tiếp thu trọn vẹn những kiến thức mới bổ ích.'",
+    "🎓 'Hôm nay chăm chỉ học hành, ngày mai tự tin bước ra thế giới với cái đầu ngẩng cao.'",
+    "🔍 'Tò mò, ham học hỏi và dũng cảm đối mặt với khó khăn là bí quyết của những người thành công.'",
+    "🎈 'Hãy thả lỏng tinh thần, hít một hơi thật sâu và cùng cô chinh phục những đỉnh cao tri thức mới nhé!'",
+    "🧩 'Mỗi kiến thức mới giống mảnh ghép hoàn thiện bức tranh tương lai tuyệt đẹp của các em.'",
+    "👑 'Chính sự kiên nhẫn và quyết tâm của các em trong giờ học hôm nay sẽ tạo nên phiên bản tuyệt vời nhất của ngày mai.'",
+    "🎇 'Học tập là ánh sáng xua tan bóng tối của sự thiếu hiểu biết. Hãy luôn thắp sáng ngọn lửa ấy nhé!'",
+    "hol 'Đừng ngại ngùng khi chưa hiểu bài, cô và các bạn luôn sẵn sàng giúp đỡ các em tiến bộ mỗi ngày.'",
+    "🌟 'Mỗi một bài học vượt qua là một lần các em tự phá vỡ giới hạn của bản thân mình.'",
+    "🚀 'Sẵn sàng tâm thế, vững vàng ý chí, chúc các em học sinh có một buổi học thật thành công và hứng khởi!'"
 ]
 
+# --- KHO 30 LỜI NHẮC SỨC KHỎE CHO CÔ GIÁO ---
 SUC_KHOE_LIST = [
     "💧 Lời nhắc sức khỏe: Cô ơi, hãy uống một ngụm nước ấm để giữ giọng và bảo vệ thanh quản nhé!",
     "🧘‍♀️ Lời nhắc sức khỏe: Đã đứng lớp một lúc rồi, cô hãy thả lỏng vai, vươn vai nhẹ nhàng để giảm mỏi cơ vai gáy nhé.",
@@ -61,7 +82,28 @@ SUC_KHOE_LIST = [
     "🌿 Lời nhắc sức khỏe: Hãy hít thở thật sâu, nhắm mắt lại 1 phút để tái tạo năng lượng trước khi bắt đầu ca dạy tiếp theo nhé!",
     "🚶‍♀️ Lời nhắc sức khỏe: Đứng lên đi lại nhẹ nhàng vài bước để máu lưu thông tốt hơn, xua tan cảm giác mỏi mệt cô nha.",
     "🌙 Lời nhắc sức khỏe: Hôm nay nếu công việc đã xong xuôi, hãy cố gắng nghỉ ngơi sớm để giữ gìn sức khỏe cho ngày mai cô nhé!",
-    "🍉 Lời nhắc sức khỏe: Đừng quên bổ sung thêm một chút trái cây tươi hoặc vitamin để tăng cường đề kháng suốt cả tuần cô nhé."
+    "🍉 Lời nhắc sức khỏe: Đừng quên bổ sung thêm một chút trái cây tươi hoặc vitamin để tăng cường đề kháng suốt cả tuần cô nhé.",
+    "🌸 Lời nhắc sức khỏe: Cô hãy mỉm cười thật tươi và tự thưởng cho mình vài phút giây thư giãn nhẹ nhàng sau giờ đứng lớp nhé.",
+    "🫖 Lời nhắc sức khỏe: Một ly trà gừng ấm sẽ giúp cô giữ ấm cơ thể và cổ họng trong những ngày làm việc vất vả.",
+    " posture Lời nhắc sức khỏe: Hãy giữ lưng thẳng khi ngồi chấm bài để bảo vệ cột sống và vùng thắt lưng cô nhé.",
+    "🍊 Lời nhắc sức khỏe: Bổ sung thêm chút vitamin C từ cam hoặc chanh tươi sẽ giúp cô luôn tràn đầy sức sống.",
+    "✨ Lời nhắc sức khỏe: Công việc tuy bận rộn nhưng sức khỏe của cô vẫn là ưu tiên số một. Nhớ đừng làm việc quá sức nha!",
+    "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
+    "hand Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
+    "zzz Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
+    "sun Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "nut Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
+    "wind Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
+    "heart Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
+    "stretching Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
+    "foot Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
+    "smile Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
+    "tea Lời nhắc sức khỏe: Thưởng thức một ngụm trà hoa cúc ấm áp để thư thái tinh thần sau một ca dạy kéo dài.",
+    "relax Lời nhắc sức khỏe: Đừng quên hít sâu, thở chậm và buông xỏ mọi âu lo ngoài cửa lớp trước khi nghỉ ngơi cô nhé.",
+    "voice Lời nhắc sức khỏe: Hạn chế nói quá lớn liên tục, hãy dùng micro hỗ trợ để bảo vệ thanh quản vàng của cô nha.",
+    "energy Lời nhắc sức khỏe: Một chút sô-cô-la đen nhỏ sẽ giúp cô nhanh chóng lấy lại tinh thần và năng lượng tức thì.",
+    "balance Lời nhắc sức khỏe: Cân đối giữa công việc và nghỉ ngơi hợp lý chính là chìa khóa để cô luôn giữ mãi ngọn lửa đam mê.",
+    "love Lời nhắc sức khỏe: Cô là người truyền lửa tuyệt vời, vì vậy hãy luôn trân trọng và yêu thương cơ thể mình thật nhiều cô nhé!"
 ]
 
 # --- HÀM HỖ TRỢ LÀM SẠCH NHẬN XÉT (XÓA EMOJI, ĐỊNH DẠNG HOA/THƯỜNG, DẤU CHẤM) ---
@@ -608,7 +650,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY CÓ GỘP NHÓM) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY CÓ GỘP NHÓM & CÂN GIỮA) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -670,7 +712,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         cell.set_edgecolor('#CBD5E1')
         cell.PAD = 0.15
         
-        # Căn giữa dọc và ngang cho tất cả các cột
+        # Căn giữa dọc và ngang cho tất cả các ô
         cell.set_text_props(ha='center', va='center')
         
         if row == 0:
