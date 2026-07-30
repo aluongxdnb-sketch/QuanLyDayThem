@@ -773,7 +773,7 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2. Top 5 lớp học nhiều ca nhất trong tháng
+    # 2. Top lớp học nhiều ca nhất trong tháng
     df_top_lop_nhieu_ca = pd.read_sql_query(f'''
         SELECT h.lop_hoc, COUNT(d.id) AS so_ca
         FROM diem_danh d
@@ -784,7 +784,7 @@ if choice == "🏠 Trang chủ":
         LIMIT 5
     ''', engine)
     
-    # 3. Top 5 lớp học ít ca nhất trong tháng
+    # 3. Top lớp học ít ca nhất trong tháng
     df_top_lop_it_ca = pd.read_sql_query(f'''
         SELECT h.lop_hoc, COUNT(d.id) AS so_ca
         FROM hoc_sinh h
@@ -804,14 +804,14 @@ if choice == "🏠 Trang chủ":
                 total_v = r['vang_phep'] + r['vang_kp']
                 st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
     with c_al2:
-        st.markdown("##### 🏆 Top 5 lớp học nhiều ca")
+        st.markdown("##### 🏆 Top lớp học nhiều ca")
         if df_top_lop_nhieu_ca.empty:
             st.info("Chưa có dữ liệu tháng này.")
         else:
             for _, r in df_top_lop_nhieu_ca.iterrows():
                 st.write(f"• **Lớp {r['lop_hoc']}**: {r['so_ca']} ca")
     with c_al3:
-        st.markdown("##### 📉 Top 5 lớp học ít ca")
+        st.markdown("##### 📉 Top lớp học ít ca")
         if df_top_lop_it_ca.empty:
             st.info("Chưa có dữ liệu tháng này.")
         else:
