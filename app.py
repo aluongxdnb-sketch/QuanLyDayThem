@@ -53,17 +53,6 @@ SUC_KHOE_LIST = [
     "👁️ Lời nhắc sức khỏe: Hãy chớp mắt và nhìn ra xa vài giây để thư giãn đôi mắt sau khi nhìn máy tính quản lý quá lâu."
 ]
 
-GOY_NHAN_XET_POS = [
-    "Tháng này em rất cố gắng, thái độ học tập nghiêm túc và có nhiều bước tiến rõ rệt.",
-    "Biểu dương tinh thần học tập tích cực và chăm chỉ của em trong tháng qua. Em hãy tiếp tục phát huy nhé!",
-    "Em tiếp thu bài nhanh, chăm chú lắng nghe và hoàn thành tốt các nhiệm vụ học tập trên lớp."
-]
-
-GOY_NHAN_XET_NEG = [
-    "Nhìn chung em tham gia lớp học đầy đủ, tuy nhiên đôi lúc còn lơ đễnh hoặc chưa tập trung. Cố gắng khắc phục vào tháng sau nhé.",
-    "Em cần chú ý hơn đến phần làm bài tập về nhà và chuẩn bị bài cũ để nắm chắc kiến thức hơn."
-]
-
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
 def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
@@ -785,7 +774,7 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2. Top học sinh học nhiều ca nhất trong tháng
+    # 2. Top 5 học sinh học nhiều ca nhất trong tháng
     df_top_ca = pd.read_sql_query(f'''
         SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) AS so_ca
         FROM diem_danh d
@@ -793,10 +782,10 @@ if choice == "🏠 Trang chủ":
         WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
         GROUP BY h.id, h.ho_ten, h.lop_hoc
         ORDER BY so_ca DESC
-        LIMIT 3
+        LIMIT 5
     ''', engine)
     
-    # 3. Top học sinh có học phí cao nhất trong tháng
+    # 3. Top 5 học sinh có học phí cao nhất trong tháng
     df_top_phi = pd.read_sql_query(f'''
         SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) * h.hoc_phi_buoi AS tong_phi
         FROM diem_danh d
@@ -804,7 +793,7 @@ if choice == "🏠 Trang chủ":
         WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
         GROUP BY h.id, h.ho_ten, h.lop_hoc
         ORDER BY tong_phi DESC
-        LIMIT 3
+        LIMIT 5
     ''', engine)
 
     c_al1, c_al2, c_al3 = st.columns(3)
@@ -916,15 +905,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
-                
-                # 💡 Gợi ý nhận xét đa dạng cho giáo viên tham khảo nhanh
-                with st.expander("💡 Gợi ý các mẫu nhận xét linh hoạt, đa dạng"):
-                    st.write("**Mẫu biểu dương tích cực:**")
-                    for s_pos in GOY_NHAN_XET_POS:
-                        st.caption(f"• {s_pos}")
-                    st.write("**Mẫu nhắc nhở khéo léo:**")
-                    for s_neg in GOY_NHAN_XET_NEG:
-                        st.caption(f"• {s_neg}")
 
                 with st.form("form_diem_danh_execution"):
                     danh_sach_ca_mau_dd = DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."]
@@ -997,7 +977,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
         df_dd_today = pd.read_sql_query(f'''
             SELECT d.id, h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét"
             FROM diem_danh d
-            JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+            JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
             WHERE d.ngay = '{date_str}'
             ORDER BY d.id DESC
         ''', engine)
@@ -1271,7 +1251,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
                 target_name_label = f"Lớp {selected_lop}"
             else:
-                hs_dict_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
+                hs_dict_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs.iterrows()}
                 selected_hs_label = st.selectbox("Chọn Học sinh cụ thể:", list(hs_dict_goc.keys()), key="select_goc_hs_indiv")
                 target_hs_ids = [hs_dict_goc[selected_hs_label]]
                 target_name_label = selected_hs_label
