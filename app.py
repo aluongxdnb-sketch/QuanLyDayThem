@@ -8,6 +8,7 @@ import re
 import io
 import textwrap
 import zipfile
+import random
 
 # Thử import Matplotlib để xuất thời khóa biểu, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
@@ -34,6 +35,33 @@ DANH_SACH_CA_MAU = [
     "15h30 - 17h30", 
     "17h30 - 19h30", 
     "19h30 - 21h30"
+]
+
+# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG VÀ SỨC KHỎE CÔ GIÁO ---
+THONG_DIEP_LIST = [
+    "🌟 'Học, học nữa, học mãi.' – V.I. Lênin. Chúc cô và trò một ngày giảng dạy tràn đầy năng lượng và cảm hứng!",
+    "📖 'Tri thức là sức mạnh.' – Francis Bacon. Mỗi bài giảng hôm nay là một viên gạch xây tương lai vững chắc cho các em.",
+    "💡 'Có công mài sắt, có ngày nên kim.' Sự kiên trì và nhẫn nại của cô trò sẽ luôn gặt hái trái ngọt.",
+    "🌱 'Thầy cô giáo chắp cánh ước mơ cho học sinh.' Hãy tự hào về sứ mệnh cao quý mà cô đang mang trên vai nhé!",
+    "✨ 'Hạnh phúc không phải là điểm đến, mà là hành trình chúng ta đang đi.' Chúc cô một ngày dạy học thật nhiều niềm vui!"
+]
+
+SUC_KHOE_LIST = [
+    "💧 Lời nhắc sức khỏe: Cô ơi, hãy uống một ngụm nước ấm để giữ giọng và bảo vệ thanh quản nhé!",
+    "🧘‍♀️ Lời nhắc sức khỏe: Đã đứng lớp một lúc rồi, cô hãy thả lỏng vai, vươn vai nhẹ nhàng để giảm mỏi cơ vai gáy nhé.",
+    "🍎 Lời nhắc sức khỏe: Đừng bỏ bữa cô nhé! Một cơ thể khỏe mạnh và tràn đầy năng lượng là món quà tuyệt vời nhất.",
+    "👁️ Lời nhắc sức khỏe: Hãy chớp mắt và nhìn ra xa vài giây để thư giãn đôi mắt sau khi nhìn máy tính quản lý quá lâu."
+]
+
+GOY_NHAN_XET_POS = [
+    "Tháng này em rất cố gắng, thái độ học tập nghiêm túc và có nhiều bước tiến rõ rệt.",
+    "Biểu dương tinh thần học tập tích cực và chăm chỉ của em trong tháng qua. Em hãy tiếp tục phát huy nhé!",
+    "Em tiếp thu bài nhanh, chăm chú lắng nghe và hoàn thành tốt các nhiệm vụ học tập trên lớp."
+]
+
+GOY_NHAN_XET_NEG = [
+    "Nhìn chung em tham gia lớp học đầy đủ, tuy nhiên đôi lúc còn lơ đễnh hoặc chưa tập trung. Cố gắng khắc phục vào tháng sau nhé.",
+    "Em cần chú ý hơn đến phần làm bài tập về nhà và chuẩn bị bài cũ để nắm chắc kiến thức hơn."
 ]
 
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
@@ -90,7 +118,7 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None):
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM ĐỒNG BỘ TỰ ĐỘNG KHI SANG TUẦN MỚI (TRỌN VẸN THỨ 2 ĐẾN CHỦ NHẬT) ---
+# --- HÀM ĐỒNG BỘ TỰ ĐỘNG KHI SANG TUẦN MỚI ---
 def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -195,7 +223,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        # PHẠM VI XÓA: Chỉ quét và dọn sạch trong tuần hiện tại (Từ Thứ 2 đến Chủ Nhật của tuần này)
+        # PHẠM VI XÓA: Chỉ quét và dọn sạch trong tuần hiện tại
         time_clean_min = f"{start_monday.strftime('%Y-%m-%d')}T00:00:00Z"
         time_clean_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
 
@@ -295,7 +323,7 @@ def get_buoi_from_ca(ca_str):
         else: return "🌙 Tối"
     return "☀️ Chiều"
 
-# --- HÀM LẤY MA TRẬN THỜI KHÓA BIỂU (HỖ TRỢ GỘP NHIỀU ID HỌC SINH) ---
+# --- HÀM LẤY MA TRẬN THỜI KHÓA BIỂU ---
 def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -355,7 +383,6 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
     cols = ["Buổi", "Ca học"] + cac_thu
     return df_matrix[cols]
 
-# --- HÀM HIỂN THỊ MA TRẬN THỜI KHÓA BIỂU (RENDER) ---
 def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=None):
     df_matrix = get_schedule_matrix_df(engine, filter_lop=filter_lop, filter_hs_id=filter_hs_id, ref_date=ref_date)
     if df_matrix.empty:
@@ -680,6 +707,16 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 # =========================================================
 if choice == "🏠 Trang chủ":
     st.subheader("🏠 Tổng Quan Trong Ngày")
+    
+    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE CÔ GIÁO (THAY ĐỔI THEO NGÀY)
+    day_seed = date.today().toordinal()
+    quote_today = THONG_DIEP_LIST[day_seed % len(THONG_DIEP_LIST)]
+    health_today = SUC_KHOE_LIST[day_seed % len(SUC_KHOE_LIST)]
+    
+    st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
+    st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
+    st.markdown("---")
+
     today = date.today()
     thu_hom_nay = get_vietnamese_weekday(today)
     st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
@@ -728,6 +765,71 @@ if choice == "🏠 Trang chủ":
         st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
     with col3:
         st.metric("💰 Tổng tiền còn cần thu", f"{total_debt_amount:,.0f} đ", f"Các tháng trước")
+
+    st.markdown("---")
+    
+    # 📊 PHẦN CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG HIỆN TẠI
+    st.markdown("#### 🚨 Cảnh Báo & Thống Kê Nổi Bật Trong Tháng:")
+    current_month_q = f"{today.year}-{today.month:02d}"
+    
+    # 1. Cảnh báo học sinh vắng nhiều (>= 2 buổi nghỉ trong tháng)
+    df_absent_alert = pd.read_sql_query(f'''
+        SELECT h.ho_ten, h.lop_hoc, 
+               SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS vang_phep,
+               SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS vang_kp
+        FROM diem_danh d
+        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+        WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai IN ('Vắng có phép', 'Vắng không phép')
+        GROUP BY h.id, h.ho_ten, h.lop_hoc
+        HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 2
+        ORDER BY vang_kp DESC, vang_phep DESC
+    ''', engine)
+    
+    # 2. Top học sinh học nhiều ca nhất trong tháng
+    df_top_ca = pd.read_sql_query(f'''
+        SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) AS so_ca
+        FROM diem_danh d
+        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+        WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
+        GROUP BY h.id, h.ho_ten, h.lop_hoc
+        ORDER BY so_ca DESC
+        LIMIT 3
+    ''', engine)
+    
+    # 3. Top học sinh có học phí cao nhất trong tháng
+    df_top_phi = pd.read_sql_query(f'''
+        SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) * h.hoc_phi_buoi AS tong_phi
+        FROM diem_danh d
+        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+        WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
+        GROUP BY h.id, h.ho_ten, h.lop_hoc
+        ORDER BY tong_phi DESC
+        LIMIT 3
+    ''', engine)
+
+    c_al1, c_al2, c_al3 = st.columns(3)
+    with c_al1:
+        st.markdown("##### ⚠️ Cảnh báo vắng nhiều")
+        if df_absent_alert.empty:
+            st.success("Tháng này chưa có học sinh vắng nhiều.")
+        else:
+            for _, r in df_absent_alert.iterrows():
+                total_v = r['vang_phep'] + r['vang_kp']
+                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
+    with c_al2:
+        st.markdown("##### 🏆 Top học nhiều ca")
+        if df_top_ca.empty:
+            st.info("Chưa có dữ liệu tháng này.")
+        else:
+            for _, r in df_top_ca.iterrows():
+                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: {r['so_ca']} ca")
+    with c_al3:
+        st.markdown("##### 💰 Top học phí cao")
+        if df_top_phi.empty:
+            st.info("Chưa có dữ liệu tháng này.")
+        else:
+            for _, r in df_top_phi.iterrows():
+                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: {r['tong_phi']:,.0f} đ")
 
     st.markdown("---")
     st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
@@ -814,6 +916,16 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
+                
+                # 💡 Gợi ý nhận xét đa dạng cho giáo viên tham khảo nhanh
+                with st.expander("💡 Gợi ý các mẫu nhận xét linh hoạt, đa dạng"):
+                    st.write("**Mẫu biểu dương tích cực:**")
+                    for s_pos in GOY_NHAN_XET_POS:
+                        st.caption(f"• {s_pos}")
+                    st.write("**Mẫu nhắc nhở khéo léo:**")
+                    for s_neg in GOY_NHAN_XET_NEG:
+                        st.caption(f"• {s_neg}")
+
                 with st.form("form_diem_danh_execution"):
                     danh_sach_ca_mau_dd = DANH_SACH_CA_MAU + ["⏱️ Tự nhập giờ tùy chỉnh..."]
                     danh_sach_luu = []
