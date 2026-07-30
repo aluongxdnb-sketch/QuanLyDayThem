@@ -48,7 +48,7 @@ THONG_DIEP_LIST = [
     "🎯 'Thành công không đến từ ngẫu nhiên, mà đến từ sự kiên trì và kỷ luật bản thân.' Cố lên các em học sinh yêu quý của cô!",
     "🚀 'Hãy học tập bằng sự say mê và tò mò khám phá, tri thức sẽ mở ra cho các em những chân trời mới rực rỡ!' Chúc các em một buổi học bùng nổ năng lượng!",
     "🔥 'Sự chăm chỉ và tập trung của các em hôm nay chính là chìa khóa vàng mở cánh cửa thành công trong tương lai. Cô tin tưởng các em sẽ làm được!'",
-    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thử thách nhé!",
+    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thách thức nhé!",
     "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'"
 ]
 
@@ -709,7 +709,7 @@ if choice == "🏠 Trang chủ":
     quote_today = random.choice(THONG_DIEP_LIST)
     health_today = random.choice(SUC_KHOE_LIST)
     
-    st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
+    st.info(f"💡 **Góc truyền cảm hứng hômはい:**\n\n{quote_today}")
     st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
     st.markdown("---")
 
@@ -764,8 +764,8 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (QUÉT TRÊN TKB TỔNG QUAN: CỨ LỚP XUẤT HIỆN TRONG 1 CA HỌC/SLOT THÌ ĐẾM LÀ 1 CA, KHÔNG LOẠI TRỪ)
-    st.markdown("#### 🚨 Cảnh Báo & Thống Kê Nổi Bật Trong Tháng:")
+    # 📊 CẢNH BÁO VẮNG NHIỀU TRONG THÁNG
+    st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
     df_absent_alert = pd.read_sql_query(f'''
@@ -780,55 +780,12 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    num_days_m = calendar.monthrange(today.year, today.month)[1]
-    start_m_date = date(today.year, today.month, 1)
-    end_m_date = date(today.year, today.month, num_days_m)
-
-    class_shift_counts = {}
-    df_all_lops = pd.read_sql_query("SELECT DISTINCT lop_hoc FROM hoc_sinh WHERE lop_hoc IS NOT NULL", engine)
-    for _, r_lop in df_all_lops.iterrows():
-        class_shift_counts[str(r_lop['lop_hoc']).strip()] = 0
-
-    curr_d_loop = start_m_date
-    while curr_d_loop <= end_m_date:
-        df_day_sched = get_active_schedule_for_date(engine, curr_d_loop)
-        if not df_day_sched.empty:
-            # Cứ lớp nào xuất hiện trong một ca học (slot) thì đếm là 1 ca cho lớp đó
-            df_unique_slots = df_day_sched[['lop_hoc', 'ca_hoc']].drop_duplicates()
-            for _, r_slot in df_unique_slots.iterrows():
-                lop_str = str(r_slot['lop_hoc']).strip()
-                if lop_str not in class_shift_counts:
-                    class_shift_counts[lop_str] = 0
-                class_shift_counts[lop_str] += 1
-        curr_d_loop += timedelta(days=1)
-
-    df_shifts_summary = pd.DataFrame(list(class_shift_counts.items()), columns=['lop_hoc', 'so_ca'])
-    df_top_lop_nhieu_ca = df_shifts_summary.sort_values(by='so_ca', ascending=False).head(5)
-    df_top_lop_it_ca = df_shifts_summary[df_shifts_summary['so_ca'] > 0].sort_values(by='so_ca', ascending=True).head(5)
-
-    c_al1, c_al2, c_al3 = st.columns(3)
-    with c_al1:
-        st.markdown("##### ⚠️ Cảnh báo vắng nhiều")
-        if df_absent_alert.empty:
-            st.success("Tháng này chưa có học sinh vắng nhiều.")
-        else:
-            for _, r in df_absent_alert.iterrows():
-                total_v = r['vang_phep'] + r['vang_kp']
-                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
-    with c_al2:
-        st.markdown("##### 🏆 Top lớp học nhiều ca")
-        if df_top_lop_nhieu_ca.empty:
-            st.info("Chưa có dữ liệu tháng này.")
-        else:
-            for _, r in df_top_lop_nhieu_ca.iterrows():
-                st.write(f"• **Lớp {r['lop_hoc']}**: {r['so_ca']} ca")
-    with c_al3:
-        st.markdown("##### 📉 Top lớp học ít ca")
-        if df_top_lop_it_ca.empty:
-            st.info("Chưa có dữ liệu tháng này.")
-        else:
-            for _, r in df_top_lop_it_ca.iterrows():
-                st.write(f"• **Lớp {r['lop_hoc']}**: {r['so_ca']} ca")
+    if df_absent_alert.empty:
+        st.success("Tháng này chưa có học sinh vắng nhiều.")
+    else:
+        for _, r in df_absent_alert.iterrows():
+            total_v = r['vang_phep'] + r['vang_kp']
+            st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
 
     st.markdown("---")
     st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
