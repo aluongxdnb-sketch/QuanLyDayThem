@@ -90,8 +90,15 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None):
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM TỰ ĐỘNG ĐỒNG BỘ THỜI KHÓA BIỂU 7 NGÀY SANG GOOGLE CALENDAR ---
-def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahead=7):
+# --- HÀM TỰ ĐỘNG ĐỒNG BỘ THỜI KHÓA BIỂU ĐÚNG TUẦN (THỨ 2 ĐẾN CHỦ NHẬT) SANG GOOGLE CALENDAR ---
+def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
+    if ref_date is None:
+        ref_date = date.today()
+        
+    # Tính chính xác Thứ 2 (đầu tuần) và Chủ Nhật (cuối tuần) của tuần chứa ref_date
+    start_monday = ref_date - timedelta(days=ref_date.weekday())
+    end_sunday = start_monday + timedelta(days=6)
+
     try:
         from google.oauth2.service_account import Credentials
         from googleapiclient.discovery import build
@@ -104,11 +111,8 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        today = date.today()
-        end_date = today + timedelta(days=days_ahead)
-
-        time_min = f"{today.strftime('%Y-%m-%d')}T00:00:00Z"
-        time_max = f"{end_date.strftime('%Y-%m-%d')}T23:59:59Z"
+        time_min = f"{start_monday.strftime('%Y-%m-%d')}T00:00:00Z"
+        time_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
 
         events_result = service.events().list(
             calendarId=calendar_id, 
@@ -117,7 +121,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
             singleEvents=True
         ).execute()
 
-        # Dọn dẹp sạch sẽ TẤT CẢ sự kiện cũ và mới bị trùng lặp trong khoảng thời gian này
+        # Dọn dẹp sạch sẽ TẤT CẢ sự kiện cũ trong đúng tuần từ Thứ 2 đến Chủ Nhật này để không bị trùng lặp/dính lịch cũ
         old_events = events_result.get('items', [])
         for evt in old_events:
             summary_evt = evt.get('summary', '')
@@ -138,8 +142,9 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
             "19h30 - 21h30": ("19:30:00", "21:30:00")
         }
 
-        for i in range(days_ahead):
-            current_date = today + timedelta(days=i)
+        # Lặp qua đúng 7 ngày trong tuần (từ Thứ 2 đến Chủ Nhật)
+        for i in range(7):
+            current_date = start_monday + timedelta(days=i)
             df_day = get_active_schedule_for_date(engine, current_date)
 
             if df_day.empty:
@@ -176,7 +181,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã dọn sạch lịch cũ và tự động đồng bộ thành công {count_events} sự kiện thời khóa biểu lên iPhone!"
+        return True, f"✅ Đã dọn sạch và đồng bộ chuẩn tuần từ {start_monday.strftime('%d/%m')} đến {end_sunday.strftime('%d/%m/%Y')} lên iPhone ({count_events} sự kiện)!"
 
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ thời khóa biểu: {str(e)}"
@@ -542,6 +547,13 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+# --- TỰ ĐỘNG ĐỒNG BỘ TUẦN HIỆN TẠI KHI SANG TUẦN MỚI HOẶC KHỞI ĐỘNG ỨNG DỤNG ---
+current_monday_str = (date.today() - timedelta(days=date.today().weekday())).strftime('%Y-%m-%d')
+if "last_synced_monday" not in st.session_state or st.session_state.last_synced_monday != current_monday_str:
+    with st.spinner("🔄 Đang tự động đồng bộ thời khóa biểu tuần mới lên iPhone..."):
+        _, _ = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=date.today())
+    st.session_state.last_synced_monday = current_monday_str
 
 # --- 2. GIAO DIỆN CHÍNH (ADMIN) ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm")
@@ -1103,8 +1115,8 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                     ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
                                 '''), {"hs_id": hs_id, "thu": t_val, "ca": ca_val})
                 
-                # --- TỰ ĐỘNG ĐỒNG BỘ SANG IPHONE NGAY SAU KHI LƯU ---
-                sync_success, sync_msg = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahead=7)
+                # --- TỰ ĐỘNG ĐỒNG BỘ TUẦN HIỆN TẠI SANG IPHONE NGAY SAU KHI LƯU ---
+                sync_success, sync_msg = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=date.today())
                 
                 if sync_success:
                     st.success(f"✅ Đã lưu thời khóa biểu gốc cho {target_name_label} và {sync_msg}")
