@@ -48,7 +48,7 @@ THONG_DIEP_LIST = [
     "🎯 'Thành công không đến từ ngẫu nhiên, mà đến từ sự kiên trì và kỷ luật bản thân.' Cố lên các em học sinh yêu quý của cô!",
     "🚀 'Hãy học tập bằng sự say mê và tò mò khám phá, tri thức sẽ mở ra cho các em những chân trời mới rực rỡ!' Chúc các em một buổi học bùng nổ năng lượng!",
     "🔥 'Sự chăm chỉ và tập trung của các em hôm nay chính là chìa khóa vàng mở cánh cửa thành công trong tương lai. Cô tin tưởng các em sẽ làm được!'",
-    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thách thức nhé!",
+    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thử thách nhé!",
     "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'"
 ]
 
@@ -534,7 +534,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH THÁNG ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     fig, ax = plt.subplots(figsize=(10, max(4, len(df_history) * 0.5 + 3.5)))
     ax.axis('off')
@@ -709,7 +709,7 @@ if choice == "🏠 Trang chủ":
     quote_today = random.choice(THONG_DIEP_LIST)
     health_today = random.choice(SUC_KHOE_LIST)
     
-    st.info(f"💡 **Góc truyền cảm hứng hômはい:**\n\n{quote_today}")
+    st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
     st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
     st.markdown("---")
 
@@ -764,28 +764,27 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 CẢNH BÁO VẮNG NHIỀU TRONG THÁNG
+    # 📊 CẢNH BÁO VẮNG NHIỀU TRONG THÁNG (Hiển thị dạng bảng gọn gàng)
     st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
     df_absent_alert = pd.read_sql_query(f'''
-        SELECT h.ho_ten, h.lop_hoc, 
-               SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS vang_phep,
-               SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS vang_kp
+        SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
+               SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS "Vắng có phép",
+               SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS "Vắng không phép",
+               (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) AS "Tổng vắng"
         FROM diem_danh d
         JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
         WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai IN ('Vắng có phép', 'Vắng không phép')
         GROUP BY h.id, h.ho_ten, h.lop_hoc
         HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 2
-        ORDER BY vang_kp DESC, vang_phep DESC
+        ORDER BY "Vắng không phép" DESC, "Vắng có phép" DESC
     ''', engine)
     
     if df_absent_alert.empty:
-        st.success("Tháng này chưa có học sinh vắng nhiều.")
+        st.success("✅ Tháng này chưa có học sinh vắng nhiều.")
     else:
-        for _, r in df_absent_alert.iterrows():
-            total_v = r['vang_phep'] + r['vang_kp']
-            st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
+        st.dataframe(df_absent_alert, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
@@ -795,7 +794,7 @@ if choice == "🏠 Trang chủ":
         display_debt_df = df_unpaid_details[['ho_ten', 'lop_hoc', 'thang_nam', 'so_ca', 'tien_no']].copy()
         display_debt_df.columns = ['Họ và Tên', 'Lớp', 'Tháng Chưa Đóng', 'Số Ca Học', 'Số Tiền Cần Thu (VNĐ)']
         display_debt_df['Số Tiền Cần Thu (VNĐ)'] = display_debt_df['Số Tiền Cần Thu (VNĐ)'].map('{:,.0f} đ'.format)
-        st.dataframe(display_debt_df, use_container_width=True)
+        st.dataframe(display_debt_df, use_container_width=True, hide_index=True)
         
     st.markdown("---")
     st.markdown("#### 🏫 Chi Tiết Thời Khóa Biểu & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
@@ -1068,119 +1067,306 @@ elif choice == "📝 Điểm danh & Nhận xét":
             st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
 
     with tab_dd_lich_su:
-        st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh Theo Học Sinh Trong Tháng")
+        st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh (Từng học sinh hoặc Cả lớp)")
+        
+        export_mode_type = st.radio("📌 Chọn phạm vi xuất lịch sử điểm danh:", ["👤 Theo từng học sinh riêng lẻ", "🏫 Theo Cả Lớp học"], horizontal=True, key="export_mode_type_radio")
+        
         df_hs_ls = pd.read_sql_query("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC", engine)
         if df_hs_ls.empty:
             st.warning("Chưa có học sinh nào trong hệ thống.")
         else:
-            c_y_ls, c_m_ls = st.columns([1, 1])
-            with c_y_ls:
-                nam_ls = st.number_input("Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="nam_ls_pick")
-            with c_m_ls:
-                thang_ls = st.selectbox("Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="thang_ls_pick")
-            
-            thang_nam_q = f"{nam_ls}-{thang_ls:02d}"
-            thang_nam_k = f"{thang_ls:02d}/{nam_ls}"
-            
-            st.markdown("---")
-            st.markdown("##### 🖼️ Xuất ZIP Hàng Loạt Ảnh Lịch Sử Điểm Danh Tất Cả Học Sinh Trong Tháng")
-            if HAS_MATPLOTLIB:
-                if st.button("🖼️ Tải ZIP Lịch Sử Điểm Danh TẤT CẢ Học Sinh Có Điểm Danh", type="primary", key="btn_zip_all_attendance"):
-                    zip_buffer_att = io.BytesIO()
-                    count_added = 0
-                    with zipfile.ZipFile(zip_buffer_att, "w", zipfile.ZIP_DEFLATED) as zf_att:
-                        for _, hs_r in df_hs_ls.iterrows():
-                            hs_id_val = hs_r['id']
-                            hs_ids_to_check = get_family_student_ids(engine, hs_id_val)
-                            ids_str = ",".join(map(str, hs_ids_to_check))
-                            
-                            hs_name_val = get_base_name(hs_r['ho_ten'])
-                            hs_lop_val = hs_r['lop_hoc']
-                            
-                            df_hs_att_history = pd.read_sql_query(f'''
-                                SELECT 
-                                    TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
-                                    d.ca_hoc AS "Ca học",
-                                    d.trang_thai AS "Trạng thái",
-                                    COALESCE(d.nhan_xet, '') AS "Nhận xét"
-                                FROM diem_danh d
-                                WHERE d.hoc_sinh_id IN ({ids_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
-                                ORDER BY d.ngay ASC, d.id ASC
-                            ''', engine)
-                            
-                            if not df_hs_att_history.empty:
-                                total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
-                                img_ls_bytes = create_student_attendance_history_image(
-                                    student_name=hs_name_val,
-                                    lop_hoc=hs_lop_val,
-                                    month_year=thang_nam_k,
-                                    df_history=df_hs_att_history,
-                                    total_present=total_co_mat
-                                )
-                                safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
-                                zf_att.writestr(f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png", img_ls_bytes.getvalue())
-                                count_added += 1
-                                
-                    zip_buffer_att.seek(0)
-                    if count_added > 0:
-                        st.download_button(
-                            label=f"🖼️ Bấm Tải Xuống ZIP Lịch Sử Điểm Danh ({count_added} học sinh)",
-                            data=zip_buffer_att,
-                            file_name=f"Tat_Ca_Lich_Su_Diem_Danh_Thang_{thang_ls}_{nam_ls}.zip",
-                            mime="application/zip",
-                            type="primary",
-                            key="download_zip_all_att_button"
-                        )
-                        st.success(f"✅ Đã tạo file ZIP thành công với {count_added} học sinh có dữ liệu điểm danh trong tháng!")
-                    else:
-                        st.warning("⚠️ Không có học sinh nào có lịch sử điểm danh trong tháng này.")
-
-            st.markdown("---")
-            st.markdown("##### 👤 Hoặc xem & tải chi tiết theo từng học sinh riêng lẻ:")
-            hs_dict_ls = {f"{r['ho_ten']} [{r['lop_hoc']}] - ID:{r['id']}": r['id'] for _, r in df_hs_ls.iterrows()}
-            sel_hs_ls_lbl = st.selectbox("Chọn học sinh", list(hs_dict_ls.keys()), key="sel_hs_ls_key")
-            sel_hs_id_ls = hs_dict_ls[sel_hs_ls_lbl]
-            family_ids_ls = get_family_student_ids(engine, sel_hs_id_ls)
-            ids_ls_str = ",".join(map(str, family_ids_ls))
-            
-            sel_hs_row_ls = df_hs_ls[df_hs_ls['id'] == sel_hs_id_ls].iloc[0]
-            base_name_ls = get_base_name(sel_hs_row_ls['ho_ten'])
-            
-            df_hs_att_history = pd.read_sql_query(f'''
-                SELECT 
-                    TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
-                    d.ca_hoc AS "Ca học",
-                    d.trang_thai AS "Trạng thái",
-                    COALESCE(d.nhan_xet, '') AS "Nhận xét"
-                FROM diem_danh d
-                WHERE d.hoc_sinh_id IN ({ids_ls_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
-                ORDER BY d.ngay ASC, d.id ASC
-            ''', engine)
-            
-            if df_hs_att_history.empty:
-                st.info(f"ℹ️ Học sinh {base_name_ls} chưa có lịch sử điểm danh trong Tháng {thang_nam_k}.")
-            else:
-                total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
-                st.metric("🟢 Tổng số buổi đi học (Có mặt)", f"{total_co_mat} buổi", f"Tổng số bản ghi: {len(df_hs_att_history)} buổi")
-                st.dataframe(df_hs_att_history, use_container_width=True)
+            if export_mode_type == "👤 Theo từng học sinh riêng lẻ":
+                c_y_ls, c_m_ls = st.columns([1, 1])
+                with c_y_ls:
+                    nam_ls = st.number_input("Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="nam_ls_pick")
+                with c_m_ls:
+                    thang_ls = st.selectbox("Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="thang_ls_pick")
                 
+                thang_nam_q = f"{nam_ls}-{thang_ls:02d}"
+                thang_nam_k = f"{thang_ls:02d}/{nam_ls}"
+                
+                st.markdown("---")
+                st.markdown("##### 🖼️ Xuất ZIP Hàng Loạt Ảnh Lịch Sử Điểm Danh Tất Cả Học Sinh Trong Tháng")
                 if HAS_MATPLOTLIB:
-                    img_ls_bytes = create_student_attendance_history_image(
-                        student_name=base_name_ls,
-                        lop_hoc=sel_hs_row_ls['lop_hoc'],
-                        month_year=thang_nam_k,
-                        df_history=df_hs_att_history,
-                        total_present=total_co_mat
-                    )
-                    safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{base_name_ls}_{sel_hs_row_ls['lop_hoc']}".replace(" ", "_"))
-                    st.download_button(
-                        label=f"🖼️ Tải Ảnh Lịch Sử Điểm Danh ({base_name_ls})",
-                        data=img_ls_bytes,
-                        file_name=f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png",
-                        mime="image/png",
-                        type="primary",
-                        key="btn_download_student_att_img"
-                    )
+                    if st.button("🖼️ Tải ZIP Lịch Sử Điểm Danh TẤT CẢ Học Sinh Có Điểm Danh", type="primary", key="btn_zip_all_attendance"):
+                        zip_buffer_att = io.BytesIO()
+                        count_added = 0
+                        with zipfile.ZipFile(zip_buffer_att, "w", zipfile.ZIP_DEFLATED) as zf_att:
+                            for _, hs_r in df_hs_ls.iterrows():
+                                hs_id_val = hs_r['id']
+                                hs_ids_to_check = get_family_student_ids(engine, hs_id_val)
+                                ids_str = ",".join(map(str, hs_ids_to_check))
+                                
+                                hs_name_val = get_base_name(hs_r['ho_ten'])
+                                hs_lop_val = hs_r['lop_hoc']
+                                
+                                df_hs_att_history = pd.read_sql_query(f'''
+                                    SELECT 
+                                        TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                                        d.ca_hoc AS "Ca học",
+                                        d.trang_thai AS "Trạng thái",
+                                        COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                                    FROM diem_danh d
+                                    WHERE d.hoc_sinh_id IN ({ids_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
+                                    ORDER BY d.ngay ASC, d.id ASC
+                                ''', engine)
+                                
+                                if not df_hs_att_history.empty:
+                                    total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
+                                    img_ls_bytes = create_student_attendance_history_image(
+                                        student_name=hs_name_val,
+                                        lop_hoc=hs_lop_val,
+                                        month_year=thang_nam_k,
+                                        df_history=df_hs_att_history,
+                                        total_present=total_co_mat
+                                    )
+                                    safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
+                                    zf_att.writestr(f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png", img_ls_bytes.getvalue())
+                                    count_added += 1
+                                    
+                        zip_buffer_att.seek(0)
+                        if count_added > 0:
+                            st.download_button(
+                                label=f"🖼️ Bấm Tải Xuống ZIP Lịch Sử Điểm Danh ({count_added} học sinh)",
+                                data=zip_buffer_att,
+                                file_name=f"Tat_Ca_Lich_Su_Diem_Danh_Thang_{thang_ls}_{nam_ls}.zip",
+                                mime="application/zip",
+                                type="primary",
+                                key="download_zip_all_att_button"
+                            )
+                            st.success(f"✅ Đã tạo file ZIP thành công với {count_added} học sinh có dữ liệu điểm danh trong tháng!")
+                        else:
+                            st.warning("⚠️ Không có học sinh nào có lịch sử điểm danh trong tháng này.")
+
+                st.markdown("---")
+                st.markdown("##### 👤 Hoặc xem & tải chi tiết theo từng học sinh riêng lẻ:")
+                hs_dict_ls = {f"{r['ho_ten']} [{r['lop_hoc']}] - ID:{r['id']}": r['id'] for _, r in df_hs_ls.iterrows()}
+                sel_hs_ls_lbl = st.selectbox("Chọn học sinh", list(hs_dict_ls.keys()), key="sel_hs_ls_key")
+                sel_hs_id_ls = hs_dict_ls[sel_hs_ls_lbl]
+                family_ids_ls = get_family_student_ids(engine, sel_hs_id_ls)
+                ids_ls_str = ",".join(map(str, family_ids_ls))
+                
+                sel_hs_row_ls = df_hs_ls[df_hs_ls['id'] == sel_hs_id_ls].iloc[0]
+                base_name_ls = get_base_name(sel_hs_row_ls['ho_ten'])
+                
+                df_hs_att_history = pd.read_sql_query(f'''
+                    SELECT 
+                        TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                        d.ca_hoc AS "Ca học",
+                        d.trang_thai AS "Trạng thái",
+                        COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                    FROM diem_danh d
+                    WHERE d.hoc_sinh_id IN ({ids_ls_ls_str if 'ids_ls_str' in locals() else ids_ls_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
+                    ORDER BY d.ngay ASC, d.id ASC
+                ''', engine)
+                
+                if df_hs_att_history.empty:
+                    st.info(f"ℹ️ Học sinh {base_name_ls} chưa có lịch sử điểm danh trong Tháng {thang_nam_k}.")
+                else:
+                    total_co_mat = len(df_hs_att_history[df_hs_att_history['Trạng thái'] == 'Có mặt'])
+                    st.metric("🟢 Tổng số buổi đi học (Có mặt)", f"{total_co_mat} buổi", f"Tổng số bản ghi: {len(df_hs_att_history)} buổi")
+                    st.dataframe(df_hs_att_history, use_container_width=True)
+                    
+                    if HAS_MATPLOTLIB:
+                        img_ls_bytes = create_student_attendance_history_image(
+                            student_name=base_name_ls,
+                            lop_hoc=sel_hs_row_ls['lop_hoc'],
+                            month_year=thang_nam_k,
+                            df_history=df_hs_att_history,
+                            total_present=total_co_mat
+                        )
+                        safe_name_hs = re.sub(r'[\\/*?:"<>|]', "", f"{base_name_ls}_{sel_hs_row_ls['lop_hoc']}".replace(" ", "_"))
+                        st.download_button(
+                            label=f"🖼️ Tải Ảnh Lịch Sử Điểm Danh ({base_name_ls})",
+                            data=img_ls_bytes,
+                            file_name=f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png",
+                            mime="application/png",
+                            type="primary",
+                            key="btn_download_student_att_img"
+                        )
+
+            else:
+                # Xuất theo Cả Lớp học với 3 tùy chọn: 1 ngày, 1 tuần, 1 tháng
+                st.markdown("##### 🏫 Xuất Lịch Sử Điểm Danh Theo Cả Lớp Học")
+                all_lops_export = sorted(df_hs_ls['lop_hoc'].dropna().unique().tolist())
+                if not all_lops_export:
+                    st.warning("⚠️ Không có lớp học nào trong hệ thống.")
+                else:
+                    sel_lop_exp_cls = st.selectbox("Chọn Lớp học cần xuất:", all_lops_export, key="sel_lop_exp_cls_key")
+                    
+                    option_time_cls = st.radio("Chọn khoảng thời gian xuất:", ["1 ngày", "1 tuần", "1 tháng"], horizontal=True, key="option_time_cls_radio")
+                    
+                    df_hs_in_class = df_hs_ls[df_hs_ls['lop_hoc'] == sel_lop_exp_cls]
+                    
+                    if option_time_cls == "1 ngày":
+                        sel_date_cls = st.date_input("Chọn ngày:", date.today(), key="sel_date_cls_input")
+                        date_str_cls = sel_date_cls.strftime("%Y-%m-%d")
+                        time_label_cls = f"Ngày {sel_date_cls.strftime('%d/%m/%Y')}"
+                        time_file_suffix = f"Ngay_{sel_date_cls.strftime('%Y%m%d')}"
+                        
+                        if HAS_MATPLOTLIB:
+                            if st.button(f"🖼️ Tải ZIP Lịch Sử Điểm Danh Lớp {sel_lop_exp_cls} ({time_label_cls})", type="primary"):
+                                zip_buffer_cls = io.BytesIO()
+                                count_cls_added = 0
+                                with zipfile.ZipFile(zip_buffer_cls, "w", zipfile.ZIP_DEFLATED) as zf_c:
+                                    for _, hs_row_c in df_hs_in_class.iterrows():
+                                        hs_id_c = hs_row_c['id']
+                                        hs_name_c = get_base_name(hs_row_c['ho_ten'])
+                                        
+                                        df_hist_c = pd.read_sql_query(f'''
+                                            SELECT 
+                                                TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                                                d.ca_hoc AS "Ca học",
+                                                d.trang_thai AS "Trạng thái",
+                                                COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                                            FROM diem_danh d
+                                            WHERE d.hoc_sinh_id = {hs_id_c} AND d.ngay = '{date_str_cls}'
+                                            ORDER BY d.id ASC
+                                        ''', engine)
+                                        
+                                        if not df_hist_c.empty:
+                                            tot_p = len(df_hist_c[df_hist_c['Trạng thái'] == 'Có mặt'])
+                                            img_c_bytes = create_student_attendance_history_image(
+                                                student_name=hs_name_c,
+                                                lop_hoc=sel_lop_exp_cls,
+                                                month_year=time_label_cls,
+                                                df_history=df_hist_c,
+                                                total_present=tot_p
+                                            )
+                                            safe_hs_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_c}".replace(" ", "_"))
+                                            zf_c.writestr(f"Lop_{sel_lop_exp_cls}_{safe_hs_n}_{time_file_suffix}.png", img_c_bytes.getvalue())
+                                            count_cls_added += 1
+                                            
+                                zip_buffer_cls.seek(0)
+                                if count_cls_added > 0:
+                                    safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", sel_lop_exp_cls.replace(" ", "_"))
+                                    st.download_button(
+                                        label=f"🖼️ Bấm Tải Xuống ZIP Lớp {sel_lop_exp_cls} ({count_cls_added} học sinh có dữ liệu)",
+                                        data=zip_buffer_cls,
+                                        file_name=f"DiemDanh_Lop_{safe_lop_name}_{time_file_suffix}.zip",
+                                        mime="application/zip",
+                                        type="primary",
+                                        key="btn_download_zip_cls_day"
+                                    )
+                                    st.success(f"✅ Đã tạo file ZIP thành công cho lớp {sel_lop_exp_cls}!")
+                                else:
+                                    st.warning("⚠️ Không có học sinh nào trong lớp có dữ liệu điểm danh trong ngày này.")
+
+                    elif option_time_cls == "1 tuần":
+                        sel_tuan_cls = st.date_input("Chọn ngày bất kỳ trong tuần:", date.today(), key="sel_tuan_cls_input")
+                        start_w_cls = sel_tuan_cls - timedelta(days=sel_tuan_cls.weekday())
+                        end_w_cls = start_w_cls + timedelta(days=6)
+                        start_str_cls = start_w_cls.strftime("%Y-%m-%d")
+                        end_str_cls = end_w_cls.strftime("%Y-%m-%d")
+                        time_label_cls = f"Tuần từ {start_w_cls.strftime('%d/%m/%Y')} đến {end_w_cls.strftime('%d/%m/%Y')}"
+                        time_file_suffix = f"Tuan_{start_w_cls.strftime('%Y%m%d')}_den_{end_w_cls.strftime('%Y%m%d')}"
+                        
+                        if HAS_MATPLOTLIB:
+                            if st.button(f"🖼️ Tải ZIP Lịch Sử Điểm Danh Lớp {sel_lop_exp_cls} ({time_label_cls})", type="primary"):
+                                zip_buffer_cls = io.BytesIO()
+                                count_cls_added = 0
+                                with zipfile.ZipFile(zip_buffer_cls, "w", zipfile.ZIP_DEFLATED) as zf_c:
+                                    for _, hs_row_c in df_hs_in_class.iterrows():
+                                        hs_id_c = hs_row_c['id']
+                                        hs_name_c = get_base_name(hs_row_c['ho_ten'])
+                                        
+                                        df_hist_c = pd.read_sql_query(f'''
+                                            SELECT 
+                                                TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                                                d.ca_hoc AS "Ca học",
+                                                d.trang_thai AS "Trạng thái",
+                                                COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                                            FROM diem_danh d
+                                            WHERE d.hoc_sinh_id = {hs_id_c} AND d.ngay >= '{start_str_cls}' AND d.ngay <= '{end_str_cls}'
+                                            ORDER BY d.ngay ASC, d.id ASC
+                                        ''', engine)
+                                        
+                                        if not df_hist_c.empty:
+                                            tot_p = len(df_hist_c[df_hist_c['Trạng thái'] == 'Có mặt'])
+                                            img_c_bytes = create_student_attendance_history_image(
+                                                student_name=hs_name_c,
+                                                lop_hoc=sel_lop_exp_cls,
+                                                month_year=time_label_cls,
+                                                df_history=df_hist_c,
+                                                total_present=tot_p
+                                            )
+                                            safe_hs_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_c}".replace(" ", "_"))
+                                            zf_c.writestr(f"Lop_{sel_lop_exp_cls}_{safe_hs_n}_{time_file_suffix}.png", img_c_bytes.getvalue())
+                                            count_cls_added += 1
+                                            
+                                zip_buffer_cls.seek(0)
+                                if count_cls_added > 0:
+                                    safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", sel_lop_exp_cls.replace(" ", "_"))
+                                    st.download_button(
+                                        label=f"🖼️ Bấm Tải Xuống ZIP Lớp {sel_lop_exp_cls} ({count_cls_added} học sinh có dữ liệu)",
+                                        data=zip_buffer_cls,
+                                        file_name=f"DiemDanh_Lop_{safe_lop_name}_{time_file_suffix}.zip",
+                                        mime="application/zip",
+                                        type="primary",
+                                        key="btn_download_zip_cls_week"
+                                    )
+                                    st.success(f"✅ Đã tạo file ZIP thành công cho lớp {sel_lop_exp_cls}!")
+                                else:
+                                    st.warning("⚠️ Không có học sinh nào trong lớp có dữ liệu điểm danh trong tuần này.")
+
+                    else:
+                        c_y_c, c_m_c = st.columns([1, 1])
+                        with c_y_c:
+                            nam_cls_exp = st.number_input("Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="nam_cls_exp_input")
+                        with c_m_c:
+                            thang_cls_exp = st.selectbox("Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="thang_cls_exp_select")
+                        
+                        thang_nam_q_cls = f"{nam_cls_exp}-{thang_cls_exp:02d}"
+                        time_label_cls = f"Tháng {thang_cls_exp:02d}/{nam_cls_exp}"
+                        time_file_suffix = f"Thang_{thang_cls_exp}_{nam_cls_exp}"
+                        
+                        if HAS_MATPLOTLIB:
+                            if st.button(f"🖼️ Tải ZIP Lịch Sử Điểm Danh Lớp {sel_lop_exp_cls} ({time_label_cls})", type="primary"):
+                                zip_buffer_cls = io.BytesIO()
+                                count_cls_added = 0
+                                with zipfile.ZipFile(zip_buffer_cls, "w", zipfile.ZIP_DEFLATED) as zf_c:
+                                    for _, hs_row_c in df_hs_in_class.iterrows():
+                                        hs_id_c = hs_row_c['id']
+                                        hs_name_c = get_base_name(hs_row_c['ho_ten'])
+                                        
+                                        df_hist_c = pd.read_sql_query(f'''
+                                            SELECT 
+                                                TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày",
+                                                d.ca_hoc AS "Ca học",
+                                                d.trang_thai AS "Trạng thái",
+                                                COALESCE(d.nhan_xet, '') AS "Nhận xét"
+                                            FROM diem_danh d
+                                            WHERE d.hoc_sinh_id = {hs_id_c} AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q_cls}'
+                                            ORDER BY d.ngay ASC, d.id ASC
+                                        ''', engine)
+                                        
+                                        if not df_hist_c.empty:
+                                            tot_p = len(df_hist_c[df_hist_c['Trạng thái'] == 'Có mặt'])
+                                            img_c_bytes = create_student_attendance_history_image(
+                                                student_name=hs_name_c,
+                                                lop_hoc=sel_lop_exp_cls,
+                                                month_year=time_label_cls,
+                                                df_history=df_hist_c,
+                                                total_present=tot_p
+                                            )
+                                            safe_hs_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_c}".replace(" ", "_"))
+                                            zf_c.writestr(f"Lop_{sel_lop_exp_cls}_{safe_hs_n}_{time_file_suffix}.png", img_c_bytes.getvalue())
+                                            count_cls_added += 1
+                                            
+                                zip_buffer_cls.seek(0)
+                                if count_cls_added > 0:
+                                    safe_lop_name = re.sub(r'[\\/*?:"<>|]', "", sel_lop_exp_cls.replace(" ", "_"))
+                                    st.download_button(
+                                        label=f"🖼️ Bấm Tải Xuống ZIP Lớp {sel_lop_exp_cls} ({count_cls_added} học sinh có dữ liệu)",
+                                        data=zip_buffer_cls,
+                                        file_name=f"DiemDanh_Lop_{safe_lop_name}_{time_file_suffix}.zip",
+                                        mime="application/zip",
+                                        type="primary",
+                                        key="btn_download_zip_cls_month"
+                                    )
+                                    st.success(f"✅ Đã tạo file ZIP thành công cho lớp {sel_lop_exp_cls}!")
+                                else:
+                                    st.warning("⚠️ Không có học sinh nào trong lớp có dữ liệu điểm danh trong tháng này.")
 
 # =========================================================
 # --- QUẢN LÝ THỜI KHÓA BIỂU ---
