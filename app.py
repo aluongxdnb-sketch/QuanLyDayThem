@@ -90,7 +90,7 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None):
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM TỰ ĐỘNG ĐỒNG BỘ LỊCH 7 NGÀY SANG GOOGLE CALENDAR ---
+# --- HÀM TỰ ĐỘNG ĐỒNG BỘ THỜI KHÓA BIỂU 7 NGÀY SANG GOOGLE CALENDAR ---
 def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahead=7):
     try:
         from google.oauth2.service_account import Credentials
@@ -119,7 +119,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
 
         old_events = events_result.get('items', [])
         for evt in old_events:
-            if evt.get('summary', '').startswith("🏫 Dạy Thêm Ca"):
+            if evt.get('summary', '').startswith("📚 Lớp"):
                 try:
                     service.events().delete(calendarId=calendar_id, eventId=evt['id']).execute()
                 except Exception:
@@ -150,32 +150,31 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                 start_datetime = f"{date_str}T{start_time_str}+07:00"
                 end_datetime = f"{date_str}T{end_time_str}+07:00"
 
-                details = []
-                for lop, g in group_ca.groupby('lop_hoc'):
-                    ds_hs = ", ".join(g['ho_ten'].tolist())
-                    details.append(f"• Lớp {lop}: {ds_hs}")
+                for lop, g_lop in group_ca.groupby('lop_hoc'):
+                    ds_hs = ", ".join(g_lop['ho_ten'].tolist())
+                    so_luong_hs = len(g_lop)
+                    
+                    summary_title = f"📚 Lớp {lop} ({ca}) - {so_luong_hs} HS"
+                    description_text = f"⏰ Giờ học: {ca}\n🏫 Lớp: {lop}\n👥 Số học sinh: {so_luong_hs}\n\nDANH SÁCH HỌC SINH:\n• {ds_hs}"
 
-                description_text = "📚 DANH SÁCH HỌC SINH:\n" + "\n".join(details)
-                summary_title = f"🏫 Dạy Thêm Ca {ca} ({len(group_ca)} HS)"
+                    event = {
+                        'summary': summary_title,
+                        'description': description_text,
+                        'start': {'dateTime': start_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
+                        'end': {'dateTime': end_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
+                        'reminders': {
+                            'useDefault': False,
+                            'overrides': [
+                                {'method': 'popup', 'minutes': 30},
+                                {'method': 'popup', 'minutes': 10},
+                            ],
+                        },
+                    }
 
-                event = {
-                    'summary': summary_title,
-                    'description': description_text,
-                    'start': {'dateTime': start_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
-                    'end': {'dateTime': end_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
-                    'reminders': {
-                        'useDefault': False,
-                        'overrides': [
-                            {'method': 'popup', 'minutes': 30},
-                            {'method': 'popup', 'minutes': 10},
-                        ],
-                    },
-                }
+                    service.events().insert(calendarId=calendar_id, body=event).execute()
+                    count_events += 1
 
-                service.events().insert(calendarId=calendar_id, body=event).execute()
-                count_events += 1
-
-        return True, f"✅ Đã dọn dẹp lịch cũ & đồng bộ thành công {count_events} ca dạy trong {days_ahead} ngày tới lên iPhone!"
+        return True, f"✅ Đã đồng bộ thành công {count_events} sự kiện thời khóa biểu (có kèm số học sinh) sang iPhone!"
 
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ thời khóa biểu: {str(e)}"
