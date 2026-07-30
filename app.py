@@ -927,7 +927,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=False)
                         
                         with c3:
-                            tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "📚 Có giao bài tập", "💤 Buồn ngủ/Mất tập trung"]
+                            tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "📚 Có giao bài tập", "❌ Không làm bài tập", "💤 Buồn ngủ/Mất tập trung"]
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
                             custom_nx = st.text_input("Ghi chú thêm (Tự viết)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học hoặc tự viết...")
                             
