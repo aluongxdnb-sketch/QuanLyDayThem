@@ -38,20 +38,18 @@ DANH_SACH_CA_MAU = [
     "19h30 - 21h30"
 ]
 
-# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG VÀ SỨC KHỎE CÔ GIÁO (ĐÃ MỞ RỘNG PHONG PHÚ) ---
+# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG (TẬP TRUNG NHIỀU VÀO HỌC SINH) ---
 THONG_DIEP_LIST = [
-    "🌟 'Học, học nữa, học mãi.' – V.I. Lênin. Chúc cô và trò một ngày giảng dạy tràn đầy năng lượng và cảm hứng!",
-    "📖 'Tri thức là sức mạnh.' – Francis Bacon. Mỗi bài giảng hôm nay là một viên gạch xây tương lai vững chắc cho các em.",
-    "💡 'Có công mài sắt, có ngày nên kim.' Sự kiên trì và nhẫn nại của cô trò sẽ luôn gặt hái trái ngọt.",
-    "🌱 'Thầy cô giáo chắp cánh ước mơ cho học sinh.' Hãy tự hào về sứ mệnh cao quý mà cô đang mang trên vai nhé!",
-    "✨ 'Hạnh phúc không phải là điểm đến, mà là hành trình chúng ta đang đi.' Chúc cô một ngày dạy học thật nhiều niềm vui!",
-    "🎯 'Người thầy trung bình chỉ biết nói, người thầy giỏi biết giải thích, người thầy xuất chúng biết minh họa, người thầy vĩ đại biết truyền cảm hứng.' – William Arthur Ward. Chúc cô một ngày truyền cảm hứng tuyệt vời!",
-    "🌸 'Giáo dục là vũ khí mạnh nhất mà người ta có thể sử dụng để thay đổi cả thế giới.' – Nelson Mandela. Cảm ơn cô vì những cống hiến thầm lặng mỗi ngày!",
-    "☀️ 'Mỗi học sinh là một bông hoa độc đáo, và cô là người làm vườn tận tụy nhất.' Chúc cô gặt hái thật nhiều nụ cười hạnh phúc từ các em!",
-    "🚀 'Đừng nản lòng khi gặp bài toán khó, bởi đó là lúc tư duy của học trò được mài giũa sắc bén hơn.' Chúc cô có những tiết học bùng nổ trí tuệ!",
-    "🔥 'Nhiệt huyết của cô chính là ngọn lửa sưởi ấm ước mơ cho các em học sinh trên con đường chinh phục tri thức.'",
-    "📘 'Dạy học là để lại dấu ấn vĩnh cửu cho cuộc đời một ai đó.' Chúc cô một ngày làm việc thật ý nghĩa và trọn vẹn yêu thương!",
-    "🌈 'Sau cơn mưa trời lại sáng, sau những giờ giảng miệt mài sẽ là thành công rực rỡ của các em học sinh thân yêu.'"
+    "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
+    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm nay nhé!",
+    "💡 'Không có thất bại, tất cả chỉ là bài học để trưởng thành.' Hãy luôn mạnh dạn đặt câu hỏi và cố gắng hết mình, cô luôn ở đây đồng hành cùng các em!",
+    "🌱 'Mỗi ngày đến lớp là một bước tiến gần hơn đến ước mơ lớn của các em.' Chúc các em học sinh có những giờ học thật tập trung, hào hứng và hiệu quả!",
+    "✨ 'Tương lai thuộc về những ai tin vào vẻ đẹp của những giấc mơ và nỗ lực vì nó.' Các em hãy tự tin vào bản thân, chăm chỉ rèn luyện mỗi ngày nhé!",
+    "🎯 'Thành công không đến từ ngẫu nhiên, mà đến từ sự kiên trì và kỷ luật bản thân.' Cố lên các em học sinh yêu quý của cô!",
+    "🚀 'Hãy học tập bằng sự say mê và tò mò khám phá, tri thức sẽ mở ra cho các em những chân trời mới rực rỡ!' Chúc các em một buổi học bùng nổ năng lượng!",
+    "🔥 'Sự chăm chỉ và tập trung của các em hôm nay chính là chìa khóa vàng mở cánh cửa thành công trong tương lai. Cô tin tưởng các em sẽ làm được!'",
+    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thử thách nhé!",
+    "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'"
 ]
 
 SUC_KHOE_LIST = [
@@ -709,7 +707,7 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 if choice == "🏠 Trang chủ":
     st.subheader("🏠 Tổng Quan Trong Ngày")
     
-    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE CÔ GIÁO (THAY ĐỔI NGẪU NHIÊN SAU MỖI LẦN TRUY CẬP)
+    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE (THAY ĐỔI NGẪU NHIÊN SAU MỖI LẦN TRUY CẬP)
     quote_today = random.choice(THONG_DIEP_LIST)
     health_today = random.choice(SUC_KHOE_LIST)
     
@@ -785,7 +783,7 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2 & 3. TÍNH SỐ CA LỚP HỌC TRONG THÁNG DỰA TRÊN TKB TỔNG QUAN (LOẠI BỎ NGÀY CÓ HỌC SINH Mang ĐUÔI HỌC THÊM)
+    # 2 & 3. TÍNH SỐ CA LỚP HỌC TRONG THÁNG DỰA TRÊN TKB TỔNG QUAN (LOẠI BỎ NGÀY CÓ HỌC SINH MANG ĐUÔI HỌC THÊM)
     num_days_m = calendar.monthrange(today.year, today.month)[1]
     start_m_date = date(today.year, today.month, 1)
     end_m_date = date(today.year, today.month, num_days_m)
@@ -803,7 +801,7 @@ if choice == "🏠 Trang chủ":
                 if lop_val not in class_shift_counts:
                     class_shift_counts[lop_val] = 0
                 
-                # Kiểm tra nếu ca học này có bất kỳ học sinh nào mang đuôi học thêm (có chứa dấu '-' hoặc từ khóa học thêm/bù)
+                # Kiểm tra xem ca học này có học sinh mang đuôi học thêm (dấu '-' hoặc từ khóa học thêm/bù) không
                 has_suffix = False
                 for s_name in group_s['ho_ten']:
                     s_name_str = str(s_name).strip()
@@ -811,7 +809,7 @@ if choice == "🏠 Trang chủ":
                         has_suffix = True
                         break
                 
-                # Chỉ tính ca nếu không có học sinh mang đuôi học thêm phụ phát sinh
+                # Nếu không chứa đuôi học thêm phát sinh thì mới tính ca cho lớp chính
                 if not has_suffix:
                     class_shift_counts[lop_val] += 1
         curr_d_loop += timedelta(days=1)
