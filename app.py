@@ -175,7 +175,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
-# --- HÀM ĐỒNG BỘ THỦ CÔNG (TỪ HÔM NAY ĐẾN HẾT TUẦN, XÓA HẾT CÒN LẠI) ---
+# --- HÀM ĐỒNG BỘ THỦ CÔNG (DỌN SẠCH TỪ TUẦN TRƯỚC VÀ ĐỒNG BỘ TỪ HÔM NAY ĐẾN HẾT TUẦN) ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -195,23 +195,26 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        # Xóa sạch từ hôm nay đến hết Chủ Nhật của tuần chứa ngày đó
-        time_min = f"{ref_date.strftime('%Y-%m-%d')}T00:00:00Z"
-        time_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
+        # PHẠM VI XÓA: Chỉ quét từ đầu tuần trước (Thứ 2 tuần trước) cho đến hết Chủ Nhật tuần này
+        last_week_monday = start_monday - timedelta(days=7)
+        time_clean_min = last_week_monday.strftime('%Y-%m-%d') + "T00:00:00Z"
+        time_clean_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
 
         events_result = service.events().list(
             calendarId=calendar_id, 
-            timeMin=time_min, 
-            timeMax=time_max, 
+            timeMin=time_clean_min, 
+            timeMax=time_clean_max, 
             singleEvents=True
         ).execute()
 
         old_events = events_result.get('items', [])
+        deleted_count = 0
         for evt in old_events:
             summary_evt = evt.get('summary', '')
             if summary_evt.startswith("🏫 Dạy Thêm Ca") or summary_evt.startswith("📚 Lớp"):
                 try:
                     service.events().delete(calendarId=calendar_id, eventId=evt['id']).execute()
+                    deleted_count += 1
                 except Exception:
                     pass
 
@@ -258,7 +261,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã đồng bộ từ {ref_date.strftime('%d/%m')} đến hết tuần ({end_sunday.strftime('%d/%m/%Y')}) thành công ({count_events} sự kiện)!"
+        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ tuần trước và đồng bộ mới từ {ref_date.strftime('%d/%m')} đến hết tuần ({count_events} sự kiện)!"
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
@@ -648,12 +651,12 @@ menu = [
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
-# --- THÊM LẠI KHUNG ĐỒNG BỘ THỦ CÔNG Ở SIDEBAR ---
+# --- NÚT ĐỒNG BỘ THỦ CÔNG TẠI SIDEBAR ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Đồng bộ thời khóa biểu tới iPhone")
 user_gmail_sidebar = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
-if st.sidebar.button("🔄 Đồng bộ từ hôm nay đến hết tuần", type="primary", use_container_width=True):
-    with st.spinner("⏳ Đang đồng bộ lịch học..."):
+if st.sidebar.button("🔄 Đồng bộ (Dọn sạch tuần trước & Cập nhật)", type="primary", use_container_width=True):
+    with st.spinner("⏳ Đang dọn sạch lịch tuần trước và đồng bộ lịch học mới..."):
         success_sync, msg_sync = sync_from_today_to_end_of_week(calendar_id=user_gmail_sidebar.strip(), ref_date=date.today())
         if success_sync:
             st.sidebar.success(msg_sync)
