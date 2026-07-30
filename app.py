@@ -927,7 +927,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=False)
                         
                         with c3:
-                            tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "📚 Có giao bài tập", "❌ Không làm bài tập", "💤 Buồn ngủ/Mất tập trung"]
+                            tags_options = ["Chăm chú", "Có tiến bộ", "Có giao bài tập", "Không làm bài tập", "Buồn ngủ/Mất tập trung"]
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
                             custom_nx = st.text_input("Ghi chú thêm (Tự viết)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học hoặc tự viết...")
                             
@@ -1008,6 +1008,8 @@ elif choice == "📝 Điểm danh & Nhận xét":
             ORDER BY d.id DESC
         ''', engine)
         
+        tags_options_global = ["Chăm chú", "Có tiến bộ", "Có giao bài tập", "Không làm bài tập", "Buồn ngủ/Mất tập trung"]
+
         if not df_logs.empty:
             st.write(f"📋 Danh sách điểm danh trong ngày **{sel_date_filter.strftime('%d/%m/%Y')}** ({len(df_logs)} bản ghi):")
             st.dataframe(df_logs[['Mã Lịch', 'Họ Tên', 'Lớp', 'Ca Học', 'Trạng Thái', 'Nhận Xét']], use_container_width=True)
@@ -1024,17 +1026,41 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 class_updates = []
                 for idx, r in df_class_logs.iterrows():
                     st.markdown(f"**👤 {r['Họ Tên']}** - *Ca: {r['Ca Học']}*")
-                    c_stt, c_nx = st.columns([1, 2])
                     
+                    # Tách thẻ thái độ và ghi chú cũ (hỗ trợ cả định dạng cũ có emoji lẫn định dạng mới)
+                    old_nx_full = r['Nhận Xét'] or ""
+                    found_old_tags = []
+                    for t in tags_options_global:
+                        if f"[{t}]" in old_nx_full or f"[🌟 {t}]" in old_nx_full or f"[💪 {t}]" in old_nx_full or f"[📚 {t}]" in old_nx_full or f"[❌ {t}]" in old_nx_full or f"[💤 {t}]" in old_nx_full:
+                            found_old_tags.append(t)
+
+                    custom_old_part = old_nx_full
+                    for t in tags_options_global:
+                        custom_old_part = custom_old_part.replace(f"[{t}]", "")
+                        for emoji in ["🌟 ", "💪 ", "📚 ", "❌ ", "💤 "]:
+                            custom_old_part = custom_old_part.replace(f"[{emoji}{t}]", "")
+                    custom_old_part = custom_old_part.strip(' -')
+
+                    c_stt, c_tags, c_nx = st.columns([1.2, 2.5, 2.3])
                     stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
                     current_stt_idx = stt_options.index(r['Trạng Thái']) if r['Trạng Thái'] in stt_options else 0
                     
                     with c_stt:
                         new_stt = st.selectbox("Trạng thái", stt_options, index=current_stt_idx, key=f"batch_stt_{r['Mã Lịch']}")
+                    with c_tags:
+                        new_tags = st.multiselect("Thẻ thái độ", tags_options_global, default=found_old_tags, key=f"batch_tags_{r['Mã Lịch']}")
                     with c_nx:
-                        new_nx = st.text_input("Nhận xét", value=r['Nhận Xét'] or "", key=f"batch_nx_{r['Mã Lịch']}")
+                        new_custom_nx = st.text_input("Ghi chú thêm", value=custom_old_part, key=f"batch_nx_{r['Mã Lịch']}")
                     
-                    class_updates.append((r['Mã Lịch'], new_stt, new_nx))
+                    tag_str = " ".join([f"[{t}]" for t in new_tags])
+                    if tag_str and new_custom_nx.strip():
+                        new_nx_val = f"{tag_str} - {new_custom_nx.strip()}"
+                    elif tag_str:
+                        new_nx_val = tag_str
+                    else:
+                        new_nx_val = new_custom_nx.strip()
+
+                    class_updates.append((r['Mã Lịch'], new_stt, new_nx_val))
                     st.divider()
                     
                 col_sub1, col_sub2 = st.columns(2)
@@ -1050,7 +1076,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                 UPDATE diem_danh 
                                 SET trang_thai = :stt, nhan_xet = :nx 
                                 WHERE id = :id
-                            '''), {"stt": stt, "nx": nx.strip(), "id": rec_id})
+                            '''), {"stt": stt, "nx": nx, "id": rec_id})
                     st.success(f"✅ Đã cập nhật thành công điểm danh cho lớp {sel_class_action}!")
                     st.rerun()
                     
@@ -1068,13 +1094,38 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 log_to_edit_del = log_dict[selected_log_label]
                 row_log_item = df_logs[df_logs['Mã Lịch'] == log_to_edit_del].iloc[0]
                 
+                # Tách thẻ thái độ và ghi chú cho bản ghi lẻ
+                old_nx_single = row_log_item['Nhận Xét'] or ""
+                found_single_tags = []
+                for t in tags_options_global:
+                    if f"[{t}]" in old_nx_single or f"[🌟 {t}]" in old_nx_single or f"[💪 {t}]" in old_nx_single or f"[📚 {t}]" in old_nx_single or f"[❌ {t}]" in old_nx_single or f"[💤 {t}]" in old_nx_single:
+                        found_single_tags.append(t)
+
+                custom_single_part = old_nx_single
+                for t in tags_options_global:
+                    custom_single_part = custom_single_part.replace(f"[{t}]", "")
+                    for emoji in ["🌟 ", "💪 ", "📚 ", "❌ ", "💤 "]:
+                        custom_single_part = custom_single_part.replace(f"[{emoji}{t}]", "")
+                custom_single_part = custom_single_part.strip(' -')
+
                 with st.form("form_edit_delete_diem_danh_record"):
                     st.write(f"Đang thao tác Mã Lịch **{log_to_edit_del}**: {row_log_item['Họ Tên']} [{row_log_item['Lớp']}] - Ngày: {row_log_item['Ngày']} - Ca: {row_log_item['Ca Học']}")
+                    
                     stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
                     default_stt_idx = stt_options.index(row_log_item['Trạng Thái']) if row_log_item['Trạng Thái'] in stt_options else 0
-                    edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
-                    edit_nx_val = st.text_input("Nhận xét mới:", value=row_log_item['Nhận Xét'] or "", key="edit_log_nx")
                     
+                    edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
+                    edit_tags_val = st.multiselect("Thẻ thái độ mới:", tags_options_global, default=found_single_tags, key="edit_log_tags")
+                    edit_custom_nx_val = st.text_input("Ghi chú thêm mới:", value=custom_single_part, key="edit_log_custom_nx")
+                    
+                    tag_str_single = " ".join([f"[{t}]" for t in edit_tags_val])
+                    if tag_str_single and edit_custom_nx_val.strip():
+                        edit_nx_val = f"{tag_str_single} - {edit_custom_nx_val.strip()}"
+                    elif tag_str_single:
+                        edit_nx_val = tag_str_single
+                    else:
+                        edit_nx_val = edit_custom_nx_val.strip()
+
                     col_eb1, col_eb2 = st.columns(2)
                     with col_eb1:
                         submit_update_log = st.form_submit_button("💾 Cập Nhật Điểm Danh", type="primary")
@@ -1087,7 +1138,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                 UPDATE diem_danh 
                                 SET trang_thai = :stt, nhan_xet = :nx 
                                 WHERE id = :id
-                            '''), {"stt": edit_stt_val, "nx": edit_nx_val.strip(), "id": log_to_edit_del})
+                            '''), {"stt": edit_stt_val, "nx": edit_nx_val, "id": log_to_edit_del})
                         st.success(f"✅ Đã cập nhật thành công Mã Lịch {log_to_edit_del}!")
                         st.rerun()
                         
