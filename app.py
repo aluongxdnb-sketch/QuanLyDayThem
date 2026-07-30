@@ -68,7 +68,6 @@ SUC_KHOE_LIST = [
 def clean_nhan_xet(text):
     if not text:
         return ""
-    # Biểu thức chính quy loại bỏ toàn bộ emoji
     emoji_pattern = re.compile(
         r"[\U00010000-\U0010ffff\u2600-\u27bf\u2b50\u2b06\u2934\u2935\u2b05\u2b07\u3299\u3227\u00a9\u00ae\u203c\u2049\u2122\u2139\u2194-\u2199\u21a9\u21aa\u2328\u23cf\u23e9-\u23f3\u23f8-\u23fa\u24c2\u25aa-\u25ab\u25b6\u25c0\u25fb-\u25fe\u2600-\u2604\u260e\u2611\u2614-\u2615\u2618\u261d\u2620\u2622-\u2623\u2626\u262a\u262e-\u262f\u2638-\u263a\u2648-\u2653\u2660-\u2668\u267b\u267f\u2692-\u2694\u2696-\u2697\u2699\u269b-\u269c\u26a0-\u26a1\u26aa-\u26ab\u26b0-\u26b1\u26bd-\u26be\u26c4-\u26c5\u26c8\u26ce-\u26cf\u26d1\u26d3-\u26d4\u26e9-\u26ea\u26f0-\u26f5\u26f7-\u26fa\u26fd\u2470\u2702\u2705\u2708-\u270d\u270f\u2712\u2714\u2716\u271d\u2721\u2728\u2733-\u2734\u2744\u2747\u274c\u274e\u2753-\u2755\u2757\u2763-\u2764\u2795-\u2797\u27a1\u27b0\u27bf\u2934-\u2935\u2b05-\u2b07\u2b12-\u2b13\u2b1b-\u2b1c\u2b50\u2b55\u3030\u303d\u3297\u3299]",
         flags=re.UNICODE
@@ -553,7 +552,29 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
 
 # --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
-    fig, ax = plt.subplots(figsize=(10, max(4, len(df_history) * 0.5 + 3.5)))
+    wrapped_data = []
+    max_lines_overall = 1
+    for row in [df_history.columns.tolist()] + df_history.values.tolist():
+        new_row = []
+        row_max_lines = 1
+        for col_idx, cell in enumerate(row):
+            cell_str = str(cell)
+            if col_idx == 3: # Cột Nhận xét
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=35)) if cell_str else ""
+                lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
+                new_row.append(wrapped_text)
+                if lines > row_max_lines:
+                    row_max_lines = lines
+            else:
+                new_row.append(cell_str)
+                lines = cell_str.count('\n') + 1
+                if lines > row_max_lines:
+                    row_max_lines = lines
+        wrapped_data.append(new_row)
+        if row_max_lines > max_lines_overall:
+            max_lines_overall = row_max_lines
+
+    fig, ax = plt.subplots(figsize=(10, max(4, len(df_history) * max(0.8, max_lines_overall * 0.45) + 3.5)))
     ax.axis('off')
     ax.axis('tight')
     
@@ -561,14 +582,16 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     ax.text(0.5, 0.89, f"Học sinh: {student_name} - Lớp: {lop_hoc} ({month_year})", fontsize=12, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.84, f"Tổng số buổi đi học (Có mặt): {total_present} buổi", fontsize=11, fontweight='bold', color='#B91C1C', ha='center', va='center', transform=ax.transAxes)
     
-    table_data = [df_history.columns.tolist()] + df_history.values.tolist()
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=[0.18, 0.22, 0.22, 0.38])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.18, 0.22, 0.22, 0.38])
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
-    table.scale(1, 2.2)
+    
+    v_scale = max(2.2, max_lines_overall * 1.1)
+    table.scale(1, v_scale)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
+        cell.PAD = 0.15
         if row == 0:
             cell.set_facecolor('#1E3A8A')
             cell.set_text_props(color='white', weight='bold', size=11)
@@ -587,21 +610,45 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
 
 # --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
-    fig, ax = plt.subplots(figsize=(11, max(4, len(df_history) * 0.45 + 3.5)))
+    wrapped_data = []
+    max_lines_overall = 1
+    for row in [df_history.columns.tolist()] + df_history.values.tolist():
+        new_row = []
+        row_max_lines = 1
+        for col_idx, cell in enumerate(row):
+            cell_str = str(cell)
+            if col_idx == 4: # Cột Nhận xét
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=32)) if cell_str else ""
+                lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
+                new_row.append(wrapped_text)
+                if lines > row_max_lines:
+                    row_max_lines = lines
+            else:
+                new_row.append(cell_str)
+                lines = cell_str.count('\n') + 1
+                if lines > row_max_lines:
+                    row_max_lines = lines
+        wrapped_data.append(new_row)
+        if row_max_lines > max_lines_overall:
+            max_lines_overall = row_max_lines
+
+    fig, ax = plt.subplots(figsize=(11, max(4, len(df_history) * max(0.8, max_lines_overall * 0.45) + 3.5)))
     ax.axis('off')
     ax.axis('tight')
     
     ax.text(0.5, 0.94, "BẢNG TỔNG HỢP ĐIỂM DANH & NHẬN XÉT CẢ LỚP", fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.89, f"Lớp: {class_name} - Thời gian: {time_label}", fontsize=12, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
     
-    table_data = [df_history.columns.tolist()] + df_history.values.tolist()
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30])
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
-    table.scale(1, 2.2)
+    
+    v_scale = max(2.2, max_lines_overall * 1.1)
+    table.scale(1, v_scale)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
+        cell.PAD = 0.15
         if row == 0:
             cell.set_facecolor('#1E3A8A')
             cell.set_text_props(color='white', weight='bold', size=11)
@@ -1381,6 +1428,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             FROM diem_danh d
                             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND d.ngay = '{date_str_cls}'
+                              AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
                         ''', engine)
 
@@ -1403,6 +1451,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             FROM diem_danh d
                             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND d.ngay >= '{start_str_cls}' AND d.ngay <= '{end_str_cls}'
+                              AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
                         ''', engine)
 
@@ -1427,6 +1476,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             FROM diem_danh d
                             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
                             WHERE h.lop_hoc = '{sel_lop_exp_cls}' AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q_cls}'
+                              AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
                         ''', engine)
 
