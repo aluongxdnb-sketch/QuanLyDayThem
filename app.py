@@ -176,7 +176,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã dọn sạch lịch cũ và đồng bộ thành công {count_events} sự kiện thời khóa biểu lên iPhone!"
+        return True, f"✅ Đã dọn sạch lịch cũ và tự động đồng bộ thành công {count_events} sự kiện thời khóa biểu lên iPhone!"
 
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ thời khóa biểu: {str(e)}"
@@ -559,16 +559,6 @@ menu = [
     "📋 Thông tin học sinh"
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("📲 Đồng bộ thời khóa biểu 7 ngày tới sang iPhone")
-user_gmail = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
-
-if st.sidebar.button("🔄 Đồng bộ thời khóa biểu 7 ngày tới sang iPhone", type="primary"):
-    target_cal_id = user_gmail.strip() if user_gmail.strip() else 'primary'
-    success, msg = sync_weekly_schedule_to_google(calendar_id=target_cal_id, days_ahead=7)
-    if success: st.sidebar.success(msg)
-    else: st.sidebar.error(msg)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📷 Cài đặt Mã QR Thanh Toán")
@@ -1112,7 +1102,15 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                     VALUES (:hs_id, :thu, :ca)
                                     ON CONFLICT (hoc_sinh_id, thu, ca_hoc) DO NOTHING
                                 '''), {"hs_id": hs_id, "thu": t_val, "ca": ca_val})
-                st.success(f"✅ Đã lưu thời khóa biểu gốc cho {target_name_label} thành công lên Supabase!")
+                
+                # --- TỰ ĐỘNG ĐỒNG BỘ SANG IPHONE NGAY SAU KHI LƯU ---
+                sync_success, sync_msg = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahead=7)
+                
+                if sync_success:
+                    st.success(f"✅ Đã lưu thời khóa biểu gốc cho {target_name_label} và {sync_msg}")
+                else:
+                    st.warning(f"⚠️ Đã lưu vào CSDL nhưng đồng bộ lịch có lỗi: {sync_msg}")
+                
                 st.rerun()
 
     with tab_export:
