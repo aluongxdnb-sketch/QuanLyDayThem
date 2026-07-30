@@ -927,11 +927,21 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=False)
                         
                         with c3:
-                            tags_options = ["Chăm chú", "Có tiến bộ", "Có giao bài tập", "Không làm bài tập", "Buồn ngủ/Mất tập trung"]
+                            tags_options = [
+                                "Chăm chú", 
+                                "Có tiến bộ", 
+                                "Có giao bài tập", 
+                                "Không làm bài tập", 
+                                "nói chuyện/ mất tập trung", 
+                                "hoàn thành bài tập", 
+                                "buồn ngủ", 
+                                "chểnh mảng", 
+                                "lơ là học tập"
+                            ]
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
                             custom_nx = st.text_input("Ghi chú thêm (Tự viết)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học hoặc tự viết...")
                             
-                            tag_str = " ".join([f"[{t}]" for t in selected_tags])
+                            tag_str = ", ".join(selected_tags)
                             if tag_str and custom_nx.strip():
                                 nx_val = f"{tag_str} - {custom_nx.strip()}"
                             elif tag_str:
@@ -1008,7 +1018,17 @@ elif choice == "📝 Điểm danh & Nhận xét":
             ORDER BY d.id DESC
         ''', engine)
         
-        tags_options_global = ["Chăm chú", "Có tiến bộ", "Có giao bài tập", "Không làm bài tập", "Buồn ngủ/Mất tập trung"]
+        tags_options_global = [
+            "Chăm chú", 
+            "Có tiến bộ", 
+            "Có giao bài tập", 
+            "Không làm bài tập", 
+            "nói chuyện/ mất tập trung", 
+            "hoàn thành bài tập", 
+            "buồn ngủ", 
+            "chểnh mảng", 
+            "lơ là học tập"
+        ]
 
         if not df_logs.empty:
             st.write(f"📋 Danh sách điểm danh trong ngày **{sel_date_filter.strftime('%d/%m/%Y')}** ({len(df_logs)} bản ghi):")
@@ -1027,19 +1047,26 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 for idx, r in df_class_logs.iterrows():
                     st.markdown(f"**👤 {r['Họ Tên']}** - *Ca: {r['Ca Học']}*")
                     
-                    # Tách thẻ thái độ và ghi chú cũ (hỗ trợ cả định dạng cũ có emoji lẫn định dạng mới)
+                    # Xử lý tách thẻ thái độ và ghi chú cũ
                     old_nx_full = r['Nhận Xét'] or ""
                     found_old_tags = []
-                    for t in tags_options_global:
-                        if f"[{t}]" in old_nx_full or f"[🌟 {t}]" in old_nx_full or f"[💪 {t}]" in old_nx_full or f"[📚 {t}]" in old_nx_full or f"[❌ {t}]" in old_nx_full or f"[💤 {t}]" in old_nx_full:
-                            found_old_tags.append(t)
+                    
+                    if " - " in old_nx_full:
+                        parts = old_nx_full.split(" - ", 1)
+                        tags_str_part = parts[0]
+                        custom_old_part = parts[1]
+                    else:
+                        tags_str_part = old_nx_full
+                        custom_old_part = ""
 
-                    custom_old_part = old_nx_full
                     for t in tags_options_global:
-                        custom_old_part = custom_old_part.replace(f"[{t}]", "")
-                        for emoji in ["🌟 ", "💪 ", "📚 ", "❌ ", "💤 "]:
-                            custom_old_part = custom_old_part.replace(f"[{emoji}{t}]", "")
-                    custom_old_part = custom_old_part.strip(' -')
+                        if t in tags_str_part or f"[{t}]" in old_nx_full or (t == "nói chuyện/ mất tập trung" and ("Buồn ngủ/Mất tập trung" in old_nx_full or "nói chuyện/ mất tập trung" in old_nx_full)):
+                            if t not in found_old_tags:
+                                found_old_tags.append(t)
+                                
+                    for t in tags_options_global:
+                        if t not in found_old_tags and (t in old_nx_full or f"[{t}]" in old_nx_full or (t == "nói chuyện/ mất tập trung" and ("Buồn ngủ/Mất tập trung" in old_nx_full or "nói chuyện/ mất tập trung" in old_nx_full))):
+                            found_old_tags.append(t)
 
                     c_stt, c_tags, c_nx = st.columns([1.2, 2.5, 2.3])
                     stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
@@ -1050,9 +1077,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     with c_tags:
                         new_tags = st.multiselect("Thẻ thái độ", tags_options_global, default=found_old_tags, key=f"batch_tags_{r['Mã Lịch']}")
                     with c_nx:
-                        new_custom_nx = st.text_input("Ghi chú thêm", value=custom_old_part, key=f"batch_nx_{r['Mã Lịch']}")
+                        new_custom_nx = st.text_input("Ghi chú thêm", value=custom_old_part if " - " in old_nx_full else (old_nx_full if not found_old_tags else ""), key=f"batch_nx_{r['Mã Lịch']}")
                     
-                    tag_str = " ".join([f"[{t}]" for t in new_tags])
+                    tag_str = ", ".join(new_tags)
                     if tag_str and new_custom_nx.strip():
                         new_nx_val = f"{tag_str} - {new_custom_nx.strip()}"
                     elif tag_str:
@@ -1097,16 +1124,23 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 # Tách thẻ thái độ và ghi chú cho bản ghi lẻ
                 old_nx_single = row_log_item['Nhận Xét'] or ""
                 found_single_tags = []
-                for t in tags_options_global:
-                    if f"[{t}]" in old_nx_single or f"[🌟 {t}]" in old_nx_single or f"[💪 {t}]" in old_nx_single or f"[📚 {t}]" in old_nx_single or f"[❌ {t}]" in old_nx_single or f"[💤 {t}]" in old_nx_single:
-                        found_single_tags.append(t)
+                
+                if " - " in old_nx_single:
+                    parts_s = old_nx_single.split(" - ", 1)
+                    tags_str_part_s = parts_s[0]
+                    custom_single_part = parts_s[1]
+                else:
+                    tags_str_part_s = old_nx_single
+                    custom_single_part = ""
 
-                custom_single_part = old_nx_single
                 for t in tags_options_global:
-                    custom_single_part = custom_single_part.replace(f"[{t}]", "")
-                    for emoji in ["🌟 ", "💪 ", "📚 ", "❌ ", "💤 "]:
-                        custom_single_part = custom_single_part.replace(f"[{emoji}{t}]", "")
-                custom_single_part = custom_single_part.strip(' -')
+                    if t in tags_str_part_s or f"[{t}]" in old_nx_single or (t == "nói chuyện/ mất tập trung" and ("Buồn ngủ/Mất tập trung" in old_nx_single or "nói chuyện/ mất tập trung" in old_nx_single)):
+                        if t not in found_single_tags:
+                            found_single_tags.append(t)
+                            
+                for t in tags_options_global:
+                    if t not in found_single_tags and (t in old_nx_single or f"[{t}]" in old_nx_single or (t == "nói chuyện/ mất tập trung" and ("Buồn ngủ/Mất tập trung" in old_nx_single or "nói chuyện/ mất tập trung" in old_nx_single))):
+                        found_single_tags.append(t)
 
                 with st.form("form_edit_delete_diem_danh_record"):
                     st.write(f"Đang thao tác Mã Lịch **{log_to_edit_del}**: {row_log_item['Họ Tên']} [{row_log_item['Lớp']}] - Ngày: {row_log_item['Ngày']} - Ca: {row_log_item['Ca Học']}")
@@ -1116,9 +1150,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     
                     edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
                     edit_tags_val = st.multiselect("Thẻ thái độ mới:", tags_options_global, default=found_single_tags, key="edit_log_tags")
-                    edit_custom_nx_val = st.text_input("Ghi chú thêm mới:", value=custom_single_part, key="edit_log_custom_nx")
+                    edit_custom_nx_val = st.text_input("Ghi chú thêm mới:", value=custom_single_part if " - " in old_nx_single else (old_nx_single if not found_single_tags else ""), key="edit_log_custom_nx")
                     
-                    tag_str_single = " ".join([f"[{t}]" for t in edit_tags_val])
+                    tag_str_single = ", ".join(edit_tags_val)
                     if tag_str_single and edit_custom_nx_val.strip():
                         edit_nx_val = f"{tag_str_single} - {edit_custom_nx_val.strip()}"
                     elif tag_str_single:
