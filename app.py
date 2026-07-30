@@ -764,7 +764,7 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (QUÉT TRÊN TKB TỔNG QUAN: MỖI CA HỌC XUẤT HIỆN TÍNH 1 CA, LOẠI TRỪ CA CÓ CHỨA CHỮ 'HỌC THÊM')
+    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (QUÉT TRÊN TKB TỔNG QUAN: CỨ LỚP XUẤT HIỆN TRONG 1 CA HỌC/SLOT THÌ ĐẾM LÀ 1 CA, KHÔNG LOẠI TRỪ)
     st.markdown("#### 🚨 Cảnh Báo & Thống Kê Nổi Bật Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
@@ -793,22 +793,13 @@ if choice == "🏠 Trang chủ":
     while curr_d_loop <= end_m_date:
         df_day_sched = get_active_schedule_for_date(engine, curr_d_loop)
         if not df_day_sched.empty:
-            # Quét từng ca học (slot) của từng lớp trên TKB tổng quan trong ngày
-            for (lop_val, ca_val), group_slot in df_day_sched.groupby(['lop_hoc', 'ca_hoc']):
-                lop_str = str(lop_val).strip()
+            # Cứ lớp nào xuất hiện trong một ca học (slot) thì đếm là 1 ca cho lớp đó
+            df_unique_slots = df_day_sched[['lop_hoc', 'ca_hoc']].drop_duplicates()
+            for _, r_slot in df_unique_slots.iterrows():
+                lop_str = str(r_slot['lop_hoc']).strip()
                 if lop_str not in class_shift_counts:
                     class_shift_counts[lop_str] = 0
-                
-                # Kiểm tra xem trong ca học này có học sinh nào chứa chữ "học thêm" không
-                has_hoc_them = False
-                for s_name in group_slot['ho_ten']:
-                    if 'học thêm' in str(s_name).lower():
-                        has_hoc_them = True
-                        break
-                
-                # Nếu ca học không chứa học sinh học thêm thì tính là 1 ca cho lớp
-                if not has_hoc_them:
-                    class_shift_counts[lop_str] += 1
+                class_shift_counts[lop_str] += 1
         curr_d_loop += timedelta(days=1)
 
     df_shifts_summary = pd.DataFrame(list(class_shift_counts.items()), columns=['lop_hoc', 'so_ca'])
@@ -1229,7 +1220,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         label=f"🖼️ Tải Ảnh Lịch Sử Điểm Danh ({base_name_ls})",
                         data=img_ls_bytes,
                         file_name=f"Lich_Su_Diem_Danh_{safe_name_hs}_Thang_{thang_ls}_{nam_ls}.png",
-                        mime="application/png",
+                        mime="image/png",
                         type="primary",
                         key="btn_download_student_att_img"
                     )
@@ -1724,7 +1715,7 @@ elif choice == "💳 Quản lý học phí":
                             sub_components=row_fee.get('sub_components', [])
                         )
                         safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ和 Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                         zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
                 zip_buffer_f.seek(0)
                 st.download_button(
