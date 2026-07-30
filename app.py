@@ -212,7 +212,6 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        # PHẠM VI XÓA: Chỉ quét và dọn sạch trong tuần hiện tại
         time_clean_min = f"{start_monday.strftime('%Y-%m-%d')}T00:00:00Z"
         time_clean_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
 
@@ -610,7 +609,7 @@ with engine.begin() as conn:
         pass
 
 # =========================================================
-# 🔐 HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ADMIN
+# --- HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ADMIN ---
 # =========================================================
 def check_password():
     if "logged_in" not in st.session_state:
@@ -649,7 +648,7 @@ if "last_synced_monday" not in st.session_state or st.session_state.last_synced_
         _, _ = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=date.today())
     st.session_state.last_synced_monday = current_monday_str
 
-# --- 2. GIAO DIỆN CHÍNH (ADMIN) ---
+# --- GIAO DIỆN CHÍNH (ADMIN) ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm")
 
 col_logout1, col_logout2 = st.sidebar.columns(2)
@@ -774,25 +773,24 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2. Top 5 học sinh học nhiều ca nhất trong tháng
-    df_top_ca = pd.read_sql_query(f'''
-        SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) AS so_ca
+    # 2. Top 5 lớp học nhiều ca nhất trong tháng
+    df_top_lop_nhieu_ca = pd.read_sql_query(f'''
+        SELECT h.lop_hoc, COUNT(d.id) AS so_ca
         FROM diem_danh d
         JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
         WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
-        GROUP BY h.id, h.ho_ten, h.lop_hoc
+        GROUP BY h.lop_hoc
         ORDER BY so_ca DESC
         LIMIT 5
     ''', engine)
     
-    # 3. Top 5 học sinh có học phí cao nhất trong tháng
-    df_top_phi = pd.read_sql_query(f'''
-        SELECT h.ho_ten, h.lop_hoc, COUNT(d.id) * h.hoc_phi_buoi AS tong_phi
-        FROM diem_danh d
-        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-        WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
-        GROUP BY h.id, h.ho_ten, h.lop_hoc
-        ORDER BY tong_phi DESC
+    # 3. Top 5 lớp học ít ca nhất trong tháng
+    df_top_lop_it_ca = pd.read_sql_query(f'''
+        SELECT h.lop_hoc, COUNT(d.id) AS so_ca
+        FROM hoc_sinh h
+        LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
+        GROUP BY h.lop_hoc
+        ORDER BY so_ca ASC
         LIMIT 5
     ''', engine)
 
@@ -806,19 +804,19 @@ if choice == "🏠 Trang chủ":
                 total_v = r['vang_phep'] + r['vang_kp']
                 st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: Vắng {total_v} buổi")
     with c_al2:
-        st.markdown("##### 🏆 Top học nhiều ca")
-        if df_top_ca.empty:
+        st.markdown("##### 🏆 Top 5 lớp học nhiều ca")
+        if df_top_lop_nhieu_ca.empty:
             st.info("Chưa có dữ liệu tháng này.")
         else:
-            for _, r in df_top_ca.iterrows():
-                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: {r['so_ca']} ca")
+            for _, r in df_top_lop_nhieu_ca.iterrows():
+                st.write(f"• **Lớp {r['lop_hoc']}**: {r['so_ca']} ca")
     with c_al3:
-        st.markdown("##### 💰 Top học phí cao")
-        if df_top_phi.empty:
+        st.markdown("##### 📉 Top 5 lớp học ít ca")
+        if df_top_lop_it_ca.empty:
             st.info("Chưa có dữ liệu tháng này.")
         else:
-            for _, r in df_top_phi.iterrows():
-                st.write(f"• **{r['ho_ten']}** [{r['lop_hoc']}]: {r['tong_phi']:,.0f} đ")
+            for _, r in df_top_lop_it_ca.iterrows():
+                st.write(f"• **Lớp {r['lop_hoc']}**: {r['so_ca']} ca")
 
     st.markdown("---")
     st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
@@ -977,7 +975,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
         df_dd_today = pd.read_sql_query(f'''
             SELECT d.id, h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ca_hoc AS "Ca Học", d.trang_thai AS "Trạng Thái", d.nhan_xet AS "Nhận Xét"
             FROM diem_danh d
-            JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
+            JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
             WHERE d.ngay = '{date_str}'
             ORDER BY d.id DESC
         ''', engine)
@@ -1251,7 +1249,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 target_hs_ids = df_hs[df_hs['lop_hoc'] == selected_lop]['id'].tolist()
                 target_name_label = f"Lớp {selected_lop}"
             else:
-                hs_dict_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row for _, row in df_hs.iterrows()}
+                hs_dict_goc = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs.iterrows()}
                 selected_hs_label = st.selectbox("Chọn Học sinh cụ thể:", list(hs_dict_goc.keys()), key="select_goc_hs_indiv")
                 target_hs_ids = [hs_dict_goc[selected_hs_label]]
                 target_name_label = selected_hs_label
