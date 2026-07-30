@@ -117,9 +117,11 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
             singleEvents=True
         ).execute()
 
+        # Dọn dẹp sạch sẽ TẤT CẢ sự kiện cũ và mới bị trùng lặp trong khoảng thời gian này
         old_events = events_result.get('items', [])
         for evt in old_events:
-            if evt.get('summary', '').startswith("📚 Lớp"):
+            summary_evt = evt.get('summary', '')
+            if summary_evt.startswith("🏫 Dạy Thêm Ca") or summary_evt.startswith("📚 Lớp"):
                 try:
                     service.events().delete(calendarId=calendar_id, eventId=evt['id']).execute()
                 except Exception:
@@ -174,7 +176,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', days_ahe
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã đồng bộ thành công {count_events} sự kiện thời khóa biểu (có kèm số học sinh) sang iPhone!"
+        return True, f"✅ Đã dọn sạch lịch cũ và đồng bộ thành công {count_events} sự kiện thời khóa biểu lên iPhone!"
 
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ thời khóa biểu: {str(e)}"
