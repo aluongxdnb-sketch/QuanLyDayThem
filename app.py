@@ -894,17 +894,19 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             stt_val = st.radio("Trạng thái", ["Có mặt", "Vắng có phép", "Vắng không phép"], index=0, key=f"stt_cls_{row['hoc_sinh_id']}_{idx}", horizontal=False)
                         
                         with c3:
-                            tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "⚠️ Quên làm bài tập", "💤 Buồn ngủ/Mất tập trung"]
+                            tags_options = ["🌟 Chăm chú", "💪 Có tiến bộ", "💤 Buồn ngủ/Mất tập trung"]
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
-                            custom_nx = st.text_input("Ghi chú thêm", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học...")
+                            has_homework = st.checkbox("📚 Có bài tập về nhà", key=f"hw_chk_{row['hoc_sinh_id']}_{idx}")
+                            custom_nx = st.text_input("Ghi chú thêm (Tự viết)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học hoặc tự viết...")
                             
-                            tag_str = " ".join([f"[{t}]" for t in selected_tags])
-                            if tag_str and custom_nx.strip():
-                                nx_val = f"{tag_str} - {custom_nx.strip()}"
-                            elif tag_str:
-                                nx_val = tag_str
-                            else:
-                                nx_val = custom_nx.strip()
+                            nx_parts = []
+                            if selected_tags:
+                                nx_parts.append(" ".join([f"[{t}]" for t in selected_tags]))
+                            if has_homework:
+                                nx_parts.append("[📚 Có bài tập về nhà]")
+                            if custom_nx.strip():
+                                nx_parts.append(custom_nx.strip())
+                            nx_val = " - ".join(nx_parts)
 
                         danh_sach_luu.append((row['hoc_sinh_id'], date_str, ca_final, stt_val, nx_val))
                         st.divider()
@@ -1156,7 +1158,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         d.trang_thai AS "Trạng thái",
                         COALESCE(d.nhan_xet, '') AS "Nhận xét"
                     FROM diem_danh d
-                    WHERE d.hoc_sinh_id IN ({ids_ls_ls_str if 'ids_ls_str' in locals() else ids_ls_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
+                    WHERE d.hoc_sinh_id IN ({ids_ls_str}) AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_q}'
                     ORDER BY d.ngay ASC, d.id ASC
                 ''', engine)
                 
