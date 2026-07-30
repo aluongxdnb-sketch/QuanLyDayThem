@@ -9,6 +9,7 @@ import io
 import textwrap
 import zipfile
 import random
+import calendar
 
 # Thử import Matplotlib để xuất thời khóa biểu, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
@@ -37,20 +38,32 @@ DANH_SACH_CA_MAU = [
     "19h30 - 21h30"
 ]
 
-# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG VÀ SỨC KHỎE CÔ GIÁO ---
+# --- KHO THÔNG ĐIỆP TRUYỀN CẢM HỨNG VÀ SỨC KHỎE CÔ GIÁO (ĐÃ MỞ RỘNG PHONG PHÚ) ---
 THONG_DIEP_LIST = [
     "🌟 'Học, học nữa, học mãi.' – V.I. Lênin. Chúc cô và trò một ngày giảng dạy tràn đầy năng lượng và cảm hứng!",
     "📖 'Tri thức là sức mạnh.' – Francis Bacon. Mỗi bài giảng hôm nay là một viên gạch xây tương lai vững chắc cho các em.",
     "💡 'Có công mài sắt, có ngày nên kim.' Sự kiên trì và nhẫn nại của cô trò sẽ luôn gặt hái trái ngọt.",
     "🌱 'Thầy cô giáo chắp cánh ước mơ cho học sinh.' Hãy tự hào về sứ mệnh cao quý mà cô đang mang trên vai nhé!",
-    "✨ 'Hạnh phúc không phải là điểm đến, mà là hành trình chúng ta đang đi.' Chúc cô một ngày dạy học thật nhiều niềm vui!"
+    "✨ 'Hạnh phúc không phải là điểm đến, mà là hành trình chúng ta đang đi.' Chúc cô một ngày dạy học thật nhiều niềm vui!",
+    "🎯 'Người thầy trung bình chỉ biết nói, người thầy giỏi biết giải thích, người thầy xuất chúng biết minh họa, người thầy vĩ đại biết truyền cảm hứng.' – William Arthur Ward. Chúc cô một ngày truyền cảm hứng tuyệt vời!",
+    "🌸 'Giáo dục là vũ khí mạnh nhất mà người ta có thể sử dụng để thay đổi cả thế giới.' – Nelson Mandela. Cảm ơn cô vì những cống hiến thầm lặng mỗi ngày!",
+    "☀️ 'Mỗi học sinh là một bông hoa độc đáo, và cô là người làm vườn tận tụy nhất.' Chúc cô gặt hái thật nhiều nụ cười hạnh phúc từ các em!",
+    "🚀 'Đừng nản lòng khi gặp bài toán khó, bởi đó là lúc tư duy của học trò được mài giũa sắc bén hơn.' Chúc cô có những tiết học bùng nổ trí tuệ!",
+    "🔥 'Nhiệt huyết của cô chính là ngọn lửa sưởi ấm ước mơ cho các em học sinh trên con đường chinh phục tri thức.'",
+    "📘 'Dạy học là để lại dấu ấn vĩnh cửu cho cuộc đời một ai đó.' Chúc cô một ngày làm việc thật ý nghĩa và trọn vẹn yêu thương!",
+    "🌈 'Sau cơn mưa trời lại sáng, sau những giờ giảng miệt mài sẽ là thành công rực rỡ của các em học sinh thân yêu.'"
 ]
 
 SUC_KHOE_LIST = [
     "💧 Lời nhắc sức khỏe: Cô ơi, hãy uống một ngụm nước ấm để giữ giọng và bảo vệ thanh quản nhé!",
     "🧘‍♀️ Lời nhắc sức khỏe: Đã đứng lớp một lúc rồi, cô hãy thả lỏng vai, vươn vai nhẹ nhàng để giảm mỏi cơ vai gáy nhé.",
     "🍎 Lời nhắc sức khỏe: Đừng bỏ bữa cô nhé! Một cơ thể khỏe mạnh và tràn đầy năng lượng là món quà tuyệt vời nhất.",
-    "👁️ Lời nhắc sức khỏe: Hãy chớp mắt và nhìn ra xa vài giây để thư giãn đôi mắt sau khi nhìn máy tính quản lý quá lâu."
+    "👁️ Lời nhắc sức khỏe: Hãy chớp mắt và nhìn ra xa vài giây để thư giãn đôi mắt sau khi nhìn máy tính quản lý quá lâu.",
+    "🍵 Lời nhắc sức khỏe: Một tách trà ấm hoặc nước chanh mật ong lúc này sẽ giúp cô thanh lọc giọng nói và thư thái tinh thần đấy ạ.",
+    "🌿 Lời nhắc sức khỏe: Hãy hít thở thật sâu, nhắm mắt lại 1 phút để tái tạo năng lượng trước khi bắt đầu ca dạy tiếp theo nhé!",
+    "🚶‍♀️ Lời nhắc sức khỏe: Đứng lên đi lại nhẹ nhàng vài bước để máu lưu thông tốt hơn, xua tan cảm giác mỏi mệt cô nha.",
+    "🌙 Lời nhắc sức khỏe: Hôm nay nếu công việc đã xong xuôi, hãy cố gắng nghỉ ngơi sớm để giữ gìn sức khỏe cho ngày mai cô nhé!",
+    "🍉 Lời nhắc sức khỏe: Đừng quên bổ sung thêm một chút trái cây tươi hoặc vitamin để tăng cường đề kháng suốt cả tuần cô nhé."
 ]
 
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
@@ -696,10 +709,9 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 if choice == "🏠 Trang chủ":
     st.subheader("🏠 Tổng Quan Trong Ngày")
     
-    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE CÔ GIÁO (THAY ĐỔI THEO NGÀY)
-    day_seed = date.today().toordinal()
-    quote_today = THONG_DIEP_LIST[day_seed % len(THONG_DIEP_LIST)]
-    health_today = SUC_KHOE_LIST[day_seed % len(SUC_KHOE_LIST)]
+    # 🌟 GÓC TRUYỀN CẢM HỨNG & SỨC KHỎE CÔ GIÁO (THAY ĐỔI NGẪU NHIÊN SAU MỖI LẦN TRUY CẬP)
+    quote_today = random.choice(THONG_DIEP_LIST)
+    health_today = random.choice(SUC_KHOE_LIST)
     
     st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
     st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
@@ -773,26 +785,40 @@ if choice == "🏠 Trang chủ":
         ORDER BY vang_kp DESC, vang_phep DESC
     ''', engine)
     
-    # 2. Top lớp học nhiều ca nhất trong tháng
-    df_top_lop_nhieu_ca = pd.read_sql_query(f'''
-        SELECT h.lop_hoc, COUNT(d.id) AS so_ca
-        FROM diem_danh d
-        JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-        WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
-        GROUP BY h.lop_hoc
-        ORDER BY so_ca DESC
-        LIMIT 5
-    ''', engine)
-    
-    # 3. Top lớp học ít ca nhất trong tháng
-    df_top_lop_it_ca = pd.read_sql_query(f'''
-        SELECT h.lop_hoc, COUNT(d.id) AS so_ca
-        FROM hoc_sinh h
-        LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai = 'Có mặt'
-        GROUP BY h.lop_hoc
-        ORDER BY so_ca ASC
-        LIMIT 5
-    ''', engine)
+    # 2 & 3. TÍNH SỐ CA LỚP HỌC TRONG THÁNG DỰA TRÊN TKB TỔNG QUAN (LOẠI BỎ NGÀY CÓ HỌC SINH Mang ĐUÔI HỌC THÊM)
+    num_days_m = calendar.monthrange(today.year, today.month)[1]
+    start_m_date = date(today.year, today.month, 1)
+    end_m_date = date(today.year, today.month, num_days_m)
+
+    class_shift_counts = {}
+    df_all_lops = pd.read_sql_query("SELECT DISTINCT lop_hoc FROM hoc_sinh WHERE lop_hoc IS NOT NULL", engine)
+    for _, r_lop in df_all_lops.iterrows():
+        class_shift_counts[r_lop['lop_hoc']] = 0
+
+    curr_d_loop = start_m_date
+    while curr_d_loop <= end_m_date:
+        df_day_sched = get_active_schedule_for_date(engine, curr_d_loop)
+        if not df_day_sched.empty:
+            for (lop_val, ca_val), group_s in df_day_sched.groupby(['lop_hoc', 'ca_hoc']):
+                if lop_val not in class_shift_counts:
+                    class_shift_counts[lop_val] = 0
+                
+                # Kiểm tra nếu ca học này có bất kỳ học sinh nào mang đuôi học thêm (có chứa dấu '-' hoặc từ khóa học thêm/bù)
+                has_suffix = False
+                for s_name in group_s['ho_ten']:
+                    s_name_str = str(s_name).strip()
+                    if '-' in s_name_str or 'học thêm' in s_name_str.lower() or 'bù' in s_name_str.lower():
+                        has_suffix = True
+                        break
+                
+                # Chỉ tính ca nếu không có học sinh mang đuôi học thêm phụ phát sinh
+                if not has_suffix:
+                    class_shift_counts[lop_val] += 1
+        curr_d_loop += timedelta(days=1)
+
+    df_shifts_summary = pd.DataFrame(list(class_shift_counts.items()), columns=['lop_hoc', 'so_ca'])
+    df_top_lop_nhieu_ca = df_shifts_summary.sort_values(by='so_ca', ascending=False).head(5)
+    df_top_lop_it_ca = df_shifts_summary.sort_values(by='so_ca', ascending=True).head(5)
 
     c_al1, c_al2, c_al3 = st.columns(3)
     with c_al1:
