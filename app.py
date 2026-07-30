@@ -764,7 +764,7 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (ĐẾM SỐ NGÀY XUẤT HIỆN TRÊN TKB TỔNG QUAN, LOẠI TRỪ NGÀY CÓ HỌC SINH MANG ĐUÔI HỌC THÊM)
+    # 📊 CẢNH BÁO & THỐNG KÊ NỔI BẬT TRONG THÁNG (MỖI CA HỌC/SLOT TRÊN TKB TỔNG QUAN TÍNH LÀ 1 CA, LOẠI BỎ CA CÓ HỌC SINH CHỨA CHỮ 'HỌC THÊM')
     st.markdown("#### 🚨 Cảnh Báo & Thống Kê Nổi Bật Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
@@ -793,21 +793,21 @@ if choice == "🏠 Trang chủ":
     while curr_d_loop <= end_m_date:
         df_day_sched = get_active_schedule_for_date(engine, curr_d_loop)
         if not df_day_sched.empty:
-            # Đếm số ngày xuất hiện của từng lớp (group by lop_hoc trên mỗi ngày)
-            for lop_val, group_lop in df_day_sched.groupby('lop_hoc'):
+            # Duyệt theo từng ca học (slot) của từng lớp trên TKB tổng quan trong ngày
+            for (lop_val, ca_val), group_slot in df_day_sched.groupby(['lop_hoc', 'ca_hoc']):
                 if lop_val not in class_shift_counts:
                     class_shift_counts[lop_val] = 0
                 
-                # Kiểm tra xem trong ngày hôm đó, lớp này có học sinh nào mang đuôi học thêm / bù không
-                has_extra_suffix = False
-                for s_name in group_lop['ho_ten']:
-                    s_name_str = str(s_name).strip().lower()
-                    if 'học thêm' in s_name_str or 'bù' in s_name_str or '- học thêm' in s_name_str or '- bù' in s_name_str:
-                        has_extra_suffix = True
+                # Kiểm tra xem trong ca học này có học sinh nào chứa chữ "học thêm" không
+                has_hoc_them = False
+                for s_name in group_slot['ho_ten']:
+                    s_str = str(s_name).lower()
+                    if 'học thêm' in s_str:
+                        has_hoc_them = True
                         break
                 
-                # Nếu ngày đó lớp học diễn ra bình thường (không có học sinh mang đuôi học thêm), tính là 1 ca/buổi xuất hiện trong tháng
-                if not has_extra_suffix:
+                # Nếu ca học đó không chứa học sinh học thêm thì tính là 1 ca cho lớp
+                if not has_hoc_them:
                     class_shift_counts[lop_val] += 1
         curr_d_loop += timedelta(days=1)
 
