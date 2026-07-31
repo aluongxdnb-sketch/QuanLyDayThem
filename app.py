@@ -7,7 +7,6 @@ import json
 import re
 import io
 import textwrap
-import zipfile
 import random
 import calendar
 
@@ -106,7 +105,7 @@ SUC_KHOE_LIST = [
     "❤️ Lời nhắc sức khỏe: Cô là người truyền lửa tuyệt vời, vì vậy hãy luôn trân trọng và yêu thương cơ thể mình thật nhiều cô nhé!"
 ]
 
-# --- HÀM HỖ TRỢ LÀM SẠCH VÀ CHUẨN HÓA NHẬN XÉT (GHI CHÚ ĐẦU, THẺ SAU) ---
+# --- HÀM HỖ TRỢ LÀM SẠCH VÀ CHUẨN HÓA NHẬN XÉT ---
 def clean_nhan_xet(text_input):
     if not text_input:
         return ""
@@ -166,7 +165,7 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM XỬ LÝ GỘP NHÓM HỌC SINH THÔNG MINH (BẮT BUỘC TRÙNG SĐT, LOẠI BỎ TRỐNG) ---
+# --- HÀM XỬ LÝ GỘP NHÓM HỌC SINH THÔNG MINH ---
 def get_base_name(ho_ten):
     name = str(ho_ten).split('(')[0].split('-')[0].strip()
     return name
@@ -196,7 +195,7 @@ def get_family_student_ids(engine, hs_id):
             matched_ids.append(r['id'])
     return list(set(matched_ids))
 
-# --- HÀM LẤY THỜI KHOÁ BIỂU HIỆU LỰC CHO MỘT NGÀY (LỊCH GỐC) ---
+# --- HÀM LẤY THỜI KHÓA BIỂU HIỆU LỰC CHO MỘT NGÀY ---
 def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_them=False):
     target_day_str = get_vietnamese_weekday(check_date)
     where_clause = f"l.thu = '{target_day_str}'"
@@ -491,7 +490,7 @@ def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=
     else:
         st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) ---
+# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ ---
 def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     where_clauses = []
     if filter_lop:
@@ -576,67 +575,37 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
-def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU ---
+def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
-    fig, ax = plt.subplots(figsize=(8, 12 if (has_multiple_components or is_multi) else 10))
+    fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
     ax.axis('off')
     
-    ax.text(0.5, 0.95, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.91, f"Thời gian: {month_year}", fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
-    details = [
-        f"Họ và tên học sinh: {student_name}",
-        f"Lớp / Nhóm học: {lop_hoc}",
-        f"Môn học: {subject}"
-    ]
+    y_pos = 0.81
+    ax.text(0.1, y_pos, f"Họ và tên học sinh: {student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.045
+    ax.text(0.1, y_pos, f"Lớp / Nhóm học: {lop_hoc}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.045
+    ax.text(0.1, y_pos, f"Môn học: {subject}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.05
     
-    y_pos = 0.85
-    for line in details:
-        fontweight = 'bold' if 'Họ và tên' in line else 'normal'
-        ax.text(0.1, y_pos, line, fontsize=11.5, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.045
-        
     if has_multiple_components:
-        ax.text(0.1, y_pos, "Chi tiết học phí các lớp/nhóm:", fontsize=11, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.04
         for sc in sub_components:
-            line_sc = f"• {sc['ten']} (Lớp {sc['lop']}): {sc['so_ca']} ca x {sc['don_gia']:,.0f}đ = {sc['thanh_tien']:,.0f}đ"
-            ax.text(0.12, y_pos, line_sc, fontsize=10, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.038
-            
-    if is_multi and details_list:
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=11, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.04
-        for d in details_list:
-            line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca x {d['don_gia']:,.0f}đ = {d['thanh_tien']:,.0f}đ [{d['trang_thai']}]"
-            ax.text(0.12, y_pos, line_d, fontsize=10, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.038
-    
-    summary_lines = [
-        f"Tổng số ca học: {total_lessons} ca",
-        f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ",
-        f"Trạng thái thanh toán: {status}"
-    ]
-    
-    y_pos -= 0.02
-    for line in summary_lines:
-        fontweight = 'bold' if 'TỔNG CỘNG' in line else 'normal'
-        color = '#B91C1C' if 'TỔNG CỘNG' in line else '#1E293B'
-        ax.text(0.1, y_pos, line, fontsize=11.5, fontweight=fontweight, color=color, transform=ax.transAxes)
-        y_pos -= 0.05
+            line_sc = f"• {sc['ten']}: {sc['so_ca']} ca"
+            ax.text(0.12, y_pos, line_sc, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+            y_pos -= 0.04
+        y_pos -= 0.01
         
-    if qr_path and os.path.exists(qr_path):
-        try:
-            img_arr = plt.imread(qr_path)
-            ax_inset = fig.add_axes([0.35, 0.10, 0.3, 0.3])
-            ax_inset.imshow(img_arr)
-            ax_inset.axis('off')
-            ax.text(0.5, 0.42, "Mã QR Thanh Toán Chuyển Khoản", fontsize=10, fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
-        except Exception:
-            pass
-            
-    ax.text(0.5, 0.03, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
+    ax.text(0.1, y_pos, f"Tổng số ca học: {total_lessons} ca", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.055
+    ax.text(0.1, y_pos, f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#B91C1C', transform=ax.transAxes)
+    y_pos -= 0.055
+    ax.text(0.1, y_pos, f"Trạng thái thanh toán: {status}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    
+    ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
     
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
@@ -658,7 +627,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
         row_max_lines = 1
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
-            if col_idx == 3: # Cột Nhận xét
+            if col_idx == 3:
                 wrapped_text = "\n".join(textwrap.wrap(cell_str, width=35)) if cell_str else ""
                 lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
                 new_row.append(wrapped_text)
@@ -705,14 +674,14 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
-                
+            
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CÓ ĐƯỜNG KẺ ĐẬM PHÂN CÁCH GIỮA CÁC NGÀY) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -740,7 +709,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         row_max_lines = 1
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
-            if col_idx == 4: # Cột Nhận xét
+            if col_idx == 4:
                 wrapped_text = "\n".join(textwrap.wrap(cell_str, width=32)) if cell_str else ""
                 lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
                 new_row.append(wrapped_text)
@@ -786,7 +755,6 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
             else:
                 cell.set_facecolor('white')
 
-    # Vẽ đường kẻ đậm phân cách giữa các ngày khác nhau
     total_rows = len(wrapped_data)
     bbox_left, bbox_bottom, bbox_width, bbox_height = bbox_coords
     for idx in range(1, len(raw_table_data)):
@@ -802,14 +770,14 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
-                
+            
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- KHỞI TẠO BẢNG TRÊN SUPABASE & TỰ ĐỘNG BỔ SUNG CỘT ---
+# --- KHỞI TẠO BẢNG TRÊN SUPABASE ---
 with engine.begin() as conn:
     conn.execute(text('''
         CREATE TABLE IF NOT EXISTS hoc_sinh (
@@ -925,16 +893,6 @@ if st.sidebar.button("🔄 Đồng bộ (Dọn sạch tuần hiện tại & Cậ
             st.sidebar.success(msg_sync)
         else:
             st.sidebar.error(msg_sync)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("📷 Cài đặt Mã QR Thanh Toán")
-qr_file = st.sidebar.file_uploader("Tải lên ảnh Mã QR (VietQR/STK)", type=["png", "jpg", "jpeg"])
-if qr_file is not None:
-    with open("qr_code.png", "wb") as f: f.write(qr_file.getbuffer())
-    st.sidebar.success("✅ Đã lưu mã QR thành công!")
-
-if os.path.exists("qr_code.png"):
-    st.sidebar.image("qr_code.png", caption="Mã QR thanh toán hiện tại", use_container_width=True)
 
 st.sidebar.markdown("---")
 st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và lưu trữ vĩnh viễn trên **Supabase Cloud**.")
@@ -1149,17 +1107,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         
                         with c3:
                             tags_options = [
-                                "chăm chú", 
-                                "có tiến bộ", 
-                                "có giao bài tập mới", 
-                                "không làm bài tập cũ", 
-                                "nói chuyện", 
-                                "chưa tập trung", 
-                                "đã làm hết bài tập cũ", 
-                                "có làm bài tập nhưng chưa đủ", 
-                                "buồn ngủ", 
-                                "chểnh mảng", 
-                                "lơ là học tập"
+                                "chăm chú", "có tiến bộ", "có giao bài tập mới", "không làm bài tập cũ", 
+                                "nói chuyện", "chưa tập trung", "đã làm hết bài tập cũ", "có làm bài tập nhưng chưa đủ", 
+                                "buồn ngủ", "chểnh mảng", "lơ là học tập"
                             ]
                             custom_nx = st.text_input("Ghi chú thêm (Tự viết - hiển thị ở đầu)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Ghi chú riêng sẽ nằm ở đầu...")
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
@@ -1259,17 +1209,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
         '''), engine)
         
         tags_options_global = [
-            "chăm chú", 
-            "có tiến bộ", 
-            "có giao bài tập mới", 
-            "không làm bài tập cũ", 
-            "nói chuyện", 
-            "chưa tập trung", 
-            "đã làm hết bài tập cũ", 
-            "có làm bài tập nhưng chưa đủ", 
-            "buồn ngủ", 
-            "chểnh mảng", 
-            "lơ là học tập"
+            "chăm chú", "có tiến bộ", "có giao bài tập mới", "không làm bài tập cũ", 
+            "nói chuyện", "chưa tập trung", "đã làm hết bài tập cũ", "có làm bài tập nhưng chưa đủ", 
+            "buồn ngủ", "chểnh mảng", "lơ là học tập"
         ]
 
         if not df_logs.empty:
@@ -1482,7 +1424,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
             st.info(f"💡 Không có bản ghi điểm danh nào trong ngày {sel_date_filter.strftime('%d/%m/%Y')}.")
 
     with tab_dd_lich_su:
-        st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh (Từng học sinh hoặc Cả lớp tổng hợp)")
+        st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh")
         
         export_mode_type = st.radio("📌 Chọn phạm vi xuất lịch sử điểm danh:", ["👤 Theo từng học sinh riêng lẻ", "🏫 Theo Cả Lớp học (Tổng hợp các ca)"], horizontal=True, key="export_mode_type_radio")
         
@@ -1603,7 +1545,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         )
 
             else:
-                st.markdown("##### 🏫 Xuất Bảng Điểm Danh Tổng Hợp Cả Lớp (Sắp xếp theo ngày, ca và học sinh)")
+                st.markdown("##### 🏫 Xuất Bảng Điểm Danh Tổng Hợp Cả Lớp")
                 all_lops_export = sorted(df_hs_ls['lop_hoc'].dropna().unique().tolist())
                 if not all_lops_export:
                     st.warning("⚠️ Không có lớp học nào trong hệ thống.")
@@ -1792,7 +1734,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.rerun()
 
     with tab_export:
-        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần (Kiểu Bảng Liệt Kê Mới)")
+        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần")
         df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh"), engine)
 
         if df_hs_all.empty:
@@ -1901,279 +1843,153 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 # --- QUẢN LÝ HỌC PHÍ ---
 # =========================================================
 elif choice == "💳 Quản lý học phí":
-    st.subheader("💳 Quản lý học phí")
+    st.subheader("💳 Quản lý học phí & Xuất Hóa Đơn")
     
-    che_do_xem = st.radio("⏱️ Chọn chế độ xem thống kê:", ["Theo Tháng", "Theo Tuần", "Theo Ngày"], horizontal=True)
+    # Chỉ để chế độ chọn tháng, mặc định là tháng liền trước tháng hiện tại
+    today_dt = date.today()
+    prev_m_dt = today_dt.replace(day=1) - timedelta(days=1)
     
-    combined_df = pd.DataFrame()
-    qr_path = "qr_code.png" if os.path.exists("qr_code.png") else None
+    c_y_hp, c_m_hp = st.columns([1, 2])
+    with c_y_hp:
+        sel_year_hp = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=prev_m_dt.year)
+    with c_m_hp:
+        sel_month_hp = st.selectbox("Chọn Tháng Mốc Quét", list(range(1, 13)), index=prev_m_dt.month - 1, format_func=lambda x: f"Tháng {x}")
+
+    # Xây dựng phạm vi quét 1 năm về trước tính đến tháng được chọn
+    end_target_date = date(sel_year_hp, sel_month_hp, 1)
+    start_window_dt = end_target_date - timedelta(days=365)
+    start_window_str = start_window_dt.strftime("%Y-%m-%d")
     
-    def get_aggregated_tuition_df(raw_df):
-        if raw_df.empty:
-            return raw_df
-            
-        df_hs_meta = pd.read_sql_query(text("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh"), engine)
-        meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'thong_tin_phu_huynh': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_meta.iterrows()}
-        
-        grouped_dict = {}
-        for _, row in raw_df.iterrows():
-            hs_id = row['hoc_sinh_id']
-            so_ca = int(row['Số Ca Có Mặt'])
-            
-            meta = meta_dict.get(hs_id, {'ho_ten': row['Họ và Tên'], 'thong_tin_phu_huynh': ''})
-            base_n = get_base_name(meta['ho_ten'])
-            phone = meta['thong_tin_phu_huynh']
-            
-            if phone and phone.lower() not in ['none', 'nan', '']:
-                group_key = (base_n.lower(), phone)
-            else:
-                group_key = (base_n.lower(), f"id_{hs_id}")
-            
-            if group_key not in grouped_dict:
-                grouped_dict[group_key] = {
-                    'hoc_sinh_id': hs_id,
-                    'family_ids': [hs_id],
-                    'Họ và Tên': base_n,
-                    'Lớp': row['Lớp'],
-                    'Môn Học': row['Môn Học'],
-                    'Đơn Giá/Ca (VNĐ)': row['Đơn Giá/Ca (VNĐ)'],
-                    'Thời gian': row['Thời gian'],
-                    'Số Ca Có Mặt': so_ca,
-                    'Tổng Tiền (VNĐ)': float(row['Tổng Tiền (VNĐ)']),
-                    'Trạng Thái': row['Trạng Thái'],
-                    'is_multi': row.get('is_multi', False),
-                    'details': row.get('details', []),
-                    'sub_components': [] if so_ca == 0 else [{
-                        'ten': row['Họ và Tên'],
-                        'lop': row['Lớp'],
-                        'so_ca': so_ca,
-                        'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
-                    }]
-                }
-            else:
-                g = grouped_dict[group_key]
-                if hs_id not in g['family_ids']:
-                    g['family_ids'].append(hs_id)
-                
-                if so_ca > 0:
-                    g['Số Ca Có Mặt'] += so_ca
-                    g['Tổng Tiền (VNĐ)'] += float(row['Tổng Tiền (VNĐ)'])
-                    if row['Lớp'] not in g['Lớp']:
-                        g['Lớp'] = f"{g['Lớp']}, {row['Lớp']}"
-                    g['sub_components'].append({
-                        'ten': row['Họ và Tên'],
-                        'lop': row['Lớp'],
-                        'so_ca': so_ca,
-                        'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
-                    })
-                    if row['Trạng Thái'] != g['Trạng Thái']:
-                        g['Trạng Thái'] = 'Đóng một phần'
-                        
-        result_rows = []
-        for g in grouped_dict.values():
-            subs = g['sub_components']
-            if len(subs) == 1:
-                g['Họ và Tên'] = subs[0]['ten']
-                g['Lớp'] = subs[0]['lop']
-                g['Đơn Giá/Ca (VNĐ)'] = subs[0]['don_gia']
-            elif len(subs) > 1:
-                g['Lớp'] = ", ".join([s['lop'] for s in subs])
-            result_rows.append(g)
-            
-        return pd.DataFrame(result_rows)
-
-    if che_do_xem == "Theo Tháng":
-        col_y, col_m = st.columns([1, 3])
-        with col_y:
-            nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year)
-        with col_m:
-            selected_thangs = st.multiselect("Chọn Tháng:", list(range(1, 13)), default=[datetime.now().month], format_func=lambda x: f"Tháng {x}")
-        
-        if selected_thangs:
-            if len(selected_thangs) == 1:
-                th = selected_thangs[0]
-                thang_nam_query = f"{nam_selected}-{th:02d}"
-                thang_nam_key = f"{th:02d}/{nam_selected}"
-                
-                q = text(f'''
-                    SELECT 
-                        h.id AS hoc_sinh_id, 
-                        h.ho_ten AS "Họ và Tên", 
-                        h.lop_hoc AS "Lớp", 
-                        h.mon_hoc AS "Môn Học", 
-                        h.hoc_phi_buoi AS "Đơn Giá/Ca (VNĐ)",
-                        '{thang_nam_key}' AS "Thời gian",
-                        SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS "Số Ca Có Mặt",
-                        (SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) * h.hoc_phi_buoi) AS "Tổng Tiền (VNĐ)",
-                        COALESCE(t.trang_thai, 'Chưa đóng') AS "Trạng Thái"
-                    FROM hoc_sinh h
-                    LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{thang_nam_query}'
-                    LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
-                    GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-                ''')
-                raw_df = pd.read_sql_query(q, engine)
-                raw_df['is_multi'] = False
-                raw_df['details'] = [[] for _ in range(len(raw_df))]
-                combined_df = get_aggregated_tuition_df(raw_df)
-            else:
-                df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
-                rows_aggregated = []
-                
-                for _, hs in df_hs_all.iterrows():
-                    hs_id = hs['hoc_sinh_id']
-                    valid_month_details = []
-                    total_ca_agg = 0
-                    total_tien_agg = 0
-                    
-                    for th in sorted(selected_thangs):
-                        thang_nam_query = f"{nam_selected}-{th:02d}"
-                        thang_nam_key = f"{th:02d}/{nam_selected}"
-                        
-                        q_att = text(f'''
-                            SELECT COUNT(*) AS so_ca
-                            FROM diem_danh
-                            WHERE hoc_sinh_id = {hs_id} AND TO_CHAR(ngay, 'YYYY-MM') = '{thang_nam_query}' AND trang_thai = 'Có mặt'
-                        ''')
-                        df_att = pd.read_sql_query(q_att, engine)
-                        so_ca = int(df_att.iloc[0]['so_ca']) if not df_att.empty else 0
-                        
-                        if so_ca == 0:
-                            continue
-                            
-                        q_pay = text(f'''
-                            SELECT trang_thai FROM thanh_toan
-                            WHERE hoc_sinh_id = {hs_id} AND thang_nam = '{thang_nam_key}'
-                        ''')
-                        df_pay = pd.read_sql_query(q_pay, engine)
-                        trang_thai_th = df_pay.iloc[0]['trang_thai'] if not df_pay.empty else 'Chưa đóng'
-                        
-                        thanh_tien = so_ca * hs['Đơn Giá/Ca (VNĐ)']
-                        total_ca_agg += so_ca
-                        total_tien_agg += thanh_tien
-                        
-                        valid_month_details.append({
-                            'thang_key': thang_nam_key,
-                            'so_ca': so_ca,
-                            'don_gia': hs['Đơn Giá/Ca (VNĐ)'],
-                            'thanh_tien': thanh_tien,
-                            'trang_thai': trang_thai_th
-                        })
-                    
-                    if len(valid_month_details) == 0:
-                        continue
-                    elif len(valid_month_details) == 1:
-                        m_info = valid_month_details[0]
-                        rows_aggregated.append({
-                            'hoc_sinh_id': hs_id,
-                            'Họ và Tên': hs['Họ và Tên'],
-                            'Lớp': hs['Lớp'],
-                            'Môn Học': hs['Môn Học'],
-                            'Đơn Giá/Ca (VNĐ)': hs['Đơn Giá/Ca (VNĐ)'],
-                            'Thời gian': m_info['thang_key'],
-                            'Số Ca Có Mặt': m_info['so_ca'],
-                            'Tổng Tiền (VNĐ)': m_info['thanh_tien'],
-                            'Trạng Thái': m_info['trang_thai'],
-                            'is_multi': False,
-                            'details': []
-                        })
-                    else:
-                        status_str_parts = [f"Tháng {d['thang_key']}: {d['trang_thai']}" for d in valid_month_details]
-                        status_combined = ", ".join(status_str_parts)
-                        thangs_str = " - ".join([d['thang_key'] for d in valid_month_details])
-                        
-                        rows_aggregated.append({
-                            'hoc_sinh_id': hs_id,
-                            'Họ và Tên': hs['Họ và Tên'],
-                            'Lớp': hs['Lớp'],
-                            'Môn Học': hs['Môn Học'],
-                            'Đơn Giá/Ca (VNĐ)': hs['Đơn Giá/Ca (VNĐ)'],
-                            'Thời gian': thangs_str,
-                            'Số Ca Có Mặt': total_ca_agg,
-                            'Tổng Tiền (VNĐ)': total_tien_agg,
-                            'Trạng Thái': status_combined,
-                            'is_multi': True,
-                            'details': valid_month_details
-                        })
-                
-                raw_df_multi = pd.DataFrame(rows_aggregated)
-                combined_df = get_aggregated_tuition_df(raw_df_multi)
-
-    elif che_do_xem == "Theo Ngày":
-        ngay_chon = st.date_input("Chọn ngày thống kê:", date.today())
-        ngay_str = ngay_chon.strftime("%Y-%m-%d")
-        thang_nam_key = ngay_chon.strftime("%m/%Y")
-        
-        q = text(f'''
-            SELECT 
-                h.id AS hoc_sinh_id, 
-                h.ho_ten AS "Họ và Tên", 
-                h.lop_hoc AS "Lớp", 
-                h.mon_hoc AS "Môn Học", 
-                h.hoc_phi_buoi AS "Đơn Giá/Ca (VNĐ)",
-                '{ngay_chon.strftime("%d/%m/%Y")}' AS "Thời gian",
-                SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS "Số Ca Có Mặt",
-                (SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) * h.hoc_phi_buoi) AS "Tổng Tiền (VNĐ)",
-                COALESCE(t.trang_thai, 'Chưa đóng') AS "Trạng Thái"
-            FROM hoc_sinh h
-            LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND d.ngay = '{ngay_str}'
-            LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
-            GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-        ''')
-        raw_df = pd.read_sql_query(q, engine)
-        raw_df['is_multi'] = False
-        raw_df['details'] = [[] for _ in range(len(raw_df))]
-        combined_df = get_aggregated_tuition_df(raw_df)
-
+    if sel_month_hp == 12:
+        next_month_dt = date(sel_year_hp + 1, 1, 1)
     else:
-        tuan_chon = st.date_input("Chọn ngày thuộc tuần cần xem:", date.today())
-        start_w = tuan_chon - timedelta(days=tuan_chon.weekday())
-        end_w = start_w + timedelta(days=6)
-        start_str = start_w.strftime("%Y-%m-%d")
-        end_str = end_w.strftime("%Y-%m-%d")
-        thang_nam_key = start_w.strftime("%m/%Y")
+        next_month_dt = date(sel_year_hp, sel_month_hp + 1, 1)
+    end_window_str = (next_month_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # Lấy toàn bộ học sinh
+    df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh"), engine)
+    
+    # Quét tất cả bản ghi điểm danh 'Có mặt' trong cửa sổ 1 năm
+    df_att_window = pd.read_sql_query(text(f'''
+        SELECT d.hoc_sinh_id, d.ngay, TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam
+        FROM diem_danh d
+        WHERE d.trang_thai = 'Có mặt' AND d.ngay >= '{start_window_str}' AND d.ngay <= '{end_window_str}'
+    '''), engine)
+    
+    df_pay_all = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
+    pay_dict = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_pay_all.iterrows()}
+    
+    meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'lop': row['lop_hoc'], 'mon': row['mon_hoc'], 'hp': row['hoc_phi_buoi'], 'phone': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_all.iterrows()}
+    
+    family_groups = {}
+    for _, hs_r in df_hs_all.iterrows():
+        hs_id = hs_r['id']
+        base_n = get_base_name(hs_r['ho_ten'])
+        phone = str(hs_r['thong_tin_phu_huynh']).strip()
+        if phone and phone.lower() not in ['none', 'nan', '']:
+            f_key = (base_n.lower(), phone)
+        else:
+            f_key = (base_n.lower(), f"id_{hs_id}")
+            
+        if f_key not in family_groups:
+            family_groups[f_key] = {
+                'family_name': base_n,
+                'phone': phone,
+                'student_ids': []
+            }
+        family_groups[f_key]['student_ids'].append(hs_id)
+
+    table_rows = []
+    
+    for f_key, f_info in family_groups.items():
+        s_ids = f_info['student_ids']
         
-        st.info(f"📅 Thống kê tuần từ **{start_w.strftime('%d/%m/%Y')}** đến **{end_w.strftime('%d/%m/%Y')}**")
+        unpaid_months_set = set()
+        paid_all = True
+        total_ca_group = 0
+        total_tien_group = 0
         
-        q = text(f'''
-            SELECT 
-                h.id AS hoc_sinh_id, 
-                h.ho_ten AS "Họ và Tên", 
-                h.lop_hoc AS "Lớp", 
-                h.mon_hoc AS "Môn Học", 
-                h.hoc_phi_buoi AS "Đơn Giá/Ca (VNĐ)",
-                'Tuần {start_w.strftime("%d/%m")} - {end_w.strftime("%d/%m")}' AS "Thời gian",
-                SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) AS "Số Ca Có Mặt",
-                (SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END) * h.hoc_phi_buoi) AS "Tổng Tiền (VNĐ)",
-                COALESCE(t.trang_thai, 'Chưa đóng') AS "Trạng Thái"
-            FROM hoc_sinh h
-            LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND d.ngay >= '{start_str}' AND d.ngay <= '{end_str}'
-            LEFT JOIN thanh_toan t ON h.id = t.hoc_sinh_id AND t.thang_nam = '{thang_nam_key}'
-            GROUP BY h.id, h.ho_ten, h.lop_hoc, h.mon_hoc, h.hoc_phi_buoi, t.trang_thai
-        ''')
-        raw_df = pd.read_sql_query(q, engine)
-        raw_df['is_multi'] = False
-        raw_df['details'] = [[] for _ in range(len(raw_df))]
-        combined_df = get_aggregated_tuition_df(raw_df)
+        for hs_id in s_ids:
+            hs_meta = meta_dict[hs_id]
+            df_hs_att = df_att_window[df_att_window['hoc_sinh_id'] == hs_id]
+            if df_hs_att.empty:
+                continue
+                
+            for thang_key, group_th in df_hs_att.groupby('thang_nam'):
+                so_ca_th = len(group_th)
+                pay_st = pay_dict.get((hs_id, thang_key), 'Chưa đóng')
+                if pay_st != 'Đã đóng':
+                    unpaid_months_set.add(thang_key)
+                    paid_all = False
+        
+        # Nếu không có tháng nào nợ, mặc định hiển thị tháng mốc được chọn
+        if not unpaid_months_set:
+            time_str = end_target_date.strftime("%m/%Y")
+            total_ca_group = 0
+            total_tien_group = 0
+            sub_comps_dict = {}
+            for hs_id in s_ids:
+                hs_meta = meta_dict[hs_id]
+                df_hs_m = df_att_window[(df_att_window['hoc_sinh_id'] == hs_id) & (df_att_window['thang_nam'] == time_str)]
+                so_ca_m = len(df_hs_m)
+                if so_ca_m > 0:
+                    total_ca_group += so_ca_m
+                    total_tien_group += so_ca_m * hs_meta['hp']
+                    sub_comps_dict[hs_meta['ho_ten']] = so_ca_m
+            if total_ca_group == 0:
+                continue
+            sub_comps = [{'ten': k, 'so_ca': v} for k, v in sub_comps_dict.items()]
+            status_str = 'Đã đóng'
+        else:
+            def parse_m_y(m_str):
+                m, y = m_str.split('/')
+                return int(y), int(m)
+            sorted_unpaid = sorted(list(unpaid_months_set), key=parse_m_y)
+            if len(sorted_unpaid) == 1:
+                time_str = sorted_unpaid[0]
+            else:
+                time_str = f"{sorted_unpaid[0]} - {sorted_unpaid[-1]}"
+            
+            total_ca_group = 0
+            total_tien_group = 0
+            sub_comps_dict = {}
+            
+            for hs_id in s_ids:
+                hs_meta = meta_dict[hs_id]
+                df_hs_att = df_att_window[(df_att_window['hoc_sinh_id'] == hs_id) & (df_att_window['thang_nam'].isin(unpaid_months_set))]
+                so_ca_hs = len(df_hs_att)
+                if so_ca_hs > 0:
+                    total_ca_group += so_ca_hs
+                    total_tien_group += so_ca_hs * hs_meta['hp']
+                    sub_comps_dict[hs_meta['ho_ten']] = so_ca_hs
+            
+            sub_comps = [{'ten': k, 'so_ca': v} for k, v in sub_comps_dict.items()]
+            status_str = 'Đã đóng' if paid_all else 'Chưa đóng'
 
-    if not combined_df.empty:
-        combined_df['lua_chon_lbl'] = combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
-        all_student_options = sorted(combined_df['lua_chon_lbl'].unique().tolist())
+        rep_hs_id = s_ids[0]
+        rep_meta = meta_dict[rep_hs_id]
+        
+        table_rows.append({
+            'hoc_sinh_id': rep_hs_id,
+            'family_ids': s_ids,
+            'Họ và Tên': rep_meta['ho_ten'],
+            'Lớp': rep_meta['lop'],
+            'Môn Học': rep_meta['mon'],
+            'Thời gian': time_str,
+            'Số Ca Có Mặt': total_ca_group,
+            'Tổng Tiền (VNĐ)': total_tien_group,
+            'Trạng Thái': status_str,
+            'sub_components': sub_comps,
+            'unpaid_months': list(unpaid_months_set) if unpaid_months_set else [end_target_date.strftime("%m/%Y")]
+        })
+
+    df_tuition_final = pd.DataFrame(table_rows)
+    
+    if df_tuition_final.empty:
+        st.info("ℹ️ Không có học sinh nào phát sinh học phí trong khoảng thời gian quét.")
     else:
-        all_student_options = []
-
-    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách (để trống nếu muốn xem tất cả):", options=all_student_options)
-    st.divider()
-
-    if not combined_df.empty and selected_students_filter:
-        combined_df = combined_df[combined_df['lua_chon_lbl'].isin(selected_students_filter)]
-
-    if combined_df.empty:
-        st.info("ℹ️ Không tìm thấy dữ liệu thống kê phù hợp.")
-    else:
-        total_ca_all = combined_df['Số Ca Có Mặt'].sum()
-        total_tien_all = combined_df['Tổng Tiền (VNĐ)'].sum()
+        total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
+        total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
         
         st.markdown("#### 📊 Tổng Hợp Thống Kê Chung")
         c_sum1, c_sum2 = st.columns(2)
@@ -2182,23 +1998,19 @@ elif choice == "💳 Quản lý học phí":
         st.markdown("---")
 
         if HAS_MATPLOTLIB:
-            if st.button("🖼️ Xuất ZIP Hàng Loạt Phiếu Thống Kê / Hóa Đơn", type="primary"):
+            if st.button("🖼️ Xuất ZIP Hàng Loạt Hóa Đơn Học Phí", type="primary"):
                 zip_buffer_f = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
-                    for _, row_fee in combined_df.iterrows():
+                    for _, row_fee in df_tuition_final.iterrows():
                         img_fee_b = create_tuition_slip_image(
                             student_name=row_fee['Họ và Tên'],
                             lop_hoc=row_fee['Lớp'],
-                            subject=row_fee['Môn Học'] or 'Chung',
-                            price_per_lesson=row_fee['Đơn Giá/Ca (VNĐ)'],
-                            month_year=row_fee['Thời gian'],
+                            subject=row_fee['Môn Học'] or 'Toán',
+                            time_str=row_fee['Thời gian'],
                             total_lessons=row_fee['Số Ca Có Mặt'],
                             total_fee=row_fee['Tổng Tiền (VNĐ)'],
                             status=row_fee['Trạng Thái'],
-                            qr_path=qr_path,
-                            is_multi=row_fee.get('is_multi', False),
-                            details_list=row_fee.get('details', []),
-                            sub_components=row_fee.get('sub_components', [])
+                            sub_components=row_fee['sub_components']
                         )
                         safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
                         safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
@@ -2207,76 +2019,50 @@ elif choice == "💳 Quản lý học phí":
                 st.download_button(
                     label="🖼️ Bấm Tải Xuống File ZIP Hóa Đơn",
                     data=zip_buffer_f,
-                    file_name=f"Tong_Hop_Thong_Ke_{datetime.now().strftime('%Y%m%d')}.zip",
+                    file_name=f"Tong_Hop_Thong_Ke_Hoc_Phi_{datetime.now().strftime('%Y%m%d')}.zip",
                     mime="application/zip",
                     type="primary",
                     key="btn_download_zip_fee"
                 )
             st.divider()
 
-        for idx, row in combined_df.iterrows():
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([2.2, 1.2, 1.2, 1.2, 1.5, 1.8, 1.8])
+        for idx, row in df_tuition_final.iterrows():
+            c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8])
             c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
             c2.write(f"{row['Số Ca Có Mặt']} ca")
-            avg_price = row['Tổng Tiền (VNĐ)'] / row['Số Ca Có Mặt'] if row['Số Ca Có Mặt'] > 0 else row['Đơn Giá/Ca (VNĐ)']
-            c3.write(f"{avg_price:,.0f} đ (tb)")
-            c4.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
+            c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
             
-            is_multi = row.get('is_multi', False)
-            details_list = row.get('details', [])
-            family_ids = row.get('family_ids', [row['hoc_sinh_id']])
+            is_paid = (row['Trạng Thái'] == 'Đã đóng')
+            c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
+            btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
             
-            if is_multi:
-                all_paid = all(d['trang_thai'] == 'Đã đóng' for d in details_list)
-                c5.write("🟢 Đã đóng tất cả" if all_paid else ("🟡 Đóng một phần" if any(d['trang_thai'] == 'Đã đóng' for d in details_list) else "🔴 Chưa đóng"))
-                btn_lbl = "Xác nhận Đã đóng tất cả" if not all_paid else "Chuyển Chưa đóng tất cả"
-            else:
-                is_paid = (row['Trạng Thái'] == 'Đã đóng')
-                c5.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
-                btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
+            if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
+                new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
+                t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
+                months_to_update = row['unpaid_months']
                 
-            if c6.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
-                if is_multi:
-                    new_stt = 'Chưa đóng' if all_paid else 'Đã đóng'
-                    t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
-                    with engine.begin() as conn:
-                        for fid in family_ids:
-                            for d in details_list:
-                                conn.execute(text('''
-                                    INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
-                                    VALUES (:hs_id, :thang, :stt, :ngay)
-                                    ON CONFLICT (hoc_sinh_id, thang_nam) 
-                                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                                '''), {"hs_id": fid, "thang": d['thang_key'], "stt": new_stt, "ngay": t_str})
-                else:
-                    new_stt = 'Chưa đóng' if (row['Trạng Thái'] == 'Đã đóng') else 'Đã đóng'
-                    t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
-                    thang_nam_key_save = row['Thời gian'] if '/' in str(row['Thời gian']) and len(str(row['Thời gian'])) <= 7 else datetime.now().strftime("%m/%Y")
-                    with engine.begin() as conn:
-                        for fid in family_ids:
+                with engine.begin() as conn:
+                    for fid in row['family_ids']:
+                        for m_str in months_to_update:
                             conn.execute(text('''
                                 INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
                                 VALUES (:hs_id, :thang, :stt, :ngay)
                                 ON CONFLICT (hoc_sinh_id, thang_nam) 
                                 DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                            '''), {"hs_id": fid, "thang": thang_nam_key_save, "stt": new_stt, "ngay": t_str})
+                            '''), {"hs_id": fid, "thang": m_str, "stt": new_stt, "ngay": t_str})
                 st.rerun()
 
-            with c7:
+            with c6:
                 if HAS_MATPLOTLIB:
                     img_bytes = create_tuition_slip_image(
                         student_name=row['Họ và Tên'],
                         lop_hoc=row['Lớp'],
-                        subject=row['Môn Học'] or 'Chung',
-                        price_per_lesson=avg_price,
-                        month_year=row['Thời gian'],
+                        subject=row['Môn Học'] or 'Toán',
+                        time_str=row['Thời gian'],
                         total_lessons=row['Số Ca Có Mặt'],
                         total_fee=row['Tổng Tiền (VNĐ)'],
                         status=row['Trạng Thái'],
-                        qr_path=qr_path,
-                        is_multi=is_multi,
-                        details_list=details_list,
-                        sub_components=row.get('sub_components', [])
+                        sub_components=row['sub_components']
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
                     safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
