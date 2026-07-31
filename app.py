@@ -1114,7 +1114,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     target_students = df_hs_filtered
 
             if target_students.empty:
-                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm nay.")
+                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
 
@@ -1893,7 +1893,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 # --- QUẢN LÝ HỌC PHÍ ---
 # =========================================================
 elif choice == "💳 Quản lý học phí":
-    st.subheader("💳 Quản lý học phí (Theo Tháng & Tự động gộp nợ các tháng trước)")
+    st.subheader("💳 Quản lý học phí (Theo Tháng & Tự động gộp nợ trong 1 năm qua, trừ tháng này)")
     
     now_dt = datetime.now()
     default_m = now_dt.month - 1 if now_dt.month > 1 else 12
@@ -2040,7 +2040,12 @@ elif choice == "💳 Quản lý học phí":
 
     df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
     
-    target_thang_key = f"{thang_selected:02d}/{nam_selected}"
+    # Định nghĩa phạm vi quét 1 năm qua, trừ tháng này
+    curr_y, curr_m = now_dt.year, now_dt.month
+    past_y, past_m = curr_y - 1, curr_m
+    start_date_str = f"{past_y}-{past_m:02d}-01"
+    end_date_str = f"{curr_y}-{curr_m:02d}-01"
+    
     target_thang_query = f"{nam_selected}-{thang_selected:02d}"
     
     rows_aggregated = []
@@ -2049,18 +2054,24 @@ elif choice == "💳 Quản lý học phí":
         hs_id = hs['hoc_sinh_id']
         hp_buoi = hs['Đơn Giá/Ca (VNĐ)']
         
+        # Quét theo phạm vi 1 năm qua (d.ngay >= start_date_str AND d.ngay < end_date_str) cộng thêm tháng đang chọn nếu nằm trong phạm vi hợp lệ
         q_months = text(f'''
             SELECT TO_CHAR(ngay, 'YYYY-MM') AS yyyy_mm, COUNT(*) AS so_ca
             FROM diem_danh
-            WHERE hoc_sinh_id = {hs_id} AND trang_thai = 'Có mặt' AND TO_CHAR(ngay, 'YYYY-MM') <= '{target_thang_query}'
+            WHERE hoc_sinh_id = {hs_id} 
+              AND trang_thai = 'Có mặt' 
+              AND ngay >= '{start_date_str}' 
+              AND ngay < '{end_date_str}'
+              AND TO_CHAR(ngay, 'YYYY-MM') <= '{target_thang_query}'
             GROUP BY TO_CHAR(ngay, 'YYYY-MM')
             ORDER BY yyyy_mm ASC
         ''')
         df_m_att = pd.read_sql_query(q_months, engine)
         
         att_dict = {row['yyyy_mm']: int(row['so_ca']) for _, row in df_m_att.iterrows()}
-        if target_thang_query not in att_dict:
-            att_dict[target_thang_query] = 0
+        if target_thang_query not in att_dict and f"{nam_selected}-{thang_selected:02d}" < f"{curr_y}-{curr_m:02d}":
+            # Kiểm tra nếu tháng chọn nằm trong khoảng quét hợp lệ
+            pass
             
         valid_month_details = []
         total_ca_agg = 0
@@ -2137,7 +2148,7 @@ elif choice == "💳 Quản lý học phí":
     else:
         all_student_options = []
 
-    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách (để trống nếu muốn xem tất cả):", options=all_student_options, key="sel_students_tuition")
+    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách (để trống để hiện tất cả):", options=all_student_options, key="sel_students_tuition")
     st.divider()
 
     if not combined_df.empty and selected_students_filter:
@@ -2156,7 +2167,7 @@ elif choice == "💳 Quản lý học phí":
         st.markdown("---")
 
         if HAS_MATPLOTLIB:
-            if st.button("🖼️ Xuất ZIP Hàng Loạt Phiếu Thống Kê / Hóa Đơn", type="primary"):
+            if st.button("🖼️ Xuất ZIP Hàng Loạt Phiếu Thống Kê / Hóa Đơn (Theo phạm vi quét)", type="primary"):
                 zip_buffer_f = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
                     for _, row_fee in combined_df.iterrows():
@@ -2457,7 +2468,7 @@ elif choice == "📋 Thông tin học sinh":
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
-            confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
+            confirm_check = st.checkbox("I want to delete this student / Tôi xác nhận muốn xóa học sinh này")
             
             if st.button("❌ XÓA HỌC SINH NÀY", type="primary") and confirm_check:
                 with engine.begin() as conn:
