@@ -1895,11 +1895,15 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 elif choice == "💳 Quản lý học phí":
     st.subheader("💳 Quản lý học phí (Theo Tháng & Tự động gộp nợ các tháng trước)")
     
+    now_dt = datetime.now()
+    default_m = now_dt.month - 1 if now_dt.month > 1 else 12
+    default_y = now_dt.year if now_dt.month > 1 else now_dt.year - 1
+    
     col_y, col_m = st.columns([1, 2])
     with col_y:
-        nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year)
+        nam_selected = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=default_y)
     with col_m:
-        thang_selected = st.selectbox("Chọn Tháng xuất hóa đơn:", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}")
+        thang_selected = st.selectbox("Chọn Tháng xuất hóa đơn:", list(range(1, 13)), index=default_m - 1, format_func=lambda x: f"Tháng {x}")
     
     qr_path = "qr_code.png" if os.path.exists("qr_code.png") else None
     
@@ -2034,7 +2038,6 @@ elif choice == "💳 Quản lý học phí":
             
         return pd.DataFrame(result_rows)
 
-    # Logic xuất hóa đơn tháng chọn + tự động quét các tháng nợ trước đó chưa đóng
     df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
     
     target_thang_key = f"{thang_selected:02d}/{nam_selected}"
@@ -2110,13 +2113,14 @@ elif choice == "💳 Quản lý học phí":
                 'details': []
             })
         else:
+            time_range_str = f"{valid_month_details[0]['thang_key']} - {valid_month_details[-1]['thang_key']}"
             rows_aggregated.append({
                 'hoc_sinh_id': hs_id,
                 'Họ và Tên': hs['Họ và Tên'],
                 'Lớp': hs['Lớp'],
                 'Môn Học': hs['Môn Học'],
                 'Đơn Giá/Ca (VNĐ)': hp_buoi,
-                'Thời gian': target_thang_key,
+                'Thời gian': time_range_str,
                 'Số Ca Có Mặt': total_ca_agg,
                 'Tổng Tiền (VNĐ)': total_tien_agg,
                 'Trạng Thái': 'Chưa đóng',
@@ -2133,18 +2137,14 @@ elif choice == "💳 Quản lý học phí":
     else:
         all_student_options = []
 
-    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách:", options=all_student_options, key="sel_students_tuition")
+    selected_students_filter = st.multiselect("🔍 Chọn học sinh từ danh sách (để trống nếu muốn xem tất cả):", options=all_student_options, key="sel_students_tuition")
     st.divider()
 
-    # Chỉ khi chọn học sinh thì danh sách mới hiển thị ra
-    if not selected_students_filter:
-        st.info("💡 Vui lòng chọn ít nhất một học sinh từ danh sách bên trên để hiển thị thông tin học phí.")
-        combined_df = pd.DataFrame()
-    else:
+    if not combined_df.empty and selected_students_filter:
         combined_df = combined_df[combined_df['lua_chon_lbl'].isin(selected_students_filter)]
 
     if combined_df.empty:
-        st.info("ℹ️ Không tìm thấy dữ liệu thống kê phù hợp cho học sinh đã chọn.")
+        st.info("ℹ️ Không tìm thấy dữ liệu thống kê phù hợp.")
     else:
         total_ca_all = combined_df['Số Ca Có Mặt'].sum()
         total_tien_all = combined_df['Tổng Tiền (VNĐ)'].sum()
@@ -2242,7 +2242,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ and Tên'] if 'Họ and Tên' in row else row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
