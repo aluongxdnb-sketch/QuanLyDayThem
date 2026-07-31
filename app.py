@@ -91,7 +91,7 @@ SUC_KHOE_LIST = [
     "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
     "✍️ Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
     "💤 Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
-    "☀️ Lời nhắc sức khỏe: Đ đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
     "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
@@ -139,7 +139,6 @@ def get_family_student_ids(engine, hs_id):
     curr_name = df_curr.iloc[0]['ho_ten']
     curr_phone = str(df_curr.iloc[0]['thong_tin_phu_huynh']).strip()
     
-    # Nếu để trống số điện thoại thì không gộp, chỉ trả về chính ID đó
     if not curr_phone or curr_phone.lower() in ['none', 'nan', '']:
         return [hs_id]
         
@@ -449,7 +448,7 @@ def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=
     else:
         st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) ---
+# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) - ĐÃ SỬA LỖI KEYERROR ---
 def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     where_clauses = []
     if filter_lop:
@@ -476,7 +475,8 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     
     thu_order = {"Thứ 2": 1, "Thứ 3": 2, "Thứ 4": 3, "Thứ 5": 4, "Thứ 6": 5, "Thứ 7": 6, "Chủ Nhật": 7}
     df['thu_rank'] = df['thu'].map(lambda x: thu_order.get(x, 8))
-    df = df.sort_values(by=['thu_rank', 'ca_hoc']).drop(columns=['thu_rank']).drop(columns=[c for c in df.columns if c not in ['thu', 'ca_hoc']]).drop_duplicates().reset_index(drop=True)
+    df = df.sort_values(by=['thu_rank', 'ca_hoc'])
+    df = df[['thu', 'ca_hoc']].drop_duplicates().reset_index(drop=True)
     df.columns = ['Thứ', 'Ca học']
     return df
 
@@ -2353,7 +2353,7 @@ elif choice == "📋 Thông tin học sinh":
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
-            confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
+            confirm_check = st.checkbox("I want to delete this student")
             
             if st.button("❌ XÓA HỌC SINH NÀY", type="primary") and confirm_check:
                 with engine.begin() as conn:
