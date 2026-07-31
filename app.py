@@ -42,7 +42,7 @@ DANH_SACH_CA_MAU = [
 THONG_DIEP_LIST = [
     "🌟 'Thất bại chỉ là cơ hội để bắt đầu lại một cách thông minh hơn.' Cố lên các em nhé!",
     "📖 'Không có con đường nào là bằng phẳng nếu thiếu đi những bước chân kiên trì.'",
-    "💡 'Mỗi cuốn sách bạn đọc hôm nhau là một mảnh ghép cho tương lai ngày mai.'",
+    "💡 'Mỗi cuốn sách bạn đọc hôm nay là một mảnh ghép cho tương lai ngày mai.'",
     "🌱 'Sự chăm chỉ đánh bại thiên tài khi thiên tài không chịu chăm chỉ.'",
     "✨ 'Tương lai được xây dựng bởi những gì bạn làm hôm nay, chứ không phải ngày mai.'",
     "🎯 'Kiến thức là kho báu mà người chủ sở hữu luôn giữ được nó an toàn nhất.'",
@@ -705,7 +705,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ KHẮC PHỤC LỖI CHỒNG CHỮ & HOÀN TRẢ MẪU GỐC) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ KHẮC PHỤC LỖI TRÀN CHỮ / CHỒNG CHÉO) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -731,8 +731,8 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         new_row = []
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
-            if col_idx == 4:
-                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=28)) if cell_str else ""
+            if col_idx == 4: # Cột Nhận xét
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=25)) if cell_str else ""
                 new_row.append(wrapped_text)
             else:
                 new_row.append(cell_str)
@@ -749,8 +749,10 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.text(0.5, 0.85, f"({time_label})", transform=fig.transFigure, 
             fontsize=9.5, style='italic', color='#475569', ha='center', va='center')
     
-    bbox_coords = [0.04, 0.12, 0.92, 0.70]
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.16, 0.18, 0.22, 0.14, 0.30], bbox=bbox_coords)
+    # Cân đối lại tỷ lệ bề rộng các cột để cột "Trạng thái" đủ chỗ, không bị đè chữ
+    bbox_coords = [0.03, 0.12, 0.94, 0.70]
+    col_widths_ratio = [0.15, 0.18, 0.22, 0.18, 0.27]
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=col_widths_ratio, bbox=bbox_coords)
     table.auto_set_font_size(False)
     table.set_fontsize(8.5)
     
@@ -1632,7 +1634,7 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         
                         thang_nam_q_cls = f"{nam_cls_exp}-{thang_cls_exp:02d}"
                         time_label_cls = f"Tháng {thang_cls_exp:02d}/{nam_cls_exp}"
-                        file_suffix = f"Thang_{thang_cls_exp}_{nam_cls_exp}"
+                        file_suffix = f"Tháng_{thang_cls_exp}_{nam_cls_exp}"
                         
                         df_cls_history_final = pd.read_sql_query(text(f'''
                             SELECT 
@@ -2176,7 +2178,7 @@ elif choice == "💳 Quản lý học phí":
     combined_df = get_aggregated_tuition_df(raw_df_monthly, engine, [thang_selected])
 
     if not combined_df.empty:
-        combined_df['lua_chon_lbl'] = combined_df['Họ and Tên'] + " [" + combined_df['Lớp'] + "]" if 'Họ and Tên' in combined_df.columns else combined_df['Họ and Tên'] + " [" + combined_df['Lớp'] + "]"
+        combined_df['lua_chon_lbl'] = combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]" if 'Họ and Tên' in combined_df.columns else combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
         all_student_options = sorted(combined_df['lua_chon_lbl'].unique().tolist())
     else:
         all_student_options = []
