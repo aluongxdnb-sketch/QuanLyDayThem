@@ -524,7 +524,7 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN MẪU MỚI KHỚP ẢNH MẪU) ---
 def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: ", ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -576,7 +576,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5 ĐÚNG MẪU ẢNH MỚI NHẤT) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (GIỮ NGUYÊN CHUẨN A5 ĐÃ HOÀN THIỆN) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(5.83, 8.27))
@@ -645,7 +645,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN MỚI GIỐNG ẢNH MẪU) ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     wrapped_data = []
     max_lines_overall = 1
@@ -673,11 +673,14 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.94, "LỊCH SỬ ĐIỂM DANH & NHẬN XÉT HỌC SINH", fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.90, f"Học sinh: {student_name} - Lớp: {lop_hoc} ({month_year})", fontsize=11, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.86, f"Tổng số buổi đi học (Có mặt): {total_present} buổi", fontsize=10, fontweight='bold', color='#B91C1C', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.92, "LỊCH SỬ ĐIỂM DANH & NHẬN XÉT HỌC SINH", transform=fig.transFigure, 
+            fontsize=14, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.87, f"Học sinh: {student_name} - Lớp: {lop_hoc}", transform=fig.transFigure, 
+            fontsize=11, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.83, f"({month_year}) - Tổng số buổi đi học (Có mặt): {total_present} buổi", transform=fig.transFigure, 
+            fontsize=9.5, style='italic', color='#475569', ha='center', va='center')
     
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.05, 0.12, 0.9, 0.70])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.05, 0.12, 0.9, 0.67])
     table.auto_set_font_size(False)
     table.set_fontsize(9)
     
@@ -695,17 +698,17 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
                 cell.set_facecolor('white')
 
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.015), 0.96, 0.97, transform=fig.transFigure,
+    rect = Rectangle((0.02, 0.02), 0.96, 0.96, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
-                
+            
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN HỆ THỐNG KHỚP 100% ẢNH MẪU ĐÍNH KÈM) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -752,14 +755,14 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.93, "BẢNG TỔNG HỢP ĐIỂM DANH CẢ LỚP", transform=fig.transFigure, 
-            fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.89, f"Lớp: {class_name}", transform=fig.transFigure, 
-            fontsize=11, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.85, f"({time_label})", transform=fig.transFigure, 
+    ax.text(0.5, 0.92, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
+            fontsize=14, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.87, f"Lớp: {class_name}", transform=fig.transFigure, 
+            fontsize=11.5, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.83, f"({time_label})", transform=fig.transFigure, 
             fontsize=9.5, style='italic', color='#475569', ha='center', va='center')
     
-    bbox_coords = [0.04, 0.12, 0.92, 0.70]
+    bbox_coords = [0.04, 0.12, 0.92, 0.67]
     table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.16, 0.18, 0.22, 0.14, 0.30], bbox=bbox_coords)
     table.auto_set_font_size(False)
     table.set_fontsize(8.5)
@@ -791,10 +794,10 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
                 ax.plot([bbox_left, bbox_left + bbox_width], [y, y], transform=ax.transAxes, color='#1E3A8A', linewidth=1.5, zorder=15)
 
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.015), 0.96, 0.97, transform=fig.transFigure,
+    rect = Rectangle((0.02, 0.02), 0.96, 0.96, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
-                
+            
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
     plt.close(fig)
@@ -950,7 +953,6 @@ if choice == "🏠 Trang chủ":
     
     df_today = get_active_schedule_for_date(engine, today)
     
-    # Trang chủ: Phạm vi quét 1 năm qua, TRỪ THÁNG NÀY
     curr_y, curr_m = today.year, today.month
     past_y, past_m = curr_y - 1, curr_m
     start_date_str = f"{past_y}-{past_m:02d}-01"
@@ -1959,7 +1961,7 @@ elif choice == "💳 Quản lý học phí":
                 g['Số Ca Có Mặt'] += so_ca
                 g['Tổng Tiền (VNĐ)'] += float(row['Tổng Tiền (VNĐ)'])
                 
-                sub_comp_name = row['Họ và Tên'] if 'Họ và Tên' in row else meta['ho_ten']
+                sub_comp_name = row['Họ và Tên'] if 'Họ and Tên' in row else meta['ho_ten']
                 found_sc = False
                 for sc in g['sub_components']:
                     if sc['ten'] == sub_comp_name:
@@ -2041,7 +2043,6 @@ elif choice == "💳 Quản lý học phí":
 
     df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
     
-    # Quản lý học phí & file ZIP: Phạm vi quét 1 năm qua, KHÔNG TRỪ THÁNG NÀY (bao gồm cả tháng hiện tại)
     curr_y, curr_m = now_dt.year, now_dt.month
     past_y, past_m = curr_y - 1, curr_m
     start_date_fee_str = f"{past_y}-{past_m:02d}-01"
@@ -2257,7 +2258,7 @@ elif choice == "💳 Quản lý học phí":
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
                     safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
-                        label="🖼️ Tải Ảnh Phiếu",
+                        label=f"🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
                         file_name=f"Phieu_{safe_n_fee}.png",
                         mime="application/png",
