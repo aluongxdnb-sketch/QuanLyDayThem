@@ -219,91 +219,6 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_th
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM ĐỒNG BỘ TỰ ĐỘNG KHI SANG TUẦN MỚI ---
-def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
-    if ref_date is None:
-        ref_date = date.today()
-        
-    start_monday = ref_date - timedelta(days=ref_date.weekday())
-    end_sunday = start_monday + timedelta(days=6)
-
-    try:
-        from google.oauth2.service_account import Credentials
-        from googleapiclient.discovery import build
-    except ImportError:
-        return False, "⚠️ Chưa cài đặt thư viện Google trong requirements.txt"
-
-    try:
-        scopes = ['https://www.googleapis.com/auth/calendar']
-        creds_info = json.loads(st.secrets["GOOGLE_CREDENTIALS_JSON"])
-        creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
-        service = build('calendar', 'v3', credentials=creds)
-
-        time_min = f"{start_monday.strftime('%Y-%m-%d')}T00:00:00Z"
-        time_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
-
-        events_result = service.events().list(
-            calendarId=calendar_id, 
-            timeMin=time_min, 
-            timeMax=time_max, 
-            singleEvents=True
-        ).execute()
-
-        old_events = events_result.get('items', [])
-        for evt in old_events:
-            summary_evt = evt.get('summary', '')
-            if summary_evt.startswith("🏫 Dạy Thêm Ca") or summary_evt.startswith("📚 Lớp"):
-                try:
-                    service.events().delete(calendarId=calendar_id, eventId=evt['id']).execute()
-                except Exception:
-                    pass
-
-        count_events = 0
-        ca_hoc_time = {
-            "7h00 - 9h00": ("07:00:00", "09:00:00"),
-            "9h00 - 11h00": ("09:00:00", "11:00:00"),
-            "13h30 - 15h30": ("13:30:00", "15:30:00"),
-            "14h00 - 16h00": ("14:00:00", "16:00:00"),
-            "15h30 - 17h30": ("15:30:00", "17:30:00"),
-            "17h30 - 19h30": ("17:30:00", "19:30:00"),
-            "19h30 - 21h30": ("19:30:00", "21:30:00")
-        }
-
-        for i in range(7):
-            current_date = start_monday + timedelta(days=i)
-            df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=True)
-
-            if df_day.empty:
-                continue
-
-            date_str = current_date.strftime("%Y-%m-%d")
-
-            for ca, group_ca in df_day.groupby('ca_hoc'):
-                start_time_str, end_time_str = ca_hoc_time.get(ca, ("17:30:00", "19:30:00"))
-                start_datetime = f"{date_str}T{start_time_str}+07:00"
-                end_datetime = f"{date_str}T{end_time_str}+07:00"
-
-                for lop, g_lop in group_ca.groupby('lop_hoc'):
-                    ds_hs = ", ".join(g_lop['ho_ten'].tolist())
-                    so_luong_hs = len(g_lop)
-                    
-                    summary_title = f"📚 Lớp {lop} ({ca}) - {so_luong_hs} HS"
-                    description_text = f"⏰ Giờ học: {ca}\n🏫 Lớp: {lop}\n👥 Số học sinh: {so_luong_hs}\n\nDANH SÁCH HỌC SINH:\n• {ds_hs}"
-
-                    event = {
-                        'summary': summary_title,
-                        'description': description_text,
-                        'start': {'dateTime': start_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
-                        'end': {'dateTime': end_datetime, 'timeZone': 'Asia/Ho_Chi_Minh'},
-                    }
-
-                    service.events().insert(calendarId=calendar_id, body=event).execute()
-                    count_events += 1
-
-        return True, f"✅ Đã đồng bộ tuần từ {start_monday.strftime('%d/%m')} đến {end_sunday.strftime('%d/%m/%Y')} ({count_events} sự kiện)!"
-    except Exception as e:
-        return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
-
 # --- HÀM ĐỒNG BỘ THỦ CÔNG ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
@@ -860,12 +775,6 @@ def check_password():
 
 if not check_password():
     st.stop()
-
-current_monday_str = (date.today() - timedelta(days=date.today().weekday())).strftime('%Y-%m-%d')
-if "last_synced_monday" not in st.session_state or st.session_state.last_synced_monday != current_monday_str:
-    with st.spinner("🔄 Đang tự động cập nhật thời khóa biểu tuần mới lên iPhone..."):
-        _, _ = sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date=date.today())
-    st.session_state.last_synced_monday = current_monday_str
 
 # --- GIAO DIỆN CHÍNH (ADMIN) ---
 st.title("📚 Phần Mềm Quản Lý Dạy Thêm")
