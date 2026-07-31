@@ -524,7 +524,7 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN A5, SÁT MÉP) ---
 def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: ", ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -539,7 +539,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     ax.axis('tight')
     
     col_widths = [0.4, 0.6]
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.1, 0.22, 0.8, 0.53])
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.08, 0.22, 0.84, 0.53])
     table.auto_set_font_size(False)
     table.set_fontsize(11)
     
@@ -552,8 +552,9 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     ax.text(0.5, 0.08, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", transform=fig.transFigure, 
             fontsize=8.5, style='italic', color='#64748B', ha='center', va='center')
 
+    # Viền sát mép giấy
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.02), 0.96, 0.96, transform=fig.transFigure,
+    rect = Rectangle((0.01, 0.01), 0.98, 0.98, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
     
@@ -571,12 +572,12 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
                 cell.set_facecolor('white')
                 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.02, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5 ĐÚNG MẪU ẢNH MỚI NHẤT) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5, SÁT MÉP) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(5.83, 8.27))
@@ -594,14 +595,14 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     y_pos = 0.80
     for line in details:
         fontweight = 'bold' if 'Họ và tên' in line else 'normal'
-        ax.text(0.1, y_pos, line, fontsize=11, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
+        ax.text(0.08, y_pos, line, fontsize=11, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
         y_pos -= 0.048
         
     if has_multiple_components:
         for sc in sub_components:
             if sc['so_ca'] > 0:
                 line_sc = f"• {sc['ten']}: {sc['so_ca']} ca"
-                ax.text(0.12, y_pos, line_sc, fontsize=10.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+                ax.text(0.1, y_pos, line_sc, fontsize=10.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
                 y_pos -= 0.045
         y_pos -= 0.01
 
@@ -613,39 +614,40 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     for line in summary_lines:
         fontweight = 'bold' if 'TỔNG CỘNG' in line else 'normal'
         color = '#B91C1C' if 'TỔNG CỘNG' in line else '#1E293B'
-        ax.text(0.1, y_pos, line, fontsize=11, fontweight=fontweight, color=color, transform=ax.transAxes)
+        ax.text(0.08, y_pos, line, fontsize=11, fontweight=fontweight, color=color, transform=ax.transAxes)
         y_pos -= 0.052
         
     status_text = f"Trạng thái thanh toán: {status}"
-    wrapped_status = textwrap.wrap(status_text, width=52)
+    wrapped_status = textwrap.wrap(status_text, width=55)
     for s_line in wrapped_status:
-        ax.text(0.1, y_pos, s_line, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+        ax.text(0.08, y_pos, s_line, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
         y_pos -= 0.045
         
     if qr_path and os.path.exists(qr_path):
         try:
             img_arr = plt.imread(qr_path)
-            ax_inset = fig.add_axes([0.35, 0.08, 0.28, 0.28])
+            ax_inset = fig.add_axes([0.35, 0.06, 0.28, 0.28])
             ax_inset.imshow(img_arr)
             ax_inset.axis('off')
-            ax.text(0.5, 0.38, "Mã QR Thanh Toán Chuyển Khoản", fontsize=9, fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
+            ax.text(0.5, 0.36, "Mã QR Thanh Toán Chuyển Khoản", fontsize=9, fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
         except Exception:
             pass
             
-    ax.text(0.5, 0.025, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
+    ax.text(0.5, 0.02, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
     
+    # Viền sát mép giấy
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.015), 0.96, 0.97, transform=fig.transFigure,
+    rect = Rectangle((0.01, 0.01), 0.98, 0.98, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.02, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN A5, SÁT MÉP) ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     wrapped_data = []
     max_lines_overall = 1
@@ -677,7 +679,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     ax.text(0.5, 0.90, f"Học sinh: {student_name} - Lớp: {lop_hoc} ({month_year})", fontsize=11, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.86, f"Tổng số buổi đi học (Có mặt): {total_present} buổi", fontsize=10, fontweight='bold', color='#B91C1C', ha='center', va='center', transform=ax.transAxes)
     
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.05, 0.12, 0.9, 0.70])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.03, 0.10, 0.94, 0.73])
     table.auto_set_font_size(False)
     table.set_fontsize(9)
     
@@ -694,18 +696,19 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
             else:
                 cell.set_facecolor('white')
 
+    # Viền sát mép giấy
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.015), 0.96, 0.97, transform=fig.transFigure,
+    rect = Rectangle((0.01, 0.01), 0.98, 0.98, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
                 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.02, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN A5, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN A5, SÁT MÉP) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -759,7 +762,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.text(0.5, 0.85, f"({time_label})", transform=fig.transFigure, 
             fontsize=9.5, style='italic', color='#475569', ha='center', va='center')
     
-    bbox_coords = [0.04, 0.12, 0.92, 0.70]
+    bbox_coords = [0.02, 0.10, 0.96, 0.73]
     table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.16, 0.18, 0.22, 0.14, 0.30], bbox=bbox_coords)
     table.auto_set_font_size(False)
     table.set_fontsize(8.5)
@@ -790,13 +793,14 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
                 y = bbox_bottom + bbox_height * (1.0 - (table_row_idx + 1) / total_rows)
                 ax.plot([bbox_left, bbox_left + bbox_width], [y, y], transform=ax.transAxes, color='#1E3A8A', linewidth=1.5, zorder=15)
 
+    # Viền sát mép giấy
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.02, 0.015), 0.96, 0.97, transform=fig.transFigure,
+    rect = Rectangle((0.01, 0.01), 0.98, 0.98, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
                 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.02, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
@@ -2145,7 +2149,7 @@ elif choice == "💳 Quản lý học phí":
     combined_df = get_aggregated_tuition_df(raw_df_monthly, engine, [thang_selected])
 
     if not combined_df.empty:
-        combined_df['lua_chon_lbl'] = combined_df['Họ and Tên'] + " [" + combined_df['Lớp'] + "]" if 'Họ and Tên' in combined_df.columns else combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
+        combined_df['lua_chon_lbl'] = combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]" if 'Họ và Tên' in combined_df.columns else combined_df['Họ và Tên'] + " [" + combined_df['Lớp'] + "]"
         all_student_options = sorted(combined_df['lua_chon_lbl'].unique().tolist())
     else:
         all_student_options = []
