@@ -576,7 +576,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5, TỰ ĐỘNG XUỐNG DÒNG TRẠNG THÁI, KHÔNG MẤT VIỀN) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5, ĐỊNH DẠNG MỚI ĐÚNG YÊU CẦU) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(5.83, 8.27))
@@ -595,46 +595,69 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     for line in details:
         fontweight = 'bold' if 'Họ và tên' in line else 'normal'
         ax.text(0.1, y_pos, line, fontsize=10.5, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.042
+        y_pos -= 0.04
         
-    if has_multiple_components:
-        ax.text(0.1, y_pos, "Chi tiết học phí các lớp/nhóm:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.038
-        for sc in sub_components:
-            line_sc = f"• {sc['ten']} (Lớp {sc['lop']}): {sc['so_ca']} ca x {sc['don_gia']:,.0f}đ = {sc['thanh_tien']:,.0f}đ"
-            ax.text(0.12, y_pos, line_sc, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.035
-            
-    if is_multi and details_list:
-        ax.text(0.1, y_pos, "Chi tiết số ca các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.038
-        same_price = all(d['don_gia'] == details_list[0]['don_gia'] for d in details_list) if details_list else True
+    if has_multiple_components and details_list:
+        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
+        y_pos -= 0.035
+        
+        # Nhóm sub_components theo tháng từ details_list nếu có
         for d in details_list:
-            if same_price:
-                line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca [{d['trang_thai']}]"
-            else:
-                line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca x {d['don_gia']:,.0f}đ = {d['thanh_tien']:,.0f}đ [{d['trang_thai']}]"
+            thang_k = d['thang_key']
+            stt_thang = d.get('trang_thai', 'Chưa đóng')
+            ax.text(0.12, y_pos, f"• Tháng {thang_k} [{stt_thang}]:", fontsize=10, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+            y_pos -= 0.033
+            
+            for sc in sub_components:
+                # Lọc số ca của sub_component trong tháng này
+                sc_so_ca = sc.get('monthly_ca', {}).get(thang_k, 0)
+                if sc_so_ca > 0:
+                    line_sc = f"  - {sc['ten']}: {sc_so_ca} ca"
+                    ax.text(0.14, y_pos, line_sc, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+                    y_pos -= 0.032
+            y_pos -= 0.005
+    elif has_multiple_components:
+        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
+        y_pos -= 0.035
+        for sc in sub_components:
+            if sc['so_ca'] > 0:
+                line_sc = f"• {sc['ten']}: {sc['so_ca']} ca"
+                ax.text(0.12, y_pos, line_sc, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+                y_pos -= 0.032
+            
+    if is_multi and details_list and not has_multiple_components:
+        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
+        y_pos -= 0.035
+        for d in details_list:
+            line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca [{d['trang_thai']}]"
             ax.text(0.12, y_pos, line_d, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.035
+            y_pos -= 0.032
+    elif not has_multiple_components and not is_multi:
+        # Trường hợp 1 tháng hoặc đơn lẻ
+        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
+        y_pos -= 0.035
+        line_d = f"• Tháng {month_year}: {total_lessons} ca [{status}]"
+        ax.text(0.12, y_pos, line_d, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+        y_pos -= 0.035
     
     summary_lines = [
         f"Tổng số ca học: {total_lessons} ca",
         f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ",
     ]
     
-    y_pos -= 0.02
+    y_pos -= 0.01
     for line in summary_lines:
         fontweight = 'bold' if 'TỔNG CỘNG' in line else 'normal'
         color = '#B91C1C' if 'TỔNG CỘNG' in line else '#1E293B'
         ax.text(0.1, y_pos, line, fontsize=10.5, fontweight=fontweight, color=color, transform=ax.transAxes)
-        y_pos -= 0.045
+        y_pos -= 0.042
         
     # Phần trạng thái thanh toán tự động xuống dòng khi dài để không đè vào viền
     status_text = f"Trạng thái thanh toán: {status}"
     wrapped_status = textwrap.wrap(status_text, width=52)
     for s_line in wrapped_status:
         ax.text(0.1, y_pos, s_line, fontsize=10.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.04
+        y_pos -= 0.038
         
     if qr_path and os.path.exists(qr_path):
         try:
@@ -1915,11 +1938,11 @@ elif choice == "💳 Quản lý học phí":
     combined_df = pd.DataFrame()
     qr_path = "qr_code.png" if os.path.exists("qr_code.png") else None
     
-    def get_aggregated_tuition_df(raw_df, engine_obj):
+    def get_aggregated_tuition_df(raw_df, engine_obj, selected_months_list=None):
         if raw_df.empty:
             return raw_df
             
-        df_hs_meta = pd.read_sql_query(text("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh"), engine_obj)
+        df_hs_meta = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, thong_tin_phu_huynh FROM hoc_sinh"), engine_obj)
         meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'thong_tin_phu_huynh': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_meta.iterrows()}
         
         grouped_dict = {}
@@ -1936,6 +1959,9 @@ elif choice == "💳 Quản lý học phí":
             else:
                 group_key = (base_n.lower(), f"id_{hs_id}")
             
+            # Lấy tháng của row hiện tại
+            row_thang = row.get('Thời gian', '')
+            
             if group_key not in grouped_dict:
                 grouped_dict[group_key] = {
                     'hoc_sinh_id': hs_id,
@@ -1950,12 +1976,13 @@ elif choice == "💳 Quản lý học phí":
                     'Trạng Thái': row['Trạng Thái'],
                     'is_multi': row.get('is_multi', False),
                     'details': [dict(d) for d in row.get('details', [])],
-                    'sub_components': [] if so_ca == 0 else [{
-                        'ten': row['Họ và Tên'],
+                    'sub_components': [{
+                        'ten': row['Họ and Tên'] if 'Họ and Tên' in row else meta['ho_ten'],
                         'lop': row['Lớp'],
                         'so_ca': so_ca,
                         'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
+                        'thanh_tien': float(row['Tổng Tiền (VNĐ)']),
+                        'monthly_ca': {row_thang: so_ca} if '/' in str(row_thang) and len(str(row_thang)) <= 7 else {}
                     }]
                 }
             else:
@@ -1963,17 +1990,29 @@ elif choice == "💳 Quản lý học phí":
                 if hs_id not in g['family_ids']:
                     g['family_ids'].append(hs_id)
                 
-                if so_ca > 0:
-                    g['Số Ca Có Mặt'] += so_ca
-                    g['Tổng Tiền (VNĐ)'] += float(row['Tổng Tiền (VNĐ)'])
-                    if row['Lớp'] not in g['Lớp']:
-                        g['Lớp'] = f"{g['Lớp']}, {row['Lớp']}"
+                g['Số Ca Có Mặt'] += so_ca
+                g['Tổng Tiền (VNĐ)'] += float(row['Tổng Tiền (VNĐ)'])
+                if row['Lớp'] not in g['Lớp']:
+                    g['Lớp'] = f"{g['Lớp']}, {row['Lớp']}"
+                
+                sub_comp_name = row['Họ và Tên'] if 'Họ và Tên' in row else meta['ho_ten']
+                found_sc = False
+                for sc in g['sub_components']:
+                    if sc['ten'] == sub_comp_name and sc['lop'] == row['Lớp']:
+                        sc['so_ca'] += so_ca
+                        sc['thanh_tien'] += float(row['Tổng Tiền (VNĐ)'])
+                        if '/' in str(row_thang) and len(str(row_thang)) <= 7:
+                            sc['monthly_ca'][row_thang] = sc['monthly_ca'].get(row_thang, 0) + so_ca
+                        found_sc = True
+                        break
+                if not found_sc:
                     g['sub_components'].append({
-                        'ten': row['Họ và Tên'],
+                        'ten': sub_comp_name,
                         'lop': row['Lớp'],
                         'so_ca': so_ca,
                         'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
+                        'thanh_tien': float(row['Tổng Tiền (VNĐ)']),
+                        'monthly_ca': {row_thang: so_ca} if '/' in str(row_thang) and len(str(row_thang)) <= 7 else {}
                     })
                 
                 row_details = row.get('details', [])
@@ -1992,18 +2031,23 @@ elif choice == "💳 Quản lý học phí":
         result_rows = []
         for g in grouped_dict.values():
             subs = g['sub_components']
-            if len(subs) == 1:
-                g['Họ và Tên'] = subs[0]['ten']
-                g['Lớp'] = subs[0]['lop']
-                g['Đơn Giá/Ca (VNĐ)'] = subs[0]['don_gia']
-            elif len(subs) > 1:
-                g['Lớp'] = ", ".join([s['lop'] for s in subs])
+            # Lọc bỏ các sub_component có số ca = 0 (nếu có yêu cầu ca = 0 không hiện)
+            g['sub_components'] = [s for s in subs if s['so_ca'] > 0]
+            
+            if len(g['sub_components']) == 1:
+                g['Họ và Tên'] = g['sub_components'][0]['ten']
+                g['Lớp'] = g['sub_components'][0]['lop']
+                g['Đơn Giá/Ca (VNĐ)'] = g['sub_components'][0]['don_gia']
+            elif len(g['sub_components']) > 1:
+                g['Lớp'] = ", ".join([s['lop'] for s in g['sub_components']])
                 
             f_ids = g['family_ids']
             f_ids_str = ",".join(map(str, f_ids))
             
             if g['is_multi'] and g['details']:
                 updated_details = []
+                all_paid = True
+                any_paid = False
                 for d in g['details']:
                     th_key = d['thang_key']
                     q_stt = text(f"SELECT trang_thai FROM thanh_toan WHERE hoc_sinh_id IN ({f_ids_str}) AND thang_nam = '{th_key}'")
@@ -2011,20 +2055,30 @@ elif choice == "💳 Quản lý học phí":
                     
                     if df_stt.empty:
                         stt_month = 'Chưa đóng'
+                        all_paid = False
                     else:
                         statuses = df_stt['trang_thai'].tolist()
                         if all(s == 'Đã đóng' for s in statuses) and len(statuses) >= len(f_ids):
                             stt_month = 'Đã đóng'
+                            any_paid = True
                         elif any(s == 'Đã đóng' for s in statuses):
                             stt_month = 'Đóng một phần'
+                            any_paid = True
+                            all_paid = False
                         else:
                             stt_month = 'Chưa đóng'
+                            all_paid = False
                     d['trang_thai'] = stt_month
                     updated_details.append(d)
                 g['details'] = updated_details
                 
-                status_str_parts = [f"Tháng {d['thang_key']}: {d['trang_thai']}" for d in g['details']]
-                g['Trạng Thái'] = ", ".join(status_str_parts)
+                # Cập nhật trạng thái tổng thể dưới cùng đúng yêu cầu
+                if all_paid:
+                    g['Trạng Thái'] = 'Đã đóng'
+                elif any_paid:
+                    g['Trạng Thái'] = 'Đóng một phần'
+                else:
+                    g['Trạng Thái'] = 'Chưa đóng'
             else:
                 t_time = g['Thời gian']
                 if '/' in str(t_time) and len(str(t_time)) <= 7:
@@ -2076,7 +2130,7 @@ elif choice == "💳 Quản lý học phí":
                 raw_df = pd.read_sql_query(q, engine)
                 raw_df['is_multi'] = False
                 raw_df['details'] = [[] for _ in range(len(raw_df))]
-                combined_df = get_aggregated_tuition_df(raw_df, engine)
+                combined_df = get_aggregated_tuition_df(raw_df, engine, selected_thangs)
             else:
                 df_hs_all = pd.read_sql_query(text("SELECT id AS hoc_sinh_id, ho_ten AS \"Họ và Tên\", lop_hoc AS \"Lớp\", mon_hoc AS \"Môn Học\", hoc_phi_buoi AS \"Đơn Giá/Ca (VNĐ)\" FROM hoc_sinh"), engine)
                 rows_aggregated = []
@@ -2145,7 +2199,7 @@ elif choice == "💳 Quản lý học phí":
                         
                         rows_aggregated.append({
                             'hoc_sinh_id': hs_id,
-                            'Họ và Tên': hs['Họ và Tên'],
+                            'Họ và Tên': hs['Họ and Tên'] if 'Họ and Tên' in hs else hs['Họ và Tên'],
                             'Lớp': hs['Lớp'],
                             'Môn Học': hs['Môn Học'],
                             'Đơn Giá/Ca (VNĐ)': hs['Đơn Giá/Ca (VNĐ)'],
@@ -2158,7 +2212,7 @@ elif choice == "💳 Quản lý học phí":
                         })
                 
                 raw_df_multi = pd.DataFrame(rows_aggregated)
-                combined_df = get_aggregated_tuition_df(raw_df_multi, engine)
+                combined_df = get_aggregated_tuition_df(raw_df_multi, engine, selected_thangs)
 
     elif che_do_xem == "Theo Ngày":
         ngay_chon = st.date_input("Chọn ngày thống kê:", date.today())
