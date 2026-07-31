@@ -38,38 +38,38 @@ DANH_SACH_CA_MAU = [
     "19h30 - 21h30"
 ]
 
-# --- KHO 30 THÔNG ĐIỆP TRUYỀN CẢM HỨNG CHO HỌC SINH ---
+# --- KHO 30 CHÂM NGÔN TRUYỀN CẢM HỨNG CHO HỌC SINH ---
 THONG_DIEP_LIST = [
-    "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
-    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm hôm nay nhé!",
-    "💡 'Không có thất bại, tất cả chỉ là bài học để trưởng thành.' Hãy luôn mạnh dạn đặt câu hỏi và cố gắng hết mình, cô luôn ở đây đồng hành cùng các em!",
-    "🌱 'Mỗi ngày đến lớp là một bước tiến gần hơn đến ước mơ lớn của các em.' Chúc các em học sinh có những giờ học thật tập trung, hào hứng và hiệu quả!",
-    "✨ 'Tương lai thuộc về những ai tin vào vẻ đẹp của những giấc mơ và nỗ lực vì nó.' Các em hãy tự tin vào bản thân, chăm chỉ rèn luyện mỗi ngày nhé!",
-    "🎯 'Thành công không đến từ ngẫu nhiên, mà đến từ sự kiên trì và kỷ luật bản thân.' Cố lên các em học sinh yêu quý của cô!",
-    "🚀 'Hãy học tập bằng sự say mê và tò mò khám phá, tri thức sẽ mở ra cho các em những chân trời mới rực rỡ!' Chúc các em một buổi học bùng nổ năng lượng!",
-    "🔥 'Sự chăm chỉ và tập trung của các em hôm nay chính là chìa khóa vàng mở cánh cửa thành công trong tương lai. Cô tin tưởng các em sẽ làm được!'",
-    "📘 'Mỗi bài toán khó, mỗi trang sách hay đều là thử thách giúp trí tuệ của các em sắc bén hơn.' Đừng ngại khó, hãy cùng cô vượt qua mọi thử thách nhé!",
-    "🌈 'Cố gắng một chút mỗi ngày, tích tiểu thành đại, kết quả ngọt ngào sẽ đến với những ai không bao giờ bỏ cuộc. Chúc các em một ngày học tập thật rực rỡ!'",
-    "⭐ 'Sự nỗ lực của bạn ngày hôm nay sẽ là nền tảng cho sự thành công của ngày mai. Cố gắng lên các em nhé!'",
-    "📚 'Học cho chính mình, biết cho tương lai. Tri thức là sức mạnh giúp các em bay cao bay xa.'",
-    "💪 'Đừng sợ những bài toán khó, chúng chỉ đang giúp bộ não của các em thông minh hơn mà thôi!'",
-    "🌻 'Hãy tỏa sáng theo cách của riêng mình bằng sự chăm chỉ và ý chí vươn lên trong từng bài học.'",
-    "✍️ 'Mỗi nét chữ, mỗi công thức ghi lại hôm nay là một bước chuẩn bị vững chắc cho hành trang tương lai.'",
-    "🏆 'Người chiến thắng không phải là người không bao giờ vấp ngã, mà là người không bao giờ bỏ cuộc.'",
-    "🌊 'Kiên trì như giọt nước mài mòn đá, sự học tích lũy từng ngày sẽ tạo nên kỳ tích.'",
-    "🎨 'Hãy để tri thức tô điểm thêm màu sắc tươi đẹp cho ước mơ tuổi trẻ của các em.'",
-    "🧭 'Sách vở là la bàn, còn sự chăm chỉ là con thuyền đưa các em đến bến bờ vinh quang.'",
-    "⚡ 'Năng lượng tích cực và sự tập trung cao độ sẽ giúp các em giải quyết mọi bài toán khó nhằn nhất.'",
-    "🍀 'Chúc các em học sinh có một buổi học tập hăng say, tiếp thu trọn vẹn những kiến thức mới bổ ích.'",
-    "🎓 'Hôm nay chăm chỉ học hành, ngày mai tự tin bước ra thế giới với cái đầu ngẩng cao.'",
-    "🔍 'Tò mò, ham học hỏi và dũng cảm đối mặt với khó khăn là bí quyết của những người thành công.'",
-    "🎈 'Hãy thả lỏng tinh thần, hít một hơi thật sâu và cùng cô chinh phục những đỉnh cao tri thức mới nhé!'",
-    "🧩 'Mỗi kiến thức mới giống mảnh ghép hoàn thiện bức tranh tương lai tuyệt đẹp của các em.'",
-    "👑 'Chính sự kiên nhẫn và quyết tâm của các em trong giờ học hôm nay sẽ tạo nên phiên bản tuyệt vời nhất của ngày mai.'",
-    "🎇 'Học tập là ánh sáng xua tan bóng tối của sự thiếu hiểu biết. Hãy luôn thắp sáng ngọn lửa ấy nhé!'",
-    "📘 'Đừng ngại ngùng khi chưa hiểu bài, cô và các bạn luôn sẵn sàng giúp đỡ các em tiến bộ mỗi ngày.'",
-    "🌟 'Mỗi một bài học vượt qua là một lần các em tự phá vỡ giới hạn của bản thân mình.'",
-    "🚀 'Sẵn sàng tâm thế, vững vàng ý chí, chúc các em học sinh có một buổi học thật thành công và hứng khởi!'"
+    "🌟 'Thất bại chỉ là cơ hội để bắt đầu lại một cách thông minh hơn.' Cố lên các em nhé!",
+    "📖 'Không có con đường nào là bằng phẳng nếu thiếu đi những bước chân kiên trì.'",
+    "💡 'Mỗi cuốn sách bạn đọc hôm nay là một mảnh ghép cho tương lai ngày mai.'",
+    "🌱 'Sự chăm chỉ đánh bại thiên tài khi thiên tài không chịu chăm chỉ.'",
+    "✨ 'Tương lai được xây dựng bởi những gì bạn làm hôm nay, chứ không phải ngày mai.'",
+    "🎯 'Kiến thức là kho báu mà người chủ sở hữu luôn giữ được nó an toàn nhất.'",
+    "🚀 'Đừng sợ những câu hỏi khó, chúng chỉ đang làm não bạn thông minh hơn.'",
+    "🔥 'Sự kiên trì là chìa khóa mở mọi cánh cửa thành công.'",
+    "📘 'Hôm nay nỗ lực hết mình, ngày mai tự tin ngẩng cao đầu.'",
+    "🌈 'Học tập là hành trình khám phá không có điểm dừng.'",
+    "⭐ 'Mỗi bước tiến nhỏ mỗi ngày sẽ tạo nên những thay đổi lớn lao.'",
+    "📚 'Đừng đo lường thành công bằng vạch xuất phát, hãy đo bằng sự nỗ lực.'",
+    "💪 'Sự tập trung cao độ tạo nên những phép màu trong học tập.'",
+    "🌻 'Nụ cười của sự thấu hiểu bài toán khó là phần thưởng tuyệt vời nhất.'",
+    "✍️ 'Thói quen tốt được hình thành từ những hành động nhỏ nhặt mỗi ngày.'",
+    "🏆 'Không có học sinh kém, chỉ có học sinh chưa tìm ra phương pháp đúng.'",
+    "🌊 'Sự tự tin bắt đầu từ việc chuẩn bị bài thật chu đáo trước khi đến lớp.'",
+    "🎨 'Học hỏi từ những sai lầm là con đường ngắn nhất dẫn đến đỉnh cao.'",
+    "🧭 'Trí tuệ giống như cơ bắp, càng rèn luyện nhiều càng trở nên săn chắc.'",
+    "⚡ 'Đam mê học tập là ngọn lửa sưởi ấm mọi mùa thi giá lạnh.'",
+    "🍀 'Sự chuẩn bị kỹ càng hôm nay là bệ phóng cho thành công ngày mai.'",
+    "🎓 'Kiên nhẫn đọc từng trang sách nhỏ sẽ mở ra cả một bầu trời tri thức.'",
+    "🔍 'Sự sáng tạo biến những bài học khô khan thành những điều kỳ diệu.'",
+    "🎈 'Mỗi câu hỏi bạn đặt ra là một bước tiến trên hành trình chinh phục tri thức.'",
+    "🧩 'Đừng để sự trì hoãn đánh cắp đi tương lai tuyệt vời của bạn.'",
+    "👑 'Sự đoàn kết trong học tập giúp chúng ta đi xa hơn rất nhiều.'",
+    "🎇 'Học tập bằng niềm vui sẽ mang lại kết quả ngọt ngào nhất.'",
+    "📘 'Ý chí kiên cường sẽ vượt qua mọi giông bão mùa thi cử.'",
+    "🌟 'Mỗi thành công nhỏ hôm nay là bước đệm cho đại thắng ngày mai.'",
+    "🚀 'Hãy để tri thức dẫn lối cho tương lai rực rỡ của chính bạn.'"
 ]
 
 # --- KHO 30 LỜI NHẮC SỨC KHỎE CHO CÔ GIÁO ---
@@ -91,7 +91,7 @@ SUC_KHOE_LIST = [
     "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
     "✍️ Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
     "💤 Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
-    "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "☀️ Lời nhắc sức khỏe: Đ đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
     "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
@@ -2279,7 +2279,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ und Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
