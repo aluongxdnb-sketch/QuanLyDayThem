@@ -679,7 +679,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ CHỈNH KHOẢNG CÁCH TIÊU ĐỀ GẦN BẢNG HƠN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CÓ ĐƯỜNG KẺ ĐẬM PHÂN CÁCH GIỮA CÁC NGÀY) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -726,7 +726,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.axis('off')
     ax.axis('tight')
     
-    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu (đã căn chỉnh lại vị trí tối ưu)
+    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu
     ax.text(0.5, 0.88, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
             fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
     ax.text(0.5, 0.83, f"Lớp: {class_name}", transform=fig.transFigure, 
@@ -734,8 +734,8 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.text(0.5, 0.78, f"({time_label})", transform=fig.transFigure, 
             fontsize=10.5, style='italic', color='#475569', ha='center', va='center')
     
-    # Đưa bảng sát hơn với tiêu đề (bbox top = 0.75)
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30], bbox=[0.05, 0.16, 0.9, 0.59])
+    bbox_coords = [0.05, 0.16, 0.9, 0.59]
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30], bbox=bbox_coords)
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
     
@@ -753,6 +753,18 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
                 cell.set_facecolor('#F8FAFC')
             else:
                 cell.set_facecolor('white')
+
+    # Vẽ đường kẻ đậm phân cách giữa các ngày khác nhau
+    total_rows = len(wrapped_data)
+    bbox_left, bbox_bottom, bbox_width, bbox_height = bbox_coords
+    for idx in range(1, len(raw_table_data)):
+        if idx < len(raw_table_data) - 1:
+            curr_ngay = raw_table_data[idx][0]
+            next_ngay = raw_table_data[idx + 1][0]
+            if curr_ngay != next_ngay:
+                table_row_idx = idx
+                y = bbox_bottom + bbox_height * (1.0 - (table_row_idx + 1) / total_rows)
+                ax.plot([bbox_left, bbox_left + bbox_width], [y, y], transform=ax.transAxes, color='#1E3A8A', linewidth=2.0, zorder=15)
 
     # Viền khung ảnh
     from matplotlib.patches import Rectangle
@@ -2176,7 +2188,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ and Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
