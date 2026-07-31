@@ -480,27 +480,38 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU DẠNG BẢNG MỚI (KHÔI PHỤC ĐẦY ĐỦ TIÊU ĐỀ CŨ VÀ KHÔNG ĐÈ CHỮ) ---
-def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: "):
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CÓ ĐỦ THỜI GIAN, GHI CHÚ VÀ VIỀN CHUẨN) ---
+def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: ", ref_date=None):
+    if ref_date is None:
+        ref_date = date.today()
+    start_monday = ref_date - timedelta(days=ref_date.weekday())
+    end_sunday = start_monday + timedelta(days=6)
+    week_str = f"(Tuần từ {start_monday.strftime('%d/%m/%Y')} đến {end_sunday.strftime('%d/%m/%Y')})"
+
     table_data = [df_list.columns.tolist()] + df_list.values.tolist()
     
-    # Tăng chiều cao khung ảnh và khoảng trắng phía trên để tiêu đề và bảng không bị đè
-    fig, ax = plt.subplots(figsize=(8, max(5, len(df_list) * 0.9 + 4.5)))
+    fig, ax = plt.subplots(figsize=(8, max(6.0, len(df_list) * 0.9 + 5.0)))
     ax.axis('off')
     ax.axis('tight')
     
     col_widths = [0.4, 0.6]
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.1, 0.15, 0.8, 0.6])
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.1, 0.22, 0.8, 0.53])
     table.auto_set_font_size(False)
     table.set_fontsize(12)
     
-    # Khôi phục đầy đủ các trường thông tin tiêu đề kiểu cũ phía trên bảng
-    ax.text(0.5, 0.86, "LỊCH HỌC CỐ ĐỊNH HÀNG TUẦN", transform=fig.transFigure, 
-            fontsize=18, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.79, f"{prefix}{title_target}", transform=fig.transFigure, 
-            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='center')
+    # Tiêu đề và thông tin thời gian đầy đủ
+    ax.text(0.5, 0.88, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=fig.transFigure, 
+            fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.82, f"{prefix}{title_target}", transform=fig.transFigure, 
+            fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.77, week_str, transform=fig.transFigure, 
+            fontsize=10.5, style='italic', color='#475569', ha='center', va='center')
     
-    # Tạo đường viền nhẹ tinh tế xung quanh toàn bộ khung ảnh, không bị đè vào chữ
+    # Ghi chú dưới cùng chuẩn mẫu
+    ax.text(0.5, 0.08, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", transform=fig.transFigure, 
+            fontsize=9, style='italic', color='#64748B', ha='center', va='center')
+
+    # Đường viền an toàn không bị đè chữ
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
@@ -525,7 +536,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (ÁP DỤNG VIỀN CHUẨN) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 12 if (has_multiple_components or is_multi) else 10))
@@ -587,13 +598,19 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
             
     ax.text(0.5, 0.03, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
     
+    # Viền khung ảnh
+    from matplotlib.patches import Rectangle
+    rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
+                     fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
+    fig.patches.append(rect)
+
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (ÁP DỤNG VIỀN CHUẨN) ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     wrapped_data = []
     max_lines_overall = 1
@@ -644,6 +661,12 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
                 cell.set_facecolor('#F8FAFC')
             else:
                 cell.set_facecolor('white')
+
+    # Viền khung ảnh
+    from matplotlib.patches import Rectangle
+    rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
+                     fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
+    fig.patches.append(rect)
                 
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
@@ -651,7 +674,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ÁP DỤNG VIỀN CHUẨN) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -722,6 +745,12 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
                 cell.set_facecolor('#F8FAFC')
             else:
                 cell.set_facecolor('white')
+
+    # Viền khung ảnh
+    from matplotlib.patches import Rectangle
+    rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
+                     fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
+    fig.patches.append(rect)
                 
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
