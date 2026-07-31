@@ -120,38 +120,30 @@ def clean_nhan_xet(text_input):
     if not cleaned:
         return ""
 
-    # Chuyển đổi các thuật ngữ cũ sang mới cho dữ liệu đã lưu trước đó
     cleaned = re.sub(r'\bcó giao bài tập\b', 'có giao bài tập mới', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\bkhông làm bài tập\b', 'không làm bài tập cũ', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\bhoàn thành bài tập\b', 'đã làm hết bài tập cũ', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\bnói chuyện/ mất tập trung\b', 'nói chuyện, chưa tập trung', cleaned, flags=re.IGNORECASE)
 
-    # Tách phần Ghi chú tự viết và Thẻ thái độ nếu có dấu phân cách " - "
     custom_part = ""
     tags_part = cleaned
     if " - " in cleaned:
         parts = cleaned.split(" - ", 1)
-        # Kiểm tra xem phần trước hay phần sau là ghi chú tự viết
-        # Theo logic mới: Ghi chú tự viết nằm ở ĐẦU, Thẻ nằm ở SAU.
-        # Xử lý tương thích ngược nếu dữ liệu cũ để thẻ ở đầu và ghi chú ở sau:
         old_tag_keywords = ["chăm chú", "có tiến bộ", "có giao bài tập mới", "không làm bài tập cũ", "nói chuyện", "chưa tập trung", "đã làm hết bài tập cũ", "có làm bài tập nhưng chưa đủ", "buồn ngủ", "chểnh mảng", "lơ là học tập"]
         
         part0_has_tag = any(kw in parts[0].lower() for kw in old_tag_keywords)
         part1_has_tag = any(kw in parts[1].lower() for kw in old_tag_keywords)
         
         if part0_has_tag and not part1_has_tag:
-            # Dạng cũ: Thẻ - Ghi chú
             tags_part = parts[0]
             custom_part = parts[1]
         elif part1_has_tag and not part0_has_tag:
-            # Dạng mới: Ghi chú - Thẻ
             custom_part = parts[0]
             tags_part = parts[1]
         else:
             custom_part = parts[0]
             tags_part = parts[1]
 
-    # Chuẩn hóa thẻ thái độ (viết hoa chữ cái đầu mỗi thẻ nếu có nhiều thẻ)
     tags_list = [t.strip().capitalize() for t in tags_part.split(",") if t.strip()]
     tags_formatted = ", ".join(tags_list)
 
@@ -1011,26 +1003,42 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng:")
+    st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng (Từ 3 buổi trở lên):")
     current_month_q = f"{today.year}-{today.month:02d}"
     
     df_absent_alert = pd.read_sql_query(text(f'''
         SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
-               SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) AS "Vắng có phép",
-               SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END) AS "Vắng không phép",
-               (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) AS "Tổng vắng"
+               (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) AS "Tổng số ca vắng"
         FROM diem_danh d
         JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
         WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai IN ('Vắng có phép', 'Vắng không phép')
         GROUP BY h.id, h.ho_ten, h.lop_hoc
-        HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 2
-        ORDER BY "Vắng không phép" DESC, "Vắng có phép" DESC
+        HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 3
+        ORDER BY "Tổng số ca vắng" DESC
     '''), engine)
     
     if df_absent_alert.empty:
-        st.success("✅ Tháng này chưa có học sinh vắng nhiều.")
+        st.success("✅ Tháng này chưa có học sinh vắng từ 3 buổi trở lên.")
     else:
         st.dataframe(df_absent_alert, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("#### 📉 Top 5 Học Sinh Học Ít Ca Nhất Trong Tháng:")
+    df_fewest_sessions = pd.read_sql_query(text(f'''
+        SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
+               COALESCE(SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END), 0) AS "Tổng số ca học"
+        FROM hoc_sinh h
+        LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}'
+        WHERE LOWER(h.ho_ten) NOT LIKE '%học thêm%'
+        GROUP BY h.id, h.ho_ten, h.lop_hoc
+        ORDER BY "Tổng số ca học" ASC
+        LIMIT 5
+    '''), engine)
+    
+    if df_fewest_sessions.empty:
+        st.info("ℹ️ Chưa có dữ liệu học tập trong tháng này.")
+    else:
+        st.dataframe(df_fewest_sessions, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
@@ -1165,7 +1173,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                 
                             tag_str = ", ".join(formatted_tags)
                             
-                            # Ghi chú tự viết nằm ở đầu, thẻ thái độ nằm sau
                             if custom_nx.strip() and tag_str:
                                 custom_prefix = custom_nx.strip()
                                 custom_prefix = custom_prefix[0].upper() + custom_prefix[1:]
@@ -1289,7 +1296,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     
                     if " - " in old_nx_full:
                         parts = old_nx_full.split(" - ", 1)
-                        # Xác định phần nào là thẻ, phần nào là ghi chú tự viết
                         part0_is_tag = any(t.lower() in parts[0].lower() for t in tags_options_global)
                         part1_is_tag = any(t.lower() in parts[1].lower() for t in tags_options_global)
                         
@@ -1300,11 +1306,9 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             custom_old_part = parts[0]
                             tags_str_part = parts[1]
                         else:
-                            # Mặc định theo định dạng mới (Ghi chú - Thẻ)
                             custom_old_part = parts[0]
                             tags_str_part = parts[1]
                     else:
-                        # Kiểm tra xem toàn bộ chuỗi có phải là thẻ hay ghi chú tự viết
                         is_all_tag = any(t.lower() in old_nx_full.lower() for t in tags_options_global)
                         if is_all_tag:
                             tags_str_part = old_nx_full
