@@ -448,7 +448,7 @@ def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=
     else:
         st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) - ĐÃ SỬA LỖI KEYERROR ---
+# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) ---
 def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     where_clauses = []
     if filter_lop:
@@ -480,34 +480,35 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU DẠNG BẢNG MỚI (CÓ ĐƯỜNG VIỀN NHẸ XUNG QUANH) ---
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU DẠNG BẢNG MỚI (KHÔI PHỤC ĐẦY ĐỦ TIÊU ĐỀ CŨ VÀ KHÔNG ĐÈ CHỮ) ---
 def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: "):
     table_data = [df_list.columns.tolist()] + df_list.values.tolist()
     
-    fig, ax = plt.subplots(figsize=(7, max(4, len(df_list) * 0.8 + 3.0)))
+    # Tăng chiều cao khung ảnh và khoảng trắng phía trên để tiêu đề và bảng không bị đè
+    fig, ax = plt.subplots(figsize=(8, max(5, len(df_list) * 0.9 + 4.5)))
     ax.axis('off')
     ax.axis('tight')
     
     col_widths = [0.4, 0.6]
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths)
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.1, 0.15, 0.8, 0.6])
     table.auto_set_font_size(False)
     table.set_fontsize(12)
-    table.scale(1, 2.3)
     
-    ax.text(0.5, 1.22, "LỊCH HỌC CỐ ĐỊNH HÀNG TUẦN", transform=ax.transAxes, 
-            fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
-    ax.text(0.5, 1.11, f"{prefix}{title_target}", transform=ax.transAxes, 
-            fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='bottom')
+    # Khôi phục đầy đủ các trường thông tin tiêu đề kiểu cũ phía trên bảng
+    ax.text(0.5, 0.86, "LỊCH HỌC CỐ ĐỊNH HÀNG TUẦN", transform=fig.transFigure, 
+            fontsize=18, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.79, f"{prefix}{title_target}", transform=fig.transFigure, 
+            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='center')
     
-    # Tạo đường viền nhẹ tinh tế xung quanh toàn bộ khung ảnh
+    # Tạo đường viền nhẹ tinh tế xung quanh toàn bộ khung ảnh, không bị đè vào chữ
     from matplotlib.patches import Rectangle
-    rect = Rectangle((0.015, 0.015), 0.97, 0.97, transform=fig.transFigure,
-                     fill=False, color='#CBD5E1', linewidth=1.2, zorder=10)
+    rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
+                     fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
     fig.patches.append(rect)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.2
+        cell.PAD = 0.3
         if row == 0:
             cell.set_facecolor('#1E3A8A')
             cell.set_text_props(color='white', weight='bold', size=12.5)
@@ -2353,7 +2354,7 @@ elif choice == "📋 Thông tin học sinh":
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
-            confirm_check = st.checkbox("I want to delete this student")
+            confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
             
             if st.button("❌ XÓA HỌC SINH NÀY", type="primary") and confirm_check:
                 with engine.begin() as conn:
