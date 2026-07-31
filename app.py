@@ -106,7 +106,7 @@ SUC_KHOE_LIST = [
     "❤️ Lời nhắc sức khỏe: Cô là người truyền lửa tuyệt vời, vì vậy hãy luôn trân trọng và yêu thương cơ thể mình thật nhiều cô nhé!"
 ]
 
-# --- HÀM HỖ TRỢ LÀM SẠCH NHẬN XÉT (XÓA EMOJI, ĐỊNH DẠNG HOA/THƯỜNG, DẤU CHẤM) ---
+# --- HÀM HỖ TRỢ LÀM SẠCH VÀ CHUẨN HÓA NHẬN XÉT (GHI CHÚ ĐẦU, THẺ SAU) ---
 def clean_nhan_xet(text_input):
     if not text_input:
         return ""
@@ -116,11 +116,58 @@ def clean_nhan_xet(text_input):
     )
     cleaned = emoji_pattern.sub(r'', text_input)
     cleaned = cleaned.replace('[', '').replace(']', '').strip()
-    if cleaned:
-        cleaned = cleaned[0].upper() + cleaned[1:]
-        if not cleaned.endswith('.'):
-            cleaned += '.'
-    return cleaned
+    
+    if not cleaned:
+        return ""
+
+    # Chuyển đổi các thuật ngữ cũ sang mới cho dữ liệu đã lưu trước đó
+    cleaned = re.sub(r'\bcó giao bài tập\b', 'có giao bài tập mới', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\bkhông làm bài tập\b', 'không làm bài tập cũ', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\bhoàn thành bài tập\b', 'đã làm hết bài tập cũ', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\bnói chuyện/ mất tập trung\b', 'nói chuyện, chưa tập trung', cleaned, flags=re.IGNORECASE)
+
+    # Tách phần Ghi chú tự viết và Thẻ thái độ nếu có dấu phân cách " - "
+    custom_part = ""
+    tags_part = cleaned
+    if " - " in cleaned:
+        parts = cleaned.split(" - ", 1)
+        # Kiểm tra xem phần trước hay phần sau là ghi chú tự viết
+        # Theo logic mới: Ghi chú tự viết nằm ở ĐẦU, Thẻ nằm ở SAU.
+        # Xử lý tương thích ngược nếu dữ liệu cũ để thẻ ở đầu và ghi chú ở sau:
+        old_tag_keywords = ["chăm chú", "có tiến bộ", "có giao bài tập mới", "không làm bài tập cũ", "nói chuyện", "chưa tập trung", "đã làm hết bài tập cũ", "có làm bài tập nhưng chưa đủ", "buồn ngủ", "chểnh mảng", "lơ là học tập"]
+        
+        part0_has_tag = any(kw in parts[0].lower() for kw in old_tag_keywords)
+        part1_has_tag = any(kw in parts[1].lower() for kw in old_tag_keywords)
+        
+        if part0_has_tag and not part1_has_tag:
+            # Dạng cũ: Thẻ - Ghi chú
+            tags_part = parts[0]
+            custom_part = parts[1]
+        elif part1_has_tag and not part0_has_tag:
+            # Dạng mới: Ghi chú - Thẻ
+            custom_part = parts[0]
+            tags_part = parts[1]
+        else:
+            custom_part = parts[0]
+            tags_part = parts[1]
+
+    # Chuẩn hóa thẻ thái độ (viết hoa chữ cái đầu mỗi thẻ nếu có nhiều thẻ)
+    tags_list = [t.strip().capitalize() for t in tags_part.split(",") if t.strip()]
+    tags_formatted = ", ".join(tags_list)
+
+    if custom_part.strip():
+        custom_formatted = custom_part.strip()[0].upper() + custom_part.strip()[1:]
+        if tags_formatted:
+            final_result = f"{custom_formatted} - {tags_formatted}"
+        else:
+            final_result = custom_formatted
+    else:
+        final_result = tags_formatted
+
+    if final_result and not final_result.endswith('.'):
+        final_result += '.'
+
+    return final_result
 
 # --- HÀM HỖ TRỢ THỨ TRONG TUẦN ---
 def get_vietnamese_weekday(dt):
@@ -485,7 +532,7 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CÓ ĐỦ THỜI GIAN, GHI CHÚ VÀ VIỀN CHUẨN) ---
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU ---
 def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: ", ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -504,19 +551,15 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     table.auto_set_font_size(False)
     table.set_fontsize(12)
     
-    # Tiêu đề và thông tin thời gian đầy đủ
     ax.text(0.5, 0.88, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=fig.transFigure, 
             fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
     ax.text(0.5, 0.82, f"{prefix}{title_target}", transform=fig.transFigure, 
             fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='center')
     ax.text(0.5, 0.77, week_str, transform=fig.transFigure, 
             fontsize=10.5, style='italic', color='#475569', ha='center', va='center')
-    
-    # Ghi chú dưới cùng chuẩn mẫu
     ax.text(0.5, 0.08, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", transform=fig.transFigure, 
             fontsize=9, style='italic', color='#64748B', ha='center', va='center')
 
-    # Đường viền an toàn không bị đè chữ
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
@@ -541,7 +584,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (ÁP DỤNG VIỀN CHUẨN) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 12 if (has_multiple_components or is_multi) else 10))
@@ -603,7 +646,6 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
             
     ax.text(0.5, 0.03, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
     
-    # Viền khung ảnh
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
@@ -615,7 +657,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (ÁP DỤNG VIỀN CHUẨN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     wrapped_data = []
     max_lines_overall = 1
@@ -667,7 +709,6 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
             else:
                 cell.set_facecolor('white')
 
-    # Viền khung ảnh
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
@@ -726,7 +767,6 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.axis('off')
     ax.axis('tight')
     
-    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu
     ax.text(0.5, 0.88, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
             fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
     ax.text(0.5, 0.83, f"Lớp: {class_name}", transform=fig.transFigure, 
@@ -766,7 +806,6 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
                 y = bbox_bottom + bbox_height * (1.0 - (table_row_idx + 1) / total_rows)
                 ax.plot([bbox_left, bbox_left + bbox_width], [y, y], transform=ax.transAxes, color='#1E3A8A', linewidth=2.0, zorder=15)
 
-    # Viền khung ảnh
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
                      fill=False, color='#CBD5E1', linewidth=1.5, zorder=10)
@@ -861,7 +900,6 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- TỰ ĐỘNG CẬP NHẬT LỊCH TUẦN MỚI KHI BƯỚC SANG TUẦN MỚI ---
 current_monday_str = (date.today() - timedelta(days=date.today().weekday())).strftime('%Y-%m-%d')
 if "last_synced_monday" not in st.session_state or st.session_state.last_synced_monday != current_monday_str:
     with st.spinner("🔄 Đang tự động cập nhật thời khóa biểu tuần mới lên iPhone..."):
@@ -885,7 +923,6 @@ menu = [
 ]
 choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 
-# --- NÚT ĐỒNG BỘ THỦ CÔNG TẠI SIDEBAR ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Đồng bộ thời khóa biểu tới iPhone")
 user_gmail_sidebar = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
@@ -1106,17 +1143,18 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             tags_options = [
                                 "chăm chú", 
                                 "có tiến bộ", 
-                                "có giao bài tập", 
-                                "không làm bài tập", 
-                                "nói chuyện/ mất tập trung", 
-                                "hoàn thành bài tập", 
+                                "có giao bài tập mới", 
+                                "không làm bài tập cũ", 
+                                "nói chuyện", 
+                                "chưa tập trung", 
+                                "đã làm hết bài tập cũ", 
                                 "có làm bài tập nhưng chưa đủ", 
                                 "buồn ngủ", 
                                 "chểnh mảng", 
                                 "lơ là học tập"
                             ]
+                            custom_nx = st.text_input("Ghi chú thêm (Tự viết - hiển thị ở đầu)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Ghi chú riêng sẽ nằm ở đầu...")
                             selected_tags = st.multiselect("🏷️ Chọn nhanh thẻ thái độ:", tags_options, key=f"tags_cls_{row['hoc_sinh_id']}_{idx}")
-                            custom_nx = st.text_input("Ghi chú thêm (Tự viết)", key=f"nx_cls_{row['hoc_sinh_id']}_{idx}", placeholder="Nhận xét bài học hoặc tự viết...")
                             
                             formatted_tags = []
                             for i, t in enumerate(selected_tags):
@@ -1126,14 +1164,19 @@ elif choice == "📝 Điểm danh & Nhận xét":
                                 formatted_tags.append(ct)
                                 
                             tag_str = ", ".join(formatted_tags)
-                            if tag_str and custom_nx.strip():
-                                nx_val = f"{tag_str} - {custom_nx.strip()}"
+                            
+                            # Ghi chú tự viết nằm ở đầu, thẻ thái độ nằm sau
+                            if custom_nx.strip() and tag_str:
+                                custom_prefix = custom_nx.strip()
+                                custom_prefix = custom_prefix[0].upper() + custom_prefix[1:]
+                                nx_val = f"{custom_prefix} - {tag_str}"
+                            elif custom_nx.strip():
+                                nx_val = custom_nx.strip()
+                                nx_val = nx_val[0].upper() + nx_val[1:]
                             elif tag_str:
                                 nx_val = tag_str
                             else:
-                                nx_val = custom_nx.strip()
-                                if nx_val:
-                                    nx_val = nx_val[0].upper() + nx_val[1:]
+                                nx_val = ""
                                     
                             if nx_val and not nx_val.endswith('.'):
                                 nx_val += '.'
@@ -1211,10 +1254,11 @@ elif choice == "📝 Điểm danh & Nhận xét":
         tags_options_global = [
             "chăm chú", 
             "có tiến bộ", 
-            "có giao bài tập", 
-            "không làm bài tập", 
-            "nói chuyện/ mất tập trung", 
-            "hoàn thành bài tập", 
+            "có giao bài tập mới", 
+            "không làm bài tập cũ", 
+            "nói chuyện", 
+            "chưa tập trung", 
+            "đã làm hết bài tập cũ", 
             "có làm bài tập nhưng chưa đủ", 
             "buồn ngủ", 
             "chểnh mảng", 
@@ -1241,30 +1285,49 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     
                     old_nx_full = r['Nhận Xét'] or ""
                     found_old_tags = []
+                    custom_old_part = ""
                     
                     if " - " in old_nx_full:
                         parts = old_nx_full.split(" - ", 1)
-                        tags_str_part = parts[0]
-                        custom_old_part = parts[1]
+                        # Xác định phần nào là thẻ, phần nào là ghi chú tự viết
+                        part0_is_tag = any(t.lower() in parts[0].lower() for t in tags_options_global)
+                        part1_is_tag = any(t.lower() in parts[1].lower() for t in tags_options_global)
+                        
+                        if part0_is_tag and not part1_is_tag:
+                            tags_str_part = parts[0]
+                            custom_old_part = parts[1]
+                        elif part1_is_tag and not part0_is_tag:
+                            custom_old_part = parts[0]
+                            tags_str_part = parts[1]
+                        else:
+                            # Mặc định theo định dạng mới (Ghi chú - Thẻ)
+                            custom_old_part = parts[0]
+                            tags_str_part = parts[1]
                     else:
-                        tags_str_part = old_nx_full
-                        custom_old_part = ""
+                        # Kiểm tra xem toàn bộ chuỗi có phải là thẻ hay ghi chú tự viết
+                        is_all_tag = any(t.lower() in old_nx_full.lower() for t in tags_options_global)
+                        if is_all_tag:
+                            tags_str_part = old_nx_full
+                            custom_old_part = ""
+                        else:
+                            tags_str_part = ""
+                            custom_old_part = old_nx_full
 
                     for t in tags_options_global:
-                        if t.lower() in old_nx_full.lower() or (t == "nói chuyện/ mất tập trung" and ("buồn ngủ/mất tập trung" in old_nx_full.lower() or "mất tập trung" in old_nx_full.lower())):
+                        if t.lower() in tags_str_part.lower():
                             if t not in found_old_tags:
                                 found_old_tags.append(t)
 
-                    c_stt, c_tags, c_nx = st.columns([1.2, 2.5, 2.3])
+                    c_stt, c_nx, c_tags = st.columns([1.2, 2.3, 2.5])
                     stt_options = ["Có mặt", "Vắng có phép", "Vắng không phép"]
                     current_stt_idx = stt_options.index(r['Trạng Thái']) if r['Trạng Thái'] in stt_options else 0
                     
                     with c_stt:
                         new_stt = st.selectbox("Trạng thái", stt_options, index=current_stt_idx, key=f"batch_stt_{r['Mã Lịch']}")
+                    with c_nx:
+                        new_custom_nx = st.text_input("Ghi chú thêm (Đầu)", value=custom_old_part.rstrip('.'), key=f"batch_nx_{r['Mã Lịch']}")
                     with c_tags:
                         new_tags = st.multiselect("Thẻ thái độ", tags_options_global, default=found_old_tags, key=f"batch_tags_{r['Mã Lịch']}")
-                    with c_nx:
-                        new_custom_nx = st.text_input("Ghi chú thêm", value=custom_old_part.rstrip('.') if " - " in old_nx_full else "", key=f"batch_nx_{r['Mã Lịch']}")
                     
                     formatted_new_tags = []
                     for i, t in enumerate(new_tags):
@@ -1274,14 +1337,18 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         formatted_new_tags.append(ct)
                         
                     tag_str = ", ".join(formatted_new_tags)
-                    if tag_str and new_custom_nx.strip():
-                        new_nx_val = f"{tag_str} - {new_custom_nx.strip()}"
+                    
+                    if new_custom_nx.strip() and tag_str:
+                        custom_prefix = new_custom_nx.strip()
+                        custom_prefix = custom_prefix[0].upper() + custom_prefix[1:]
+                        new_nx_val = f"{custom_prefix} - {tag_str}"
+                    elif new_custom_nx.strip():
+                        new_nx_val = new_custom_nx.strip()
+                        new_nx_val = new_nx_val[0].upper() + new_nx_val[1:]
                     elif tag_str:
                         new_nx_val = tag_str
                     else:
-                        new_nx_val = new_custom_nx.strip()
-                        if new_nx_val:
-                            new_nx_val = new_nx_val[0].upper() + new_nx_val[1:]
+                        new_nx_val = ""
                             
                     if new_nx_val and not new_nx_val.endswith('.'):
                         new_nx_val += '.'
@@ -1322,17 +1389,33 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 
                 old_nx_single = row_log_item['Nhận Xét'] or ""
                 found_single_tags = []
+                custom_single_part = ""
                 
                 if " - " in old_nx_single:
                     parts_s = old_nx_single.split(" - ", 1)
-                    tags_str_part_s = parts_s[0]
-                    custom_single_part = parts_s[1]
+                    part0_is_tag_s = any(t.lower() in parts_s[0].lower() for t in tags_options_global)
+                    part1_is_tag_s = any(t.lower() in parts_s[1].lower() for t in tags_options_global)
+                    
+                    if part0_is_tag_s and not part1_is_tag_s:
+                        tags_str_part_s = parts_s[0]
+                        custom_single_part = parts_s[1]
+                    elif part1_is_tag_s and not part0_is_tag_s:
+                        custom_single_part = parts_s[0]
+                        tags_str_part_s = parts_s[1]
+                    else:
+                        custom_single_part = parts_s[0]
+                        tags_str_part_s = parts_s[1]
                 else:
-                    tags_str_part_s = old_nx_single
-                    custom_single_part = ""
+                    is_all_tag_s = any(t.lower() in old_nx_single.lower() for t in tags_options_global)
+                    if is_all_tag_s:
+                        tags_str_part_s = old_nx_single
+                        custom_single_part = ""
+                    else:
+                        tags_str_part_s = ""
+                        custom_single_part = old_nx_single
 
                 for t in tags_options_global:
-                    if t.lower() in old_nx_single.lower() or (t == "nói chuyện/ mất tập trung" and ("buồn ngủ/mất tập trung" in old_nx_single.lower() or "mất tập trung" in old_nx_single.lower())):
+                    if t.lower() in tags_str_part_s.lower():
                         if t not in found_single_tags:
                             found_single_tags.append(t)
 
@@ -1343,8 +1426,8 @@ elif choice == "📝 Điểm danh & Nhận xét":
                     default_stt_idx = stt_options.index(row_log_item['Trạng Thái']) if row_log_item['Trạng Thái'] in stt_options else 0
                     
                     edit_stt_val = st.selectbox("Trạng thái mới:", stt_options, index=default_stt_idx, key="edit_log_stt")
+                    edit_custom_nx_val = st.text_input("Ghi chú thêm mới (Đầu):", value=custom_single_part.rstrip('.'), key="edit_log_custom_nx")
                     edit_tags_val = st.multiselect("Thẻ thái độ mới:", tags_options_global, default=found_single_tags, key="edit_log_tags")
-                    edit_custom_nx_val = st.text_input("Ghi chú thêm mới:", value=custom_single_part.rstrip('.') if " - " in old_nx_single else "", key="edit_log_custom_nx")
                     
                     formatted_edit_tags = []
                     for i, t in enumerate(edit_tags_val):
@@ -1354,14 +1437,18 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         formatted_edit_tags.append(ct)
                         
                     tag_str_single = ", ".join(formatted_edit_tags)
-                    if tag_str_single and edit_custom_nx_val.strip():
-                        edit_nx_val = f"{tag_str_single} - {edit_custom_nx_val.strip()}"
+                    
+                    if edit_custom_nx_val.strip() and tag_str_single:
+                        custom_prefix = edit_custom_nx_val.strip()
+                        custom_prefix = custom_prefix[0].upper() + custom_prefix[1:]
+                        edit_nx_val = f"{custom_prefix} - {tag_str_single}"
+                    elif edit_custom_nx_val.strip():
+                        edit_nx_val = edit_custom_nx_val.strip()
+                        edit_nx_val = edit_nx_val[0].upper() + edit_nx_val[1:]
                     elif tag_str_single:
                         edit_nx_val = tag_str_single
                     else:
-                        edit_nx_val = edit_custom_nx_val.strip()
-                        if edit_nx_val:
-                            edit_nx_val = edit_nx_val[0].upper() + edit_nx_val[1:]
+                        edit_nx_val = ""
                             
                     if edit_nx_val and not edit_nx_val.endswith('.'):
                         edit_nx_val += '.'
