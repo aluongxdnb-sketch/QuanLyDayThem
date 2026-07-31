@@ -705,7 +705,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ KHẮC PHỤC LỖI TRÀN CHỮ / CHỒNG CHÉO) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ TỐI ƯU MỞ RỘNG VÀ CHỐNG TRÀN CHỮ) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -731,8 +731,8 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         new_row = []
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
-            if col_idx == 4: # Cột Nhận xét
-                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=25)) if cell_str else ""
+            if col_idx == 4: # Cột Nhận xét (mở rộng chiều rộng wrapping lên 32 để chữ không bị bẻ dòng quá gắt)
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=32)) if cell_str else ""
                 new_row.append(wrapped_text)
             else:
                 new_row.append(cell_str)
@@ -742,29 +742,29 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.93, "BẢNG TỔNG HỢP ĐIỂM DANH CẢ LỚP", transform=fig.transFigure, 
-            fontsize=13, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.89, f"Lớp: {class_name}", transform=fig.transFigure, 
-            fontsize=11, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.85, f"({time_label})", transform=fig.transFigure, 
-            fontsize=9.5, style='italic', color='#475569', ha='center', va='center')
+    ax.text(0.5, 0.94, "BẢNG TỔNG HỢP ĐIỂM DANH CẢ LỚP", transform=fig.transFigure, 
+            fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.90, f"Lớp: {class_name}", transform=fig.transFigure, 
+            fontsize=10.5, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.86, f"({time_label})", transform=fig.transFigure, 
+            fontsize=9, style='italic', color='#475569', ha='center', va='center')
     
-    # Cân đối lại tỷ lệ bề rộng các cột để cột "Trạng thái" đủ chỗ, không bị đè chữ
-    bbox_coords = [0.03, 0.12, 0.94, 0.70]
-    col_widths_ratio = [0.15, 0.18, 0.22, 0.18, 0.27]
+    # Mở rộng vùng hiển thị bảng (bbox) và tối ưu tỷ lệ chiều rộng các cột để thoáng và không chạm viền
+    bbox_coords = [0.02, 0.08, 0.96, 0.75]
+    col_widths_ratio = [0.13, 0.16, 0.22, 0.15, 0.34]
     table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=col_widths_ratio, bbox=bbox_coords)
     table.auto_set_font_size(False)
-    table.set_fontsize(8.5)
+    table.set_fontsize(7.5)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.15
+        cell.PAD = 0.2  # Tăng khoảng đệm để chữ cách đều viền kẻ, không bị chạm sát
         
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=9.5, ha='center', va='center')
+            cell.set_text_props(color='white', weight='bold', size=8.5, ha='center', va='center')
         else:
-            cell.set_text_props(color='#1E293B', size=8.5, ha='center', va='center')
+            cell.set_text_props(color='#1E293B', size=7.5, ha='center', va='center')
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -1858,7 +1858,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.info("ℹ️ Không tìm thấy thời khóa biểu nào phù hợp đối với lựa chọn này.")
             else:
                 st.write("📋 Xem trước danh sách lịch học:")
-                st.dataframe(df_export_list, use_container_width=True, hide_index=True)
+                st.dataframe(df_export_list, use_container_width=True)
                 
                 if HAS_MATPLOTLIB:
                     col_ex1, col_ex2 = st.columns(2)
