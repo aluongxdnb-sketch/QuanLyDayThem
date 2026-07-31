@@ -606,10 +606,14 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
             y_pos -= 0.038
             
     if is_multi and details_list:
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=11, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
+        ax.text(0.1, y_pos, "Chi tiết số ca các tháng:", fontsize=11, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
         y_pos -= 0.04
+        same_price = all(d['don_gia'] == details_list[0]['don_gia'] for d in details_list) if details_list else True
         for d in details_list:
-            line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca x {d['don_gia']:,.0f}đ = {d['thanh_tien']:,.0f}đ [{d['trang_thai']}]"
+            if same_price:
+                line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca [{d['trang_thai']}]"
+            else:
+                line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca x {d['don_gia']:,.0f}đ = {d['thanh_tien']:,.0f}đ [{d['trang_thai']}]"
             ax.text(0.12, y_pos, line_d, fontsize=10, fontweight='normal', color='#1E293B', transform=ax.transAxes)
             y_pos -= 0.038
     
