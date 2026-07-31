@@ -158,7 +158,7 @@ def get_family_student_ids(engine, hs_id):
     return list(set(matched_ids))
 
 # --- HÀM LẤY THỜI KHOÁ BIỂU HIỆU LỰC CHO MỘT NGÀY (LỊCH GỐC) ---
-def get_active_schedule_for_date(engine, check_date, hs_ids=None):
+def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_them=False):
     target_day_str = get_vietnamese_weekday(check_date)
     where_clause = f"l.thu = '{target_day_str}'"
     if hs_ids is not None:
@@ -166,6 +166,9 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None):
             return pd.DataFrame(columns=['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon'])
         ids_str = ",".join(map(str, hs_ids))
         where_clause += f" AND l.hoc_sinh_id IN ({ids_str})"
+        
+    if exclude_hoc_them:
+        where_clause += " AND LOWER(h.ho_ten) NOT LIKE '%học thêm%'"
         
     query_base = text(f'''
         SELECT l.hoc_sinh_id, h.ho_ten, h.lop_hoc, h.mon_hoc, l.ca_hoc, 'Lịch gốc' AS nguon
@@ -229,7 +232,7 @@ def sync_weekly_schedule_to_google(calendar_id='a.luongxdnb@gmail.com', ref_date
 
         for i in range(7):
             current_date = start_monday + timedelta(days=i)
-            df_day = get_active_schedule_for_date(engine, current_date)
+            df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=True)
 
             if df_day.empty:
                 continue
@@ -317,7 +320,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         delta_days = (end_sunday - ref_date).days + 1
         for i in range(delta_days):
             current_date = ref_date + timedelta(days=i)
-            df_day = get_active_schedule_for_date(engine, current_date)
+            df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=True)
 
             if df_day.empty:
                 continue
@@ -393,9 +396,10 @@ def get_schedule_matrix_df(engine, filter_lop=None, filter_hs_id=None, ref_date=
         target_hs_ids = get_family_student_ids(engine, filter_hs_id)
     
     day_schedules = {}
+    exclude_ht = True if filter_lop else False
     for i, t in enumerate(cac_thu):
         current_d = start_monday + timedelta(days=i)
-        df_day = get_active_schedule_for_date(engine, current_d, hs_ids=target_hs_ids)
+        df_day = get_active_schedule_for_date(engine, current_d, hs_ids=target_hs_ids, exclude_hoc_them=exclude_ht)
         if not df_day.empty:
             if filter_lop:
                 df_day = df_day[df_day['lop_hoc'] == filter_lop]
@@ -453,6 +457,7 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     where_clauses = []
     if filter_lop:
         where_clauses.append(f"h.lop_hoc = '{filter_lop}'")
+        where_clauses.append("LOWER(h.ho_ten) NOT LIKE '%học thêm%'")
     if filter_hs_id:
         target_ids = get_family_student_ids(engine, filter_hs_id)
         if target_ids:
