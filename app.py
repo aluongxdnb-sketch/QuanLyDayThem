@@ -524,7 +524,7 @@ def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
     df.columns = ['Thứ', 'Ca học']
     return df
 
-# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN A4 RỘNG RÃI) ---
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU (CHUẨN A4 NGANG RỘNG RÃI) ---
 def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: ", ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -534,23 +534,23 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
 
     table_data = [df_list.columns.tolist()] + df_list.values.tolist()
     
-    fig, ax = plt.subplots(figsize=(8.27, 11.69))
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
     ax.axis('off')
     ax.axis('tight')
     
     col_widths = [0.4, 0.6]
-    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.1, 0.25, 0.8, 0.5])
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths, bbox=[0.15, 0.22, 0.7, 0.52])
     table.auto_set_font_size(False)
-    table.set_fontsize(12)
+    table.set_fontsize(13)
     
-    ax.text(0.5, 0.85, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=fig.transFigure, 
-            fontsize=18, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.86, "THỜI KHÓA BIỂU LỊCH HỌC HÀNG TUẦN", transform=fig.transFigure, 
+            fontsize=20, fontweight='bold', color='#1E3A8A', ha='center', va='center')
     ax.text(0.5, 0.80, f"{prefix}{title_target}", transform=fig.transFigure, 
-            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.76, week_str, transform=fig.transFigure, 
-            fontsize=11, style='italic', color='#475569', ha='center', va='center')
-    ax.text(0.5, 0.12, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", transform=fig.transFigure, 
-            fontsize=10, style='italic', color='#64748B', ha='center', va='center')
+            fontsize=15, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.75, week_str, transform=fig.transFigure, 
+            fontsize=12, style='italic', color='#475569', ha='center', va='center')
+    ax.text(0.5, 0.10, "Ghi chú: Lịch học được áp dụng ổn định cho các tuần tiếp theo nếu không có thay đổi tạm thời.", transform=fig.transFigure, 
+            fontsize=10.5, style='italic', color='#64748B', ha='center', va='center')
 
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
@@ -562,9 +562,9 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
         cell.PAD = 0.4
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=13)
+            cell.set_text_props(color='white', weight='bold', size=14)
         else:
-            cell.set_text_props(color='#1E293B', size=12)
+            cell.set_text_props(color='#1E293B', size=13)
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -576,7 +576,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (GIỮ NGUYÊN CHUẨN A5 THEO YÊU CẦU) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (GIỮ NGUYÊN CHUẨN A5 ĐÃ HOÀN THIỆN) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(5.83, 8.27))
@@ -645,7 +645,7 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN A4 RỘNG RÃI) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH TỪNG HỌC SINH (CHUẨN A4 NGANG RỘNG RÃI) ---
 def create_student_attendance_history_image(student_name, lop_hoc, month_year, df_history, total_present):
     wrapped_data = []
     max_lines_overall = 1
@@ -655,7 +655,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
             if col_idx == 3:
-                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=50)) if cell_str else ""
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=65)) if cell_str else ""
                 lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
                 new_row.append(wrapped_text)
                 if lines > row_max_lines:
@@ -669,29 +669,29 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
         if row_max_lines > max_lines_overall:
             max_lines_overall = row_max_lines
 
-    fig, ax = plt.subplots(figsize=(8.27, 11.69))
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.88, "LỊCH SỬ ĐIỂM DANH & NHẬN XÉT HỌC SINH", transform=fig.transFigure, 
-            fontsize=18, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.83, f"Học sinh: {student_name} - Lớp: {lop_hoc}", transform=fig.transFigure, 
-            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.79, f"({month_year}) - Tổng số buổi đi học (Có mặt): {total_present} buổi", transform=fig.transFigure, 
+    ax.text(0.5, 0.86, "LỊCH SỬ ĐIỂM DANH & NHẬN XÉT HỌC SINH", transform=fig.transFigure, 
+            fontsize=20, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.80, f"Học sinh: {student_name} - Lớp: {lop_hoc}", transform=fig.transFigure, 
+            fontsize=15, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.75, f"({month_year}) - Tổng số buổi đi học (Có mặt): {total_present} buổi", transform=fig.transFigure, 
             fontsize=12, style='italic', color='#475569', ha='center', va='center')
     
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.08, 0.15, 0.84, 0.60])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.20, 0.20, 0.20, 0.40], bbox=[0.1, 0.15, 0.8, 0.55])
     table.auto_set_font_size(False)
-    table.set_fontsize(11)
+    table.set_fontsize(12)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.3
+        cell.PAD = 0.4
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=12)
+            cell.set_text_props(color='white', weight='bold', size=13)
         else:
-            cell.set_text_props(color='#1E293B', size=11)
+            cell.set_text_props(color='#1E293B', size=12)
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -708,7 +708,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN A4 RỘNG RÃI, KHÔNG ĐÈ CHỮ) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (CHUẨN A4 NGANG RỘNG RÃI, KHÔNG ĐÈ CHỮ) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -737,7 +737,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
             if col_idx == 4:
-                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=45)) if cell_str else ""
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=65)) if cell_str else ""
                 lines = wrapped_text.count('\n') + 1 if wrapped_text else 1
                 new_row.append(wrapped_text)
                 if lines > row_max_lines:
@@ -751,32 +751,32 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         if row_max_lines > max_lines_overall:
             max_lines_overall = row_max_lines
 
-    fig, ax = plt.subplots(figsize=(8.27, 11.69))
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.88, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
-            fontsize=18, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.83, f"Lớp: {class_name}", transform=fig.transFigure, 
-            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.79, f"({time_label})", transform=fig.transFigure, 
+    ax.text(0.5, 0.86, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
+            fontsize=20, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.80, f"Lớp: {class_name}", transform=fig.transFigure, 
+            fontsize=15, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.75, f"({time_label})", transform=fig.transFigure, 
             fontsize=12, style='italic', color='#475569', ha='center', va='center')
     
-    bbox_coords = [0.06, 0.15, 0.88, 0.60]
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.16, 0.18, 0.22, 0.14, 0.30], bbox=bbox_coords)
+    bbox_coords = [0.08, 0.15, 0.84, 0.55]
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.25, 0.14, 0.28], bbox=bbox_coords)
     table.auto_set_font_size(False)
-    table.set_fontsize(11)
+    table.set_fontsize(12)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.3
+        cell.PAD = 0.4
         cell.set_text_props(ha='center', va='center')
         
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=12, ha='center', va='center')
+            cell.set_text_props(color='white', weight='bold', size=13, ha='center', va='center')
         else:
-            cell.set_text_props(color='#1E293B', size=11, ha='center', va='center')
+            cell.set_text_props(color='#1E293B', size=12, ha='center', va='center')
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -1605,7 +1605,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                 if not all_lops_export:
                     st.warning("⚠️ Không có lớp học nào trong hệ thống.")
                 else:
-                    # Thiết lập thông tin thời gian theo tùy chọn
                     time_label_cls = ""
                     file_suffix = ""
                     df_cls_history_final = pd.DataFrame()
@@ -1616,7 +1615,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                         time_label_cls = f"Ngày {sel_date_cls.strftime('%d/%m/%Y')}"
                         file_suffix = f"Ngay_{sel_date_cls.strftime('%Y%m%d')}"
                         
-                        # Chọn riêng 1 lớp để xem chi tiết
                         sel_lop_exp_cls = st.selectbox("Chọn Lớp học cần xem/tải đơn lẻ:", all_lops_export, key="sel_lop_exp_cls_key")
                         df_cls_history_final = pd.read_sql_query(text(f'''
                             SELECT 
@@ -1682,7 +1680,6 @@ elif choice == "📝 Điểm danh & Nhận xét":
                             ORDER BY d.ngay ASC, d.ca_hoc ASC, h.ho_ten ASC
                         '''), engine)
 
-                    # Khu vực nút tải file ZIP hàng loạt cho TẤT CẢ CÁC LỚP theo đúng tùy chọn thời gian (1 ngày, 1 tuần, 1 tháng)
                     st.markdown("---")
                     st.markdown(f"##### 📦 Tải File ZIP Tổng Hợp Điểm Danh **TẤT CẢ CÁC LỚP** (Theo tùy chọn: {option_time_cls})")
                     if HAS_MATPLOTLIB:
@@ -1871,7 +1868,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.rerun()
 
     with tab_export:
-        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần (Chuẩn A4 Rộng Rãi)")
+        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần (Chuẩn A4 Ngang Rộng Rãi)")
         df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh"), engine)
 
         if df_hs_all.empty:
