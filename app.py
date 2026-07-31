@@ -9,6 +9,7 @@ import io
 import textwrap
 import random
 import calendar
+import zipfile
 
 # Thử import Matplotlib để xuất thời khóa biểu, phiếu học phí & lịch sử điểm danh dạng ảnh PNG
 try:
@@ -1922,7 +1923,6 @@ elif choice == "💳 Quản lý học phí":
                     unpaid_months_set.add(thang_key)
                     paid_all = False
         
-        # Nếu không có tháng nào nợ, mặc định hiển thị tháng mốc được chọn
         if not unpaid_months_set:
             time_str = end_target_date.strftime("%m/%Y")
             total_ca_group = 0
