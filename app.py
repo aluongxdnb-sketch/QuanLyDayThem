@@ -41,7 +41,7 @@ DANH_SACH_CA_MAU = [
 # --- KHO 30 THÔNG ĐIỆP TRUYỀN CẢM HỨNG CHO HỌC SINH ---
 THONG_DIEP_LIST = [
     "🌟 'Học tập không phải là con đường đi đến hạnh phúc, mà hạnh phúc chính là hành trình học tập.' Chúc các em học sinh một ngày tràn đầy hứng khởi, sáng tạo và tiếp thu thật nhiều kiến thức bổ ích cùng cô!",
-    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm nay nhé!",
+    "📖 'Kiến thức là tài sản quý giá nhất mà không ai có thể cướp đi được.' Các em hãy tự tin, chủ động và quyết tâm chinh phục từng bài học hôm hôm nay nhé!",
     "💡 'Không có thất bại, tất cả chỉ là bài học để trưởng thành.' Hãy luôn mạnh dạn đặt câu hỏi và cố gắng hết mình, cô luôn ở đây đồng hành cùng các em!",
     "🌱 'Mỗi ngày đến lớp là một bước tiến gần hơn đến ước mơ lớn của các em.' Chúc các em học sinh có những giờ học thật tập trung, hào hứng và hiệu quả!",
     "✨ 'Tương lai thuộc về những ai tin vào vẻ đẹp của những giấc mơ và nỗ lực vì nó.' Các em hãy tự tin vào bản thân, chăm chỉ rèn luyện mỗi ngày nhé!",
@@ -91,10 +91,10 @@ SUC_KHOE_LIST = [
     "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
     "✍️ Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
     "💤 Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
-    "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "☀️ Lời nhắc sức khỏe: Đ đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
-    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
+    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
     "🤸‍♀️ Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
     "🍵 Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
     "😊 Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
@@ -449,78 +449,75 @@ def render_schedule_matrix(engine, filter_lop=None, filter_hs_id=None, ref_date=
     else:
         st.write(df_matrix.to_html(index=False, escape=False), unsafe_allow_html=True)
 
-# --- HÀM TẠO FILE ẢNH PNG THỜI KHÓA BIỂU HÀNG TUẦN ---
-def create_weekly_schedule_image(title_target, df_matrix, ref_date=None, prefix="Học sinh / Lớp: "):
-    if ref_date is None:
-        ref_date = date.today()
-        
-    table_data = [df_matrix.columns.tolist()] + df_matrix.values.tolist()
+# --- HÀM LẤY DANH SÁCH LỊCH HỌC DẠNG BẢNG LIỆT KÊ (THỨ & CA HỌC) ---
+def get_schedule_list_df(engine, filter_lop=None, filter_hs_id=None):
+    where_clauses = []
+    if filter_lop:
+        where_clauses.append(f"h.lop_hoc = '{filter_lop}'")
+    if filter_hs_id:
+        target_ids = get_family_student_ids(engine, filter_hs_id)
+        if target_ids:
+            ids_str = ",".join(map(str, target_ids))
+            where_clauses.append(f"l.hoc_sinh_id IN ({ids_str})")
+        else:
+            return pd.DataFrame(columns=['Thứ', 'Ca học'])
     
-    max_lines_overall = 1
-    cleaned_data = []
-    for row in table_data:
-        cleaned_row = []
-        row_max_lines = 1
-        for col_idx, cell in enumerate(row):
-            clean_cell = str(cell).replace("<br>", "\n").replace("<br/>", "\n")
-            clean_cell = clean_cell.replace("<b>", "").replace("</b>", "")
-            clean_cell = re.sub(r'<[^>]+>', '', clean_cell)
-            
-            lines = clean_cell.count('\n') + 1
-            if lines > row_max_lines:
-                row_max_lines = lines
-            cleaned_row.append(clean_cell)
-        cleaned_data.append(cleaned_row)
-        if row_max_lines > max_lines_overall:
-            max_lines_overall = row_max_lines
-            
-    fig, ax = plt.subplots(figsize=(24, len(df_matrix) * max(1.8, max_lines_overall * 0.65) + 5.0))
+    where_str = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    query = text(f'''
+        SELECT l.thu, l.ca_hoc
+        FROM lich_hoc_tuan l
+        JOIN hoc_sinh h ON l.hoc_sinh_id = h.id
+        {where_str}
+    ''')
+    df = pd.read_sql_query(query, engine)
+    if df.empty:
+        return pd.DataFrame(columns=['Thứ', 'Ca học'])
+    
+    thu_order = {"Thứ 2": 1, "Thứ 3": 2, "Thứ 4": 3, "Thứ 5": 4, "Thứ 6": 5, "Thứ 7": 6, "Chủ Nhật": 7}
+    df['thu_rank'] = df['thu'].map(lambda x: thu_order.get(x, 8))
+    df = df.sort_values(by=['thu_rank', 'ca_hoc']).drop(columns=['thu_rank']).drop(columns=[c for c in df.columns if c not in ['thu', 'ca_hoc']]).drop_duplicates().reset_index(drop=True)
+    df.columns = ['Thứ', 'Ca học']
+    return df
+
+# --- HÀM TẠO FILE ẢNH THỜI KHÓA BIỂU DẠNG BẢNG MỚI (CÓ ĐƯỜNG VIỀN NHẸ XUNG QUANH) ---
+def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp: "):
+    table_data = [df_list.columns.tolist()] + df_list.values.tolist()
+    
+    fig, ax = plt.subplots(figsize=(7, max(4, len(df_list) * 0.8 + 3.0)))
     ax.axis('off')
     ax.axis('tight')
     
-    start_w = ref_date - timedelta(days=ref_date.weekday())
-    end_w = start_w + timedelta(days=6)
-    week_text = f"(Tuần từ {start_w.strftime('%d/%m/%Y')} đến {end_w.strftime('%d/%m/%Y')})"
-        
-    col_widths = [0.08, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12]
-    
-    table = ax.table(cellText=cleaned_data, loc='center', cellLoc='center', colWidths=col_widths)
+    col_widths = [0.4, 0.6]
+    table = ax.table(cellText=table_data, loc='center', cellLoc='center', colWidths=col_widths)
     table.auto_set_font_size(False)
     table.set_fontsize(12)
+    table.scale(1, 2.3)
     
-    v_scale = max(3.2, max_lines_overall * 1.15)
-    table.scale(1, v_scale)
+    ax.text(0.5, 1.22, "LỊCH HỌC CỐ ĐỊNH HÀNG TUẦN", transform=ax.transAxes, 
+            fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
+    ax.text(0.5, 1.11, f"{prefix}{title_target}", transform=ax.transAxes, 
+            fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='bottom')
     
-    ax.text(0.5, 1.15, "THỜI KHÓA BIỂU HÀNG TUẦN", transform=ax.transAxes, 
-            fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='bottom')
-    ax.text(0.5, 1.08, f"{prefix}{title_target}", transform=ax.transAxes, 
-            fontsize=14, fontweight='bold', color='#0F172A', ha='center', va='bottom')
-    ax.text(0.5, 1.02, week_text, transform=ax.transAxes, 
-            fontsize=11.5, fontweight='normal', color='#475569', ha='center', va='bottom')
-    
-    plt.figtext(0.5, 0.02, "Ghi chú: Thời khóa biểu được áp dụng ổn định cho các tuần tiếp theo.", ha='center', fontsize=10.5, style='italic', color='#475569', weight='bold')
+    # Tạo đường viền nhẹ tinh tế xung quanh toàn bộ khung ảnh
+    from matplotlib.patches import Rectangle
+    rect = Rectangle((0.015, 0.015), 0.97, 0.97, transform=fig.transFigure,
+                     fill=False, color='#CBD5E1', linewidth=1.2, zorder=10)
+    fig.patches.append(rect)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.15 
-        
+        cell.PAD = 0.2
         if row == 0:
             cell.set_facecolor('#1E3A8A')
             cell.set_text_props(color='white', weight='bold', size=12.5)
         else:
-            if col == 0:
-                cell.set_facecolor('#FEF3C7')
-                cell.set_text_props(weight='bold', color='#B45309', size=12)
-            elif col == 1:
-                cell.set_facecolor('#E0F2FE')
-                cell.set_text_props(weight='bold', color='#0369A1', size=11.5)
+            cell.set_text_props(color='#1E293B', size=11.5)
+            if row % 2 == 0:
+                cell.set_facecolor('#F8FAFC')
             else:
-                cell.set_text_props(color='#1E293B', size=12, weight='normal')
-                if row % 2 == 0:
-                    cell.set_facecolor('#F8FAFC')
-                else:
-                    cell.set_facecolor('white')
-                    
+                cell.set_facecolor('white')
+                
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
     plt.close(fig)
@@ -653,11 +650,10 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (TỔNG HỢP THEO CA & NGÀY CÓ GỘP NHÓM & CÂN GIỮA) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
-    # Xử lý gộp ngày và ca học giống nhau liên tiếp
     processed_rows = [raw_table_data[0]]
     last_ngay = None
     last_ca = None
@@ -714,8 +710,6 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
         cell.PAD = 0.15
-        
-        # Căn giữa dọc và ngang cho tất cả các ô
         cell.set_text_props(ha='center', va='center')
         
         if row == 0:
@@ -930,7 +924,6 @@ if choice == "🏠 Trang chủ":
 
     st.markdown("---")
     
-    # 📊 CẢNH BÁO VẮNG NHIỀU TRONG THÁNG (Hiển thị dạng bảng gọn gàng)
     st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng:")
     current_month_q = f"{today.year}-{today.month:02d}"
     
@@ -1658,13 +1651,12 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.rerun()
 
     with tab_export:
-        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần Dạng Ảnh PNG")
+        st.markdown("### 🖼️ Tải Ảnh Thời Khóa Biểu Hàng Tuần (Kiểu Bảng Liệt Kê Mới)")
         df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh"), engine)
 
         if df_hs_all.empty:
             st.warning("Chưa có dữ liệu học sinh.")
         else:
-            sel_date_export = st.date_input("🗓️ Chọn tuần để tải ảnh:", date.today(), key="sel_date_export_img_m")
             filter_mode = st.radio("Chọn phạm vi tải thời khóa biểu:", ["Theo Lớp cụ thể", "Theo Học sinh cụ thể"], horizontal=True, key="filter_mode_exp_m")
             
             target_title = "Lớp học"
@@ -1692,15 +1684,18 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 safe_hs_name = re.sub(r'[\\/*?:"<>|]', "", f"{base_n_exp}_{lop_n_exp}".replace(" ", "_"))
                 file_name_download = f"Thoi_Khoa_Bieu_{safe_hs_name}.png"
 
-            df_export_matrix = get_schedule_matrix_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp, ref_date=sel_date_export)
+            df_export_list = get_schedule_list_df(engine, filter_lop=selected_lop_exp, filter_hs_id=selected_hs_exp)
 
-            if df_export_matrix.empty:
-                st.info("ℹ️ Không tìm thấy thời khóa biểu phù hợp đối với lựa chọn này.")
+            if df_export_list.empty:
+                st.info("ℹ️ Không tìm thấy thời khóa biểu nào phù hợp đối với lựa chọn này.")
             else:
+                st.write("📋 Xem trước danh sách lịch học:")
+                st.dataframe(df_export_list, use_container_width=True, hide_index=True)
+                
                 if HAS_MATPLOTLIB:
                     col_ex1, col_ex2 = st.columns(2)
                     with col_ex1:
-                        img_bytes = create_weekly_schedule_image(target_title, df_export_matrix, ref_date=sel_date_export, prefix=prefix_label)
+                        img_bytes = create_list_schedule_image(target_title, df_export_list, prefix=prefix_label)
                         st.download_button(
                             label=f"🖼️ Tải Ảnh Thời Khóa Biểu ({target_title})",
                             data=img_bytes,
@@ -1726,16 +1721,16 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                             continue
                                         processed_base_names.add(key_check)
                                         
-                                        df_hs_mat = get_schedule_matrix_df(engine, filter_hs_id=hs_id_val, ref_date=sel_date_export)
-                                        if not df_hs_mat.empty:
-                                            img_hs_b = create_weekly_schedule_image(f"{hs_name_val} - Lớp {hs_lop_val}", df_hs_mat, ref_date=sel_date_export, prefix="Học sinh / Lớp: ")
+                                        df_hs_list_item = get_schedule_list_df(engine, filter_hs_id=hs_id_val)
+                                        if not df_hs_list_item.empty:
+                                            img_hs_b = create_list_schedule_image(f"{hs_name_val} - Lớp {hs_lop_val}", df_hs_list_item, prefix="Học sinh / Lớp: ")
                                             safe_n = re.sub(r'[\\/*?:"<>|]', "", f"{hs_name_val}_{hs_lop_val}".replace(" ", "_"))
                                             zf.writestr(f"Thoi_Khoa_Bieu_{safe_n}.png", img_hs_b.getvalue())
                                 zip_buffer_s.seek(0)
                                 st.download_button(
                                     label="🖼️ Bấm Tải Xuống ZIP Tất Cả Học Sinh",
                                     data=zip_buffer_s,
-                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Hoc_Sinh_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Hoc_Sinh_{datetime.now().strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
                                     type="primary",
                                     key="btn_download_zip_schedule_hs"
@@ -1746,16 +1741,16 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                                 all_lops_list = sorted(df_hs_all['lop_hoc'].dropna().unique().tolist())
                                 with zipfile.ZipFile(zip_buffer_l, "w", zipfile.ZIP_DEFLATED) as zf_l:
                                     for lop_val in all_lops_list:
-                                        df_lop_mat = get_schedule_matrix_df(engine, filter_lop=lop_val, ref_date=sel_date_export)
-                                        if not df_lop_mat.empty:
-                                            img_lop_b = create_weekly_schedule_image(f"Lớp {lop_val}", df_lop_mat, ref_date=sel_date_export, prefix="Lớp: ")
+                                        df_lop_list_item = get_schedule_list_df(engine, filter_lop=lop_val)
+                                        if not df_lop_list_item.empty:
+                                            img_lop_b = create_list_schedule_image(f"Lớp {lop_val}", df_lop_list_item, prefix="Lớp: ")
                                             safe_lop_n = re.sub(r'[\\/*?:"<>|]', "", f"{lop_val}".replace(" ", "_"))
                                             zf_l.writestr(f"Thoi_Khoa_Bieu_Lop_{safe_lop_n}.png", img_lop_b.getvalue())
                                 zip_buffer_l.seek(0)
                                 st.download_button(
                                     label="🖼️ Bấm Tải Xuống ZIP Tất Cả Các Lớp",
                                     data=zip_buffer_l,
-                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Cac_Lop_{sel_date_export.strftime('%Y%m%d')}.zip",
+                                    file_name=f"Tat_Ca_Thoi_Khoa_Bieu_Cac_Lop_{datetime.now().strftime('%Y%m%d')}.zip",
                                     mime="application/zip",
                                     type="primary",
                                     key="btn_download_zip_schedule_lop"
@@ -1788,7 +1783,6 @@ elif choice == "💳 Quản lý học phí":
             base_n = get_base_name(meta['ho_ten'])
             phone = meta['thong_tin_phu_huynh']
             
-            # Chỉ gộp nhóm khi có SĐT hợp lệ, nếu trống thì tách biệt theo ID
             if phone and phone.lower() not in ['none', 'nan', '']:
                 group_key = (base_n.lower(), phone)
             else:
