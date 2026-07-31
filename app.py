@@ -576,14 +576,14 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5, ĐỊNH DẠNG MỚI ĐÚNG YÊU CẦU) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CHUẨN A5 ĐÚNG MẪU ẢNH MỚI NHẤT) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, month_year, total_lessons, total_fee, status, qr_path, is_multi=False, details_list=None, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(5.83, 8.27))
     ax.axis('off')
     
-    ax.text(0.5, 0.95, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.91, f"Thời gian: {month_year}", fontsize=11, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.93, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.88, f"Thời gian: {month_year}", fontsize=11, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
     details = [
         f"Họ và tên học sinh: {student_name}",
@@ -591,73 +591,38 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, price_per_lesson, 
         f"Môn học: {subject}"
     ]
     
-    y_pos = 0.85
+    y_pos = 0.80
     for line in details:
         fontweight = 'bold' if 'Họ và tên' in line else 'normal'
-        ax.text(0.1, y_pos, line, fontsize=10.5, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.04
+        ax.text(0.1, y_pos, line, fontsize=11, fontweight=fontweight, color='#1E293B', transform=ax.transAxes)
+        y_pos -= 0.048
         
-    if has_multiple_components and details_list:
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.035
-        
-        # Nhóm sub_components theo tháng từ details_list nếu có
-        for d in details_list:
-            thang_k = d['thang_key']
-            stt_thang = d.get('trang_thai', 'Chưa đóng')
-            ax.text(0.12, y_pos, f"• Tháng {thang_k} [{stt_thang}]:", fontsize=10, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.033
-            
-            for sc in sub_components:
-                # Lọc số ca của sub_component trong tháng này
-                sc_so_ca = sc.get('monthly_ca', {}).get(thang_k, 0)
-                if sc_so_ca > 0:
-                    line_sc = f"  - {sc['ten']}: {sc_so_ca} ca"
-                    ax.text(0.14, y_pos, line_sc, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-                    y_pos -= 0.032
-            y_pos -= 0.005
-    elif has_multiple_components:
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.035
+    # Nếu có nhiều thành phần (ví dụ Đỗ Thuỷ & Đỗ Thuỷ - Học Thêm) thì liệt kê riêng từng người ngay dưới phần Môn học
+    if has_multiple_components:
         for sc in sub_components:
             if sc['so_ca'] > 0:
                 line_sc = f"• {sc['ten']}: {sc['so_ca']} ca"
-                ax.text(0.12, y_pos, line_sc, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-                y_pos -= 0.032
-            
-    if is_multi and details_list and not has_multiple_components:
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.035
-        for d in details_list:
-            line_d = f"• Tháng {d['thang_key']}: {d['so_ca']} ca [{d['trang_thai']}]"
-            ax.text(0.12, y_pos, line_d, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.032
-    elif not has_multiple_components and not is_multi:
-        # Trường hợp 1 tháng hoặc đơn lẻ
-        ax.text(0.1, y_pos, "Chi tiết học phí các tháng:", fontsize=10.5, fontweight='bold', color='#1E3A8A', transform=ax.transAxes)
-        y_pos -= 0.035
-        line_d = f"• Tháng {month_year}: {total_lessons} ca [{status}]"
-        ax.text(0.12, y_pos, line_d, fontsize=9.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.035
-    
+                ax.text(0.12, y_pos, line_sc, fontsize=10.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+                y_pos -= 0.045
+        y_pos -= 0.01
+
     summary_lines = [
         f"Tổng số ca học: {total_lessons} ca",
         f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ",
     ]
     
-    y_pos -= 0.01
     for line in summary_lines:
         fontweight = 'bold' if 'TỔNG CỘNG' in line else 'normal'
         color = '#B91C1C' if 'TỔNG CỘNG' in line else '#1E293B'
-        ax.text(0.1, y_pos, line, fontsize=10.5, fontweight=fontweight, color=color, transform=ax.transAxes)
-        y_pos -= 0.042
+        ax.text(0.1, y_pos, line, fontsize=11, fontweight=fontweight, color=color, transform=ax.transAxes)
+        y_pos -= 0.052
         
-    # Phần trạng thái thanh toán tự động xuống dòng khi dài để không đè vào viền
+    # Phần trạng thái thanh toán ở dưới cùng (Chỉ hiển thị Chưa đóng, Đóng một phần, hoặc Đã đóng)
     status_text = f"Trạng thái thanh toán: {status}"
     wrapped_status = textwrap.wrap(status_text, width=52)
     for s_line in wrapped_status:
-        ax.text(0.1, y_pos, s_line, fontsize=10.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-        y_pos -= 0.038
+        ax.text(0.1, y_pos, s_line, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+        y_pos -= 0.045
         
     if qr_path and os.path.exists(qr_path):
         try:
@@ -816,7 +781,6 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
             else:
                 cell.set_facecolor('white')
 
-    # Vẽ đường kẻ đậm phân cách giữa các ngày khác nhau
     total_rows = len(wrapped_data)
     bbox_left, bbox_bottom, bbox_width, bbox_height = bbox_coords
     for idx in range(1, len(raw_table_data)):
@@ -1083,7 +1047,7 @@ if choice == "🏠 Trang chủ":
     st.markdown("---")
     st.markdown("#### 🏫 Chi Tiết Thời Khóa Biểu & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
     if df_today.empty:
-        st.info("💡 Hôm nay không có ca dạy nào được lên lịch.")
+        st.info("💡 Hôm hôm nay không có ca dạy nào được lên lịch.")
     else:
         sorted_cas_today = sorted(df_today['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
         for ca in sorted_cas_today:
@@ -1943,14 +1907,14 @@ elif choice == "💳 Quản lý học phí":
             return raw_df
             
         df_hs_meta = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, thong_tin_phu_huynh FROM hoc_sinh"), engine_obj)
-        meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'thong_tin_phu_huynh': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_meta.iterrows()}
+        meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'lop_hoc': row['lop_hoc'], 'thong_tin_phu_huynh': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_meta.iterrows()}
         
         grouped_dict = {}
         for _, row in raw_df.iterrows():
             hs_id = row['hoc_sinh_id']
             so_ca = int(row['Số Ca Có Mặt'])
             
-            meta = meta_dict.get(hs_id, {'ho_ten': row['Họ và Tên'], 'thong_tin_phu_huynh': ''})
+            meta = meta_dict.get(hs_id, {'ho_ten': row['Họ và Tên'], 'lop_hoc': row['Lớp'], 'thong_tin_phu_huynh': ''})
             base_n = get_base_name(meta['ho_ten'])
             phone = meta['thong_tin_phu_huynh']
             
@@ -1959,7 +1923,6 @@ elif choice == "💳 Quản lý học phí":
             else:
                 group_key = (base_n.lower(), f"id_{hs_id}")
             
-            # Lấy tháng của row hiện tại
             row_thang = row.get('Thời gian', '')
             
             if group_key not in grouped_dict:
@@ -1967,7 +1930,7 @@ elif choice == "💳 Quản lý học phí":
                     'hoc_sinh_id': hs_id,
                     'family_ids': [hs_id],
                     'Họ và Tên': base_n,
-                    'Lớp': row['Lớp'],
+                    'Lớp': meta['lop_hoc'], # Lấy tên lớp hiện tại chuẩn
                     'Môn Học': row['Môn Học'],
                     'Đơn Giá/Ca (VNĐ)': row['Đơn Giá/Ca (VNĐ)'],
                     'Thời gian': row['Thời gian'],
@@ -1977,12 +1940,11 @@ elif choice == "💳 Quản lý học phí":
                     'is_multi': row.get('is_multi', False),
                     'details': [dict(d) for d in row.get('details', [])],
                     'sub_components': [{
-                        'ten': row['Họ and Tên'] if 'Họ and Tên' in row else meta['ho_ten'],
+                        'ten': row['Họ và Tên'] if 'Họ và Tên' in row else meta['ho_ten'],
                         'lop': row['Lớp'],
                         'so_ca': so_ca,
                         'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)']),
-                        'monthly_ca': {row_thang: so_ca} if '/' in str(row_thang) and len(str(row_thang)) <= 7 else {}
+                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
                     }]
                 }
             else:
@@ -1992,17 +1954,13 @@ elif choice == "💳 Quản lý học phí":
                 
                 g['Số Ca Có Mặt'] += so_ca
                 g['Tổng Tiền (VNĐ)'] += float(row['Tổng Tiền (VNĐ)'])
-                if row['Lớp'] not in g['Lớp']:
-                    g['Lớp'] = f"{g['Lớp']}, {row['Lớp']}"
                 
-                sub_comp_name = row['Họ và Tên'] if 'Họ và Tên' in row else meta['ho_ten']
+                sub_comp_name = row['Họ và Tên'] if 'Họ and Tên' in row else meta['ho_ten']
                 found_sc = False
                 for sc in g['sub_components']:
-                    if sc['ten'] == sub_comp_name and sc['lop'] == row['Lớp']:
+                    if sc['ten'] == sub_comp_name:
                         sc['so_ca'] += so_ca
                         sc['thanh_tien'] += float(row['Tổng Tiền (VNĐ)'])
-                        if '/' in str(row_thang) and len(str(row_thang)) <= 7:
-                            sc['monthly_ca'][row_thang] = sc['monthly_ca'].get(row_thang, 0) + so_ca
                         found_sc = True
                         break
                 if not found_sc:
@@ -2011,8 +1969,7 @@ elif choice == "💳 Quản lý học phí":
                         'lop': row['Lớp'],
                         'so_ca': so_ca,
                         'don_gia': row['Đơn Giá/Ca (VNĐ)'],
-                        'thanh_tien': float(row['Tổng Tiền (VNĐ)']),
-                        'monthly_ca': {row_thang: so_ca} if '/' in str(row_thang) and len(str(row_thang)) <= 7 else {}
+                        'thanh_tien': float(row['Tổng Tiền (VNĐ)'])
                     })
                 
                 row_details = row.get('details', [])
@@ -2034,66 +1991,57 @@ elif choice == "💳 Quản lý học phí":
             # Lọc bỏ các sub_component có số ca = 0 (nếu có yêu cầu ca = 0 không hiện)
             g['sub_components'] = [s for s in subs if s['so_ca'] > 0]
             
-            if len(g['sub_components']) == 1:
-                g['Họ và Tên'] = g['sub_components'][0]['ten']
-                g['Lớp'] = g['sub_components'][0]['lop']
-                g['Đơn Giá/Ca (VNĐ)'] = g['sub_components'][0]['don_gia']
-            elif len(g['sub_components']) > 1:
-                g['Lớp'] = ", ".join([s['lop'] for s in g['sub_components']])
-                
             f_ids = g['family_ids']
             f_ids_str = ",".join(map(str, f_ids))
             
+            # Kiểm tra trạng thái thanh toán chung của tất cả các tháng/thành phần
+            # Nếu tất cả các tháng đều đã đóng -> Đã đóng
+            # Nếu chưa đóng tháng nào -> Chưa đóng
+            # Nếu có đóng ít nhất 1 tháng nhưng chưa đủ -> Đóng một phần
+            all_months_to_check = []
             if g['is_multi'] and g['details']:
-                updated_details = []
-                all_paid = True
-                any_paid = False
-                for d in g['details']:
-                    th_key = d['thang_key']
-                    q_stt = text(f"SELECT trang_thai FROM thanh_toan WHERE hoc_sinh_id IN ({f_ids_str}) AND thang_nam = '{th_key}'")
-                    df_stt = pd.read_sql_query(q_stt, engine_obj)
-                    
-                    if df_stt.empty:
-                        stt_month = 'Chưa đóng'
-                        all_paid = False
-                    else:
-                        statuses = df_stt['trang_thai'].tolist()
-                        if all(s == 'Đã đóng' for s in statuses) and len(statuses) >= len(f_ids):
-                            stt_month = 'Đã đóng'
-                            any_paid = True
-                        elif any(s == 'Đã đóng' for s in statuses):
-                            stt_month = 'Đóng một phần'
-                            any_paid = True
-                            all_paid = False
-                        else:
-                            stt_month = 'Chưa đóng'
-                            all_paid = False
-                    d['trang_thai'] = stt_month
-                    updated_details.append(d)
-                g['details'] = updated_details
+                all_months_to_check = [d['thang_key'] for d in g['details']]
+            else:
+                t_time = g['Thời gian']
+                if '/' in str(t_time) and len(str(t_time)) <= 7:
+                    all_months_to_check = [t_time]
+                elif selected_months_list:
+                    # Trường hợp xem nhiều tháng nhưng được truyền vào
+                    pass
+
+            if all_months_to_check:
+                paid_count = 0
+                total_months_count = len(all_months_to_check) * len(f_ids)
                 
-                # Cập nhật trạng thái tổng thể dưới cùng đúng yêu cầu
-                if all_paid:
+                for fid in f_ids:
+                    for m_key in all_months_to_check:
+                        q_stt = text(f"SELECT trang_thai FROM thanh_toan WHERE hoc_sinh_id = {fid} AND thang_nam = '{m_key}'")
+                        df_stt = pd.read_sql_query(q_stt, engine_obj)
+                        if not df_stt.empty and df_stt.iloc[0]['trang_thai'] == 'Đã đóng':
+                            paid_count += 1
+                
+                if paid_count == total_months_count and total_months_count > 0:
                     g['Trạng Thái'] = 'Đã đóng'
-                elif any_paid:
+                elif paid_count > 0:
                     g['Trạng Thái'] = 'Đóng một phần'
                 else:
                     g['Trạng Thái'] = 'Chưa đóng'
             else:
+                # Mặc định kiểm tra bảng thanh_toan cho thời gian hiện tại
                 t_time = g['Thời gian']
-                if '/' in str(t_time) and len(str(t_time)) <= 7:
-                    q_stt = text(f"SELECT trang_thai FROM thanh_toan WHERE hoc_sinh_id IN ({f_ids_str}) AND thang_nam = '{t_time}'")
-                    df_stt = pd.read_sql_query(q_stt, engine_obj)
-                    if df_stt.empty:
-                        g['Trạng Thái'] = 'Chưa đóng'
+                q_stt = text(f"SELECT trang_thai FROM thanh_toan WHERE hoc_sinh_id IN ({f_ids_str}) AND thang_nam = '{t_time}'")
+                df_stt = pd.read_sql_query(q_stt, engine_obj)
+                if df_stt.empty:
+                    g['Trạng Thái'] = 'Chưa đóng'
+                else:
+                    statuses = df_stt['trang_thai'].tolist()
+                    if all(s == 'Đã đóng' for s in statuses):
+                        g['Trạng Thái'] = 'Đã đóng'
+                    elif any(s == 'Đã đóng' for s in statuses):
+                        g['Trạng Thái'] = 'Đóng một phần'
                     else:
-                        statuses = df_stt['trang_thai'].tolist()
-                        if all(s == 'Đã đóng' for s in statuses):
-                            g['Trạng Thái'] = 'Đã đóng'
-                        elif any(s == 'Đã đóng' for s in statuses):
-                            g['Trạng Thái'] = 'Đóng một phần'
-                        else:
-                            g['Trạng Thái'] = 'Chưa đóng'
+                        g['Trạng Thái'] = 'Chưa đóng'
+
             result_rows.append(g)
             
         return pd.DataFrame(result_rows)
@@ -2193,20 +2141,20 @@ elif choice == "💳 Quản lý học phí":
                             'details': []
                         })
                     else:
-                        status_str_parts = [f"Tháng {d['thang_key']}: {d['trang_thai']}" for d in valid_month_details]
-                        status_combined = ", ".join(status_str_parts)
-                        thangs_str = " - ".join([d['thang_key'] for d in valid_month_details])
+                        thangs_str = f"0{selected_thangs[0]}/{nam_selected} - 0{selected_thangs[-1]}/{nam_selected}" if len(selected_thangs) > 1 else f"{selected_thangs[0]:02d}/{nam_selected}"
+                        # Lấy khoảng thời gian hiển thị chuyên nghiệp
+                        thangs_str = f"{selected_thangs[0]:02d}/{nam_selected} - {selected_thangs[-1]:02d}/{nam_selected}"
                         
                         rows_aggregated.append({
                             'hoc_sinh_id': hs_id,
-                            'Họ và Tên': hs['Họ and Tên'] if 'Họ and Tên' in hs else hs['Họ và Tên'],
+                            'Họ và Tên': hs['Họ và Tên'],
                             'Lớp': hs['Lớp'],
                             'Môn Học': hs['Môn Học'],
                             'Đơn Giá/Ca (VNĐ)': hs['Đơn Giá/Ca (VNĐ)'],
                             'Thời gian': thangs_str,
                             'Số Ca Có Mặt': total_ca_agg,
                             'Tổng Tiền (VNĐ)': total_tien_agg,
-                            'Trạng Thái': status_combined,
+                            'Trạng Thái': 'Chưa đóng',
                             'is_multi': True,
                             'details': valid_month_details
                         })
@@ -2339,41 +2287,35 @@ elif choice == "💳 Quản lý học phí":
             is_multi = row.get('is_multi', False)
             details_list = row.get('details', [])
             family_ids = row.get('family_ids', [row['hoc_sinh_id']])
+            current_overall_status = row['Trạng Thái']
             
-            if is_multi:
-                all_paid = all(d['trang_thai'] == 'Đã đóng' for d in details_list)
-                c5.write("🟢 Đã đóng tất cả" if all_paid else ("🟡 Đóng một phần" if any(d['trang_thai'] == 'Đã đóng' for d in details_list) else "🔴 Chưa đóng"))
-                btn_lbl = "Xác nhận Đã đóng tất cả" if not all_paid else "Chuyển Chưa đóng tất cả"
-            else:
-                is_paid = (row['Trạng Thái'] == 'Đã đóng')
-                c5.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
-                btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
+            c5.write("🟢 " + current_overall_status if current_overall_status == 'Đã đóng' else ("🟡 " + current_overall_status if current_overall_status == 'Đóng một phần' else "🔴 " + current_overall_status))
+            btn_lbl = "Chuyển Chưa đóng" if current_overall_status == 'Đã đóng' else "Xác nhận Đã đóng tất cả"
                 
             if c6.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
-                if is_multi:
-                    new_stt = 'Chưa đóng' if all_paid else 'Đã đóng'
-                    t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
-                    with engine.begin() as conn:
-                        for fid in family_ids:
-                            for d in details_list:
-                                conn.execute(text('''
-                                    INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
-                                    VALUES (:hs_id, :thang, :stt, :ngay)
-                                    ON CONFLICT (hoc_sinh_id, thang_nam) 
-                                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                                '''), {"hs_id": fid, "thang": d['thang_key'], "stt": new_stt, "ngay": t_str})
+                new_stt = 'Chưa đóng' if current_overall_status == 'Đã đóng' else 'Đã đóng'
+                t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
+                
+                # Xác định danh sách tháng để cập nhật
+                months_to_update = []
+                if is_multi and details_list:
+                    months_to_update = [d['thang_key'] for d in details_list]
                 else:
-                    new_stt = 'Chưa đóng' if (row['Trạng Thái'] == 'Đã đóng') else 'Đã đóng'
-                    t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
-                    thang_nam_key_save = row['Thời gian'] if '/' in str(row['Thời gian']) and len(str(row['Thời gian'])) <= 7 else datetime.now().strftime("%m/%Y")
-                    with engine.begin() as conn:
-                        for fid in family_ids:
+                    t_time = row['Thời gian']
+                    if '/' in str(t_time) and len(str(t_time)) <= 7:
+                        months_to_update = [t_time]
+                    else:
+                        months_to_update = [datetime.now().strftime("%m/%Y")]
+
+                with engine.begin() as conn:
+                    for fid in family_ids:
+                        for m_key in months_to_update:
                             conn.execute(text('''
                                 INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
                                 VALUES (:hs_id, :thang, :stt, :ngay)
                                 ON CONFLICT (hoc_sinh_id, thang_nam) 
                                 DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                            '''), {"hs_id": fid, "thang": thang_nam_key_save, "stt": new_stt, "ngay": t_str})
+                            '''), {"hs_id": fid, "thang": m_key, "stt": new_stt, "ngay": t_str})
                 st.rerun()
 
             with c7:
