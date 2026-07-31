@@ -679,7 +679,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ CẬP NHẬT KIỂU MỚI & CHỮ ' VÀ ') ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ CHỈNH KHOẢNG CÁCH TIÊU ĐỀ GẦN BẢNG HƠN) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -722,19 +722,20 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         if row_max_lines > max_lines_overall:
             max_lines_overall = row_max_lines
 
-    fig, ax = plt.subplots(figsize=(11, max(6.0, len(df_history) * max(0.8, max_lines_overall * 0.45) + 4.5)))
+    fig, ax = plt.subplots(figsize=(11, max(6.0, len(df_history) * max(0.8, max_lines_overall * 0.45) + 4.0)))
     ax.axis('off')
     ax.axis('tight')
     
-    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu
+    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu (đã căn chỉnh lại vị trí tối ưu)
     ax.text(0.5, 0.88, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
             fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.82, f"Lớp: {class_name}", transform=fig.transFigure, 
+    ax.text(0.5, 0.83, f"Lớp: {class_name}", transform=fig.transFigure, 
             fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.77, f"({time_label})", transform=fig.transFigure, 
+    ax.text(0.5, 0.78, f"({time_label})", transform=fig.transFigure, 
             fontsize=10.5, style='italic', color='#475569', ha='center', va='center')
     
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30], bbox=[0.05, 0.12, 0.9, 0.60])
+    # Đưa bảng sát hơn với tiêu đề (bbox top = 0.75)
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30], bbox=[0.05, 0.16, 0.9, 0.59])
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
     
@@ -2175,7 +2176,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row.get('sub_components', [])
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ and Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
