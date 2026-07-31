@@ -67,7 +67,7 @@ THONG_DIEP_LIST = [
     "🧩 'Mỗi kiến thức mới giống mảnh ghép hoàn thiện bức tranh tương lai tuyệt đẹp của các em.'",
     "👑 'Chính sự kiên nhẫn và quyết tâm của các em trong giờ học hôm nay sẽ tạo nên phiên bản tuyệt vời nhất của ngày mai.'",
     "🎇 'Học tập là ánh sáng xua tan bóng tối của sự thiếu hiểu biết. Hãy luôn thắp sáng ngọn lửa ấy nhé!'",
-    "hol 'Đừng ngại ngùng khi chưa hiểu bài, cô và các bạn luôn sẵn sàng giúp đỡ các em tiến bộ mỗi ngày.'",
+    "📘 'Đừng ngại ngùng khi chưa hiểu bài, cô và các bạn luôn sẵn sàng giúp đỡ các em tiến bộ mỗi ngày.'",
     "🌟 'Mỗi một bài học vượt qua là một lần các em tự phá vỡ giới hạn của bản thân mình.'",
     "🚀 'Sẵn sàng tâm thế, vững vàng ý chí, chúc các em học sinh có một buổi học thật thành công và hứng khởi!'"
 ]
@@ -85,25 +85,25 @@ SUC_KHOE_LIST = [
     "🍉 Lời nhắc sức khỏe: Đừng quên bổ sung thêm một chút trái cây tươi hoặc vitamin để tăng cường đề kháng suốt cả tuần cô nhé.",
     "🌸 Lời nhắc sức khỏe: Cô hãy mỉm cười thật tươi và tự thưởng cho mình vài phút giây thư giãn nhẹ nhàng sau giờ đứng lớp nhé.",
     "🫖 Lời nhắc sức khỏe: Một ly trà gừng ấm sẽ giúp cô giữ ấm cơ thể và cổ họng trong những ngày làm việc vất vả.",
-    " posture Lời nhắc sức khỏe: Hãy giữ lưng thẳng khi ngồi chấm bài để bảo vệ cột sống và vùng thắt lưng cô nhé.",
+    "🧘 Lời nhắc sức khỏe: Hãy giữ lưng thẳng khi ngồi chấm bài để bảo vệ cột sống và vùng thắt lưng cô nhé.",
     "🍊 Lời nhắc sức khỏe: Bổ sung thêm chút vitamin C từ cam hoặc chanh tươi sẽ giúp cô luôn tràn đầy sức sống.",
     "✨ Lời nhắc sức khỏe: Công việc tuy bận rộn nhưng sức khỏe của cô vẫn là ưu tiên số một. Nhớ đừng làm việc quá sức nha!",
     "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
-    "hand Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
-    "zzz Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
-    "sun Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
-    "nut Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
-    "wind Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
-    "heart Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
-    "stretching Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
-    "foot Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
-    "smile Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
-    "tea Lời nhắc sức khỏe: Thưởng thức một ngụm trà hoa cúc ấm áp để thư thái tinh thần sau một ca dạy kéo dài.",
-    "relax Lời nhắc sức khỏe: Đừng quên hít sâu, thở chậm và buông xỏ mọi âu lo ngoài cửa lớp trước khi nghỉ ngơi cô nhé.",
-    "voice Lời nhắc sức khỏe: Hạn chế nói quá lớn liên tục, hãy dùng micro hỗ trợ để bảo vệ thanh quản vàng của cô nha.",
-    "energy Lời nhắc sức khỏe: Một chút sô-cô-la đen nhỏ sẽ giúp cô nhanh chóng lấy lại tinh thần và năng lượng tức thì.",
-    "balance Lời nhắc sức khỏe: Cân đối giữa công việc và nghỉ ngơi hợp lý chính là chìa khóa để cô luôn giữ mãi ngọn lửa đam mê.",
-    "love Lời nhắc sức khỏe: Cô là người truyền lửa tuyệt vời, vì vậy hãy luôn trân trọng và yêu thương cơ thể mình thật nhiều cô nhé!"
+    "✍️ Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
+    "💤 Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
+    "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
+    "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
+    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
+    "🤸‍♀️ Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
+    "🍵 Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
+    "😊 Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
+    "🫖 Lời nhắc sức khỏe: Thưởng thức một ngụm trà hoa cúc ấm áp để thư thái tinh thần sau một ca dạy kéo dài.",
+    "🌿 Lời nhắc sức khỏe: Đừng quên hít sâu, thở chậm và buông bỏ mọi âu lo ngoài cửa lớp trước khi nghỉ ngơi cô nhé.",
+    "🎤 Lời nhắc sức khỏe: Hạn chế nói quá lớn liên tục, hãy dùng micro hỗ trợ để bảo vệ thanh quản vàng của cô nha.",
+    "🍫 Lời nhắc sức khỏe: Một chút sô-cô-la đen nhỏ sẽ giúp cô nhanh chóng lấy lại tinh thần và năng lượng tức thì.",
+    "⚖️ Lời nhắc sức khỏe: Cân đối giữa công việc và nghỉ ngơi hợp lý chính là chìa khóa để cô luôn giữ mãi ngọn lửa đam mê.",
+    "❤️ Lời nhắc sức khỏe: Cô là người truyền lửa tuyệt vời, vì vậy hãy luôn trân trọng và yêu thương cơ thể mình thật nhiều cô nhé!"
 ]
 
 # --- HÀM HỖ TRỢ LÀM SẠCH NHẬN XÉT (XÓA EMOJI, ĐỊNH DẠNG HOA/THƯỜNG, DẤU CHẤM) ---
@@ -127,7 +127,7 @@ def get_vietnamese_weekday(dt):
     days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     return days[dt.weekday()]
 
-# --- HÀM XỬ LÝ GỘP NHÓM HỌC SINH THÔNG MINH ---
+# --- HÀM XỬ LÝ GỘP NHÓM HỌC SINH THÔNG MINH (BẮT BUỘC TRÙNG SĐT, LOẠI BỎ TRỐNG) ---
 def get_base_name(ho_ten):
     name = str(ho_ten).split('(')[0].split('-')[0].strip()
     return name
@@ -138,6 +138,11 @@ def get_family_student_ids(engine, hs_id):
         return [hs_id]
     curr_name = df_curr.iloc[0]['ho_ten']
     curr_phone = str(df_curr.iloc[0]['thong_tin_phu_huynh']).strip()
+    
+    # Nếu để trống số điện thoại thì không gộp, chỉ trả về chính ID đó
+    if not curr_phone or curr_phone.lower() in ['none', 'nan', '']:
+        return [hs_id]
+        
     base_curr = get_base_name(curr_name).lower()
     
     df_all = pd.read_sql_query(text("SELECT id, ho_ten, thong_tin_phu_huynh FROM hoc_sinh"), engine)
@@ -149,9 +154,7 @@ def get_family_student_ids(engine, hs_id):
         
         if r['id'] == hs_id:
             matched_ids.append(r['id'])
-        elif curr_phone and r_phone and curr_phone == r_phone and base_curr == base_r:
-            matched_ids.append(r['id'])
-        elif base_curr == base_r and not curr_phone:
+        elif curr_phone and r_phone and curr_phone.lower() not in ['none', 'nan', ''] and curr_phone == r_phone and base_curr == base_r:
             matched_ids.append(r['id'])
     return list(set(matched_ids))
 
@@ -1785,7 +1788,11 @@ elif choice == "💳 Quản lý học phí":
             base_n = get_base_name(meta['ho_ten'])
             phone = meta['thong_tin_phu_huynh']
             
-            group_key = (base_n.lower(), phone if phone else hs_id)
+            # Chỉ gộp nhóm khi có SĐT hợp lệ, nếu trống thì tách biệt theo ID
+            if phone and phone.lower() not in ['none', 'nan', '']:
+                group_key = (base_n.lower(), phone)
+            else:
+                group_key = (base_n.lower(), f"id_{hs_id}")
             
             if group_key not in grouped_dict:
                 grouped_dict[group_key] = {
