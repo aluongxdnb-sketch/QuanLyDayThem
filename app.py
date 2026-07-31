@@ -679,7 +679,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ÁP DỤNG VIỀN CHUẨN) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ CẬP NHẬT KIỂU MỚI & CHỮ ' VÀ ') ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -722,19 +722,21 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         if row_max_lines > max_lines_overall:
             max_lines_overall = row_max_lines
 
-    fig, ax = plt.subplots(figsize=(11, max(4, len(df_history) * max(0.8, max_lines_overall * 0.45) + 3.5)))
+    fig, ax = plt.subplots(figsize=(11, max(6.0, len(df_history) * max(0.8, max_lines_overall * 0.45) + 4.5)))
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.94, "BẢNG TỔNG HỢP ĐIỂM DANH & NHẬN XÉT CẢ LỚP", fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.89, f"Lớp: {class_name} - Thời gian: {time_label}", fontsize=12, fontweight='bold', color='#0F172A', ha='center', va='center', transform=ax.transAxes)
+    # Tiêu đề và thông tin định dạng 3 dòng chuẩn mẫu
+    ax.text(0.5, 0.88, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
+            fontsize=17, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.82, f"Lớp: {class_name}", transform=fig.transFigure, 
+            fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.77, f"({time_label})", transform=fig.transFigure, 
+            fontsize=10.5, style='italic', color='#475569', ha='center', va='center')
     
-    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30])
+    table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=[0.15, 0.18, 0.22, 0.15, 0.30], bbox=[0.05, 0.12, 0.9, 0.60])
     table.auto_set_font_size(False)
     table.set_fontsize(9.5)
-    
-    v_scale = max(2.2, max_lines_overall * 1.1)
-    table.scale(1, v_scale)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
