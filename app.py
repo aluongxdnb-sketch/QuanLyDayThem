@@ -705,7 +705,7 @@ def create_student_attendance_history_image(student_name, lop_hoc, month_year, d
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (ĐÃ TỐI ƯU MỞ RỘNG VÀ CHỐNG TRÀN CHỮ) ---
+# --- HÀM TẠO FILE ẢNH LỊCH SỬ ĐIỂM DANH CẢ LỚP (KHỔ A4 RỘNG RÃI, THÔNG THOÁNG, CHỮ KHÔNG CHẠM VIỀN) ---
 def create_class_attendance_history_image(class_name, time_label, df_history):
     raw_table_data = [df_history.columns.tolist()] + df_history.values.tolist()
     
@@ -731,40 +731,41 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
         new_row = []
         for col_idx, cell in enumerate(row):
             cell_str = str(cell)
-            if col_idx == 4: # Cột Nhận xét (mở rộng chiều rộng wrapping lên 32 để chữ không bị bẻ dòng quá gắt)
-                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=32)) if cell_str else ""
+            if col_idx == 4: # Cột Nhận xét
+                wrapped_text = "\n".join(textwrap.wrap(cell_str, width=38)) if cell_str else ""
                 new_row.append(wrapped_text)
             else:
                 new_row.append(cell_str)
         wrapped_data.append(new_row)
 
-    fig, ax = plt.subplots(figsize=(5.83, 8.27))
+    # Sử dụng khổ A4 lớn (8.27 x 11.69 inches) để đảm bảo độ to, rộng rãi và thông thoáng tuyệt đối
+    fig, ax = plt.subplots(figsize=(8.27, 11.69))
     ax.axis('off')
     ax.axis('tight')
     
-    ax.text(0.5, 0.94, "BẢNG TỔNG HỢP ĐIỂM DANH CẢ LỚP", transform=fig.transFigure, 
-            fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='center')
-    ax.text(0.5, 0.90, f"Lớp: {class_name}", transform=fig.transFigure, 
-            fontsize=10.5, fontweight='bold', color='#0F172A', ha='center', va='center')
-    ax.text(0.5, 0.86, f"({time_label})", transform=fig.transFigure, 
-            fontsize=9, style='italic', color='#475569', ha='center', va='center')
+    ax.text(0.5, 0.93, "BẢNG TỔNG HỢP ĐIỂM DANH VÀ NHẬN XÉT CẢ LỚP", transform=fig.transFigure, 
+            fontsize=15, fontweight='bold', color='#1E3A8A', ha='center', va='center')
+    ax.text(0.5, 0.89, f"Lớp: {class_name}", transform=fig.transFigure, 
+            fontsize=13, fontweight='bold', color='#0F172A', ha='center', va='center')
+    ax.text(0.5, 0.85, f"({time_label})", transform=fig.transFigure, 
+            fontsize=11, style='italic', color='#475569', ha='center', va='center')
     
-    # Mở rộng vùng hiển thị bảng (bbox) và tối ưu tỷ lệ chiều rộng các cột để thoáng và không chạm viền
-    bbox_coords = [0.02, 0.08, 0.96, 0.75]
-    col_widths_ratio = [0.13, 0.16, 0.22, 0.15, 0.34]
+    # Mở rộng diện tích bảng (bbox) và chia tỷ lệ các cột tối ưu
+    bbox_coords = [0.05, 0.10, 0.90, 0.72]
+    col_widths_ratio = [0.15, 0.18, 0.22, 0.15, 0.30]
     table = ax.table(cellText=wrapped_data, loc='center', cellLoc='center', colWidths=col_widths_ratio, bbox=bbox_coords)
     table.auto_set_font_size(False)
-    table.set_fontsize(7.5)
+    table.set_fontsize(10)
     
     for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor('#CBD5E1')
-        cell.PAD = 0.2  # Tăng khoảng đệm để chữ cách đều viền kẻ, không bị chạm sát
+        cell.PAD = 0.35  # Khoảng đệm rộng rãi giúp chữ cách xa viền, hoàn toàn không bị chạm hay đè
         
         if row == 0:
             cell.set_facecolor('#1E3A8A')
-            cell.set_text_props(color='white', weight='bold', size=8.5, ha='center', va='center')
+            cell.set_text_props(color='white', weight='bold', size=11, ha='center', va='center')
         else:
-            cell.set_text_props(color='#1E293B', size=7.5, ha='center', va='center')
+            cell.set_text_props(color='#1E293B', size=10, ha='center', va='center')
             if row % 2 == 0:
                 cell.set_facecolor('#F8FAFC')
             else:
@@ -787,7 +788,7 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     fig.patches.append(rect)
                 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.2, dpi=300)
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.3, dpi=300)
     plt.close(fig)
     buffer.seek(0)
     return buffer
