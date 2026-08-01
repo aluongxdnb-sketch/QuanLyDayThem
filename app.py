@@ -491,7 +491,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CĂN TRÁI CẢ HAI, NHÃN TRÙNG CHỮ "P", GIÁ TRỊ IN ĐẬM AN TOÀN SAU DÒNG DÀI NHẤT) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CĂN TRÁI CHỮ "HỌC" THẲNG "PHIẾU", GIỮ TOÀN BỘ CHỮ ĐEN, KHÔNG ĐỔI MÀU) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
@@ -504,8 +504,8 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     ax.text(0.5, 0.87, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.78
-    x_label = 0.30  # Trục căn lề trái phần nhãn, đặt trùng khớp với chữ "P" của tiêu đề PHIẾU
-    x_val = 0.52    # Trục căn lề trái phần giá trị in đậm, nằm an toàn sau dòng "Tổng cộng học phí:" dài nhất
+    x_label = 0.22  # Kéo sang trái để chữ "Học" trong "Học sinh:" thẳng hàng với chữ "PHIẾU" trên tiêu đề
+    x_val = 0.51    # Trục giá trị in đậm đặt an toàn bên phải để không bị đè chữ
     
     # 1. Học sinh
     ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
@@ -529,15 +529,15 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
-    # 4. Tổng cộng học phí
-    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E3A8A', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E3A8A', ha='left', va='center', transform=ax.transAxes)
+    # 4. Tổng cộng học phí (Giữ nguyên chữ đen #1E293B, không đổi sang màu xanh)
+    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
     # 5. Trạng thái
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
-    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E3A8A', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E3A8A', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     
     ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
