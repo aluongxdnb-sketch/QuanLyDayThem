@@ -491,7 +491,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CHỐNG ĐÈ CHỮ BẰNG CĂN LỀ PHẢI/TRÁI CHUNG MỘT TRỤC) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CHỐNG ĐÈ CHỮ, CĂN TRÁI CẢ HAI, DÙNG TỔNG CỘNG HỌC PHÍ LÀM CHUẨN ĐỂ ĐẨY TRỤC PHẦN IN ĐẬM LUI VỀ PHẢI) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
@@ -504,16 +504,16 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     ax.text(0.5, 0.87, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.78
-    x_label = 0.37  # Trục chuẩn căn lề phải cho phần nhãn (hội tụ tại 0.37)
-    x_val = 0.39    # Trục chuẩn căn lề trái cho phần giá trị (bắt đầu từ 0.39)
+    x_label = 0.27  # Trục căn lề trái cho phần nhãn chữ thường (cố định, lùi về phía bên trái)
+    x_val = 0.49    # Trục căn lề trái cho phần giá trị in đậm, lấy dòng "Tổng cộng học phí:" dài nhất làm chuẩn để lùi về bên phải
     
     # 1. Học sinh
-    ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
     
     # 2. Lớp học
-    ax.text(x_label, y_pos, "Lớp học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Lớp học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
     
@@ -525,18 +525,18 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
         y_pos -= 0.015
         
     # 3. Tổng số buổi học
-    ax.text(x_label, y_pos, "Tổng số buổi học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Tổng số buổi học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
     # 4. Tổng cộng học phí
-    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
     # 5. Trạng thái
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
-    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     
     ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
