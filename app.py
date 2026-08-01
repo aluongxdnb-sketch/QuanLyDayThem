@@ -491,48 +491,49 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (ĐÃ FIX CHỮ ĐÈ & TÁCH IN ĐẬM THỜI GIAN) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
     ax.axis('off')
     
     # Tiêu đề phiếu
-    ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.93, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
-    # Thời gian (màu khác, không in đậm)
-    ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#047857', ha='center', va='center', transform=ax.transAxes)
+    # Thời gian: Chữ "Thời gian: " bình thường căn phải tại 0.5, giá trị thời gian in đậm căn trái tại 0.5 để cân đối chính xác
+    ax.text(0.5, 0.87, "Thời gian: ", fontsize=12, fontweight='normal', color='#047857', ha='right', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.87, f"{time_str}", fontsize=12, fontweight='bold', color='#047857', ha='left', va='center', transform=ax.transAxes)
     
-    y_pos = 0.81
+    y_pos = 0.78
     
-    # Học sinh (Nhãn thường, tên in đậm)
+    # Học sinh
     ax.text(0.1, y_pos, "Học sinh: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
     ax.text(0.24, y_pos, f"{student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.05
+    y_pos -= 0.055
     
-    # Lớp học (Nhãn thường, tên lớp in đậm)
+    # Lớp học
     ax.text(0.1, y_pos, "Lớp học: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
     ax.text(0.22, y_pos, f"{lop_hoc}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.05
+    y_pos -= 0.055
     
     if has_multiple_components:
         for sc in sub_components:
             line_sc = f"• {sc['ten']}: {sc['so_ca']} buổi"
             ax.text(0.12, y_pos, line_sc, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-            y_pos -= 0.04
-        y_pos -= 0.01
+            y_pos -= 0.045
+        y_pos -= 0.015
         
-    # Tổng số buổi học (Nhãn thường, số buổi in đậm)
+    # Tổng số buổi học
     ax.text(0.1, y_pos, "Tổng số buổi học: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-    ax.text(0.31, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.06
+    ax.text(0.32, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.065
     
-    # Tổng cộng học phí (Viết thường, không in đậm, số tiền in đậm màu chữ thường #1E293B)
+    # Tổng cộng học phí
     ax.text(0.1, y_pos, "Tổng cộng học phí: ", fontsize=12.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-    ax.text(0.36, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.06
+    ax.text(0.37, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.065
     
-    # Trạng thái (Nhãn thường, trạng thái in đậm)
+    # Trạng thái
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
     ax.text(0.1, y_pos, "Trạng thái: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
     ax.text(0.23, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
@@ -1912,10 +1913,11 @@ elif choice == "💳 Quản lý học phí":
         total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
         total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
         
-        st.markdown("#### 📊 Tổng Hợp Thống Kê Chung")
-        c_sum1, c_sum2 = st.columns(2)
-        c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
-        c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
+        # Nút thu gọn / hiện Tổng Hợp Thống Kê Chung
+        with st.expander("📊 Bấm vào đây để xem Tổng Hợp Thống Kê Chung", expanded=False):
+            c_sum1, c_sum2 = st.columns(2)
+            c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
+            c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
         st.markdown("---")
 
         if HAS_MATPLOTLIB:
@@ -1949,7 +1951,6 @@ elif choice == "💳 Quản lý học phí":
 
         for idx, row in df_tuition_final.iterrows():
             c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8])
-            # Sửa lỗi KeyError bằng cách dùng đúng tên cột 'Họ và Tên'
             c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
             c2.write(f"{row['Số Ca Có Mặt']} ca")
             c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -1987,7 +1988,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row['sub_components']
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
