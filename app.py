@@ -1843,6 +1843,63 @@ elif choice == "💳 Quản lý học phí":
     if df_hs_all.empty:
         st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
     else:
+        # --- KHUNG EXPANDER THỐNG KÊ TOÀN BỘ HỌC SINH (THÁNG TRƯỚC & THÁNG NÀY) ---
+        with st.expander("📊 Xem tổng hợp thống kê học phí Tháng trước & Tháng này của TOÀN BỘ HỌC SINH (Không liên quan đến trạng thái thanh toán)"):
+            today_obj = date.today()
+            curr_y_val, curr_m_val = today_obj.year, today_obj.month
+            if curr_m_val == 1:
+                prev_m_val = 12
+                prev_y_val = curr_y_val - 1
+            else:
+                prev_m_val = curr_m_val - 1
+                prev_y_val = curr_y_val
+
+            prev_start = f"{prev_y_val}-{prev_m_val:02d}-01"
+            if prev_m_val == 12:
+                prev_end = f"{prev_y_val + 1}-01-01"
+            else:
+                prev_end = f"{prev_y_val}-{prev_m_val + 1:02d}-01"
+
+            curr_start = f"{curr_y_val}-{curr_m_val:02d}-01"
+            if curr_m_val == 12:
+                curr_end = f"{curr_y_val + 1}-01-01"
+            else:
+                curr_end = f"{curr_y_val}-{curr_m_val + 1:02d}-01"
+
+            # Tổng hợp toàn bộ học sinh - Tháng trước
+            df_all_prev = pd.read_sql_query(text(f'''
+                SELECT SUM(h.hoc_phi_buoi) AS tong_tien, COUNT(d.id) AS tong_ca
+                FROM diem_danh d
+                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+                WHERE d.trang_thai = 'Có mặt'
+                  AND d.ngay >= '{prev_start}' AND d.ngay < '{prev_end}'
+            '''), engine)
+            total_ca_prev_all = int(df_all_prev.iloc[0]['tong_ca']) if not df_all_prev.empty and pd.notna(df_all_prev.iloc[0]['tong_ca']) else 0
+            total_tien_prev_all = float(df_all_prev.iloc[0]['tong_tien']) if not df_all_prev.empty and pd.notna(df_all_prev.iloc[0]['tong_tien']) else 0
+
+            # Tổng hợp toàn bộ học sinh - Tháng này
+            df_all_curr = pd.read_sql_query(text(f'''
+                SELECT SUM(h.hoc_phi_buoi) AS tong_tien, COUNT(d.id) AS tong_ca
+                FROM diem_danh d
+                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
+                WHERE d.trang_thai = 'Có mặt'
+                  AND d.ngay >= '{curr_start}' AND d.ngay < '{curr_end}'
+            '''), engine)
+            total_ca_curr_all = int(df_all_curr.iloc[0]['tong_ca']) if not df_all_curr.empty and pd.notna(df_all_curr.iloc[0]['tong_ca']) else 0
+            total_tien_curr_all = float(df_all_curr.iloc[0]['tong_tien']) if not df_all_curr.empty and pd.notna(df_all_curr.iloc[0]['tong_tien']) else 0
+
+            col_st1, col_st2 = st.columns(2)
+            with col_st1:
+                st.markdown(f"##### 🗓️ Tháng trước ({prev_m_val:02d}/{prev_y_val})")
+                st.metric("Tổng số buổi (Toàn bộ HS)", f"{total_ca_prev_all} buổi")
+                st.metric("Tổng học phí phát sinh", f"{total_tien_prev_all:,.0f} đ")
+            with col_st2:
+                st.markdown(f"##### 🗓️ Tháng này ({curr_m_val:02d}/{curr_y_val})")
+                st.metric("Tổng số buổi (Toàn bộ HS)", f"{total_ca_curr_all} buổi")
+                st.metric("Tổng học phí phát sinh", f"{total_tien_curr_all:,.0f} đ")
+
+        st.markdown("---")
+
         c_cust1, c_cust2 = st.columns([2, 1])
         with c_cust1:
             hs_dict_custom = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all.iterrows()}
@@ -2018,69 +2075,6 @@ elif choice == "💳 Quản lý học phí":
                         key="btn_download_custom_invoice_img"
                     )
 
-            # --- KHUNG EXPANDER THỐNG KÊ THÁNG TRƯỚC & THÁNG NÀY (ĐỘC LẬP THANH TOÁN) ---
-            with st.expander("📊 Xem thông kê học phí Tháng trước & Tháng này (Không liên quan đến trạng thái thanh toán)"):
-                # Tính toán thời gian tháng trước và tháng này
-                today_obj = date.today()
-                curr_y_val, curr_m_val = today_obj.year, today_obj.month
-                if curr_m_val == 1:
-                    prev_m_val = 12
-                    prev_y_val = curr_y_val - 1
-                else:
-                    prev_m_val = curr_m_val - 1
-                    prev_y_val = curr_y_val
-
-                prev_start = f"{prev_y_val}-{prev_m_val:02d}-01"
-                if prev_m_val == 12:
-                    prev_end = f"{prev_y_val + 1}-01-01"
-                else:
-                    prev_end = f"{prev_y_val}-{prev_m_val + 1:02d}-01"
-
-                curr_start = f"{curr_y_val}-{curr_m_val:02d}-01"
-                if curr_m_val == 12:
-                    curr_end = f"{curr_y_val + 1}-01-01"
-                else:
-                    curr_end = f"{curr_y_val}-{curr_m_val + 1:02d}-01"
-
-                total_ca_prev = 0
-                total_tien_prev = 0
-                total_ca_curr = 0
-                total_tien_curr = 0
-
-                for fid in family_ids_cust:
-                    f_meta = df_hs_all[df_hs_all['id'] == fid].iloc[0]
-                    hp_b = f_meta['hoc_phi_buoi']
-
-                    # Tháng trước
-                    df_p = pd.read_sql_query(text(f'''
-                        SELECT COUNT(*) AS cnt FROM diem_danh
-                        WHERE hoc_sinh_id = {fid} AND trang_thai = 'Có mặt'
-                          AND ngay >= '{prev_start}' AND ngay < '{prev_end}'
-                    '''), engine)
-                    c_p = int(df_p.iloc[0]['cnt']) if not df_p.empty else 0
-                    total_ca_prev += c_p
-                    total_tien_prev += c_p * hp_b
-
-                    # Tháng này
-                    df_c = pd.read_sql_query(text(f'''
-                        SELECT COUNT(*) AS cnt FROM diem_danh
-                        WHERE hoc_sinh_id = {fid} AND trang_thai = 'Có mặt'
-                          AND ngay >= '{curr_start}' AND ngay < '{curr_end}'
-                    '''), engine)
-                    c_c = int(df_c.iloc[0]['cnt']) if not df_c.empty else 0
-                    total_ca_curr += c_c
-                    total_tien_curr += c_c * hp_b
-
-                col_st1, col_st2 = st.columns(2)
-                with col_st1:
-                    st.markdown(f"##### 🗓️ Tháng trước ({prev_m_val:02d}/{prev_y_val})")
-                    st.metric("Tổng số buổi", f"{total_ca_prev} buổi")
-                    st.metric("Tổng học phí phát sinh", f"{total_tien_prev:,.0f} đ")
-                with col_st2:
-                    st.markdown(f"##### 🗓️ Tháng này ({curr_m_val:02d}/{curr_y_val})")
-                    st.metric("Tổng số buổi", f"{total_ca_curr} buổi")
-                    st.metric("Tổng học phí phát sinh", f"{total_tien_curr:,.0f} đ")
-
             # --- DANH SÁCH TỔNG HỢP HỌC SINH DƯỚI PHẦN XUẤT ẢNH ---
             st.markdown("---")
             st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
@@ -2206,7 +2200,7 @@ elif choice == "💳 Quản lý học phí":
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ dan Tên'] if 'Họ dan Tên' in r else r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
