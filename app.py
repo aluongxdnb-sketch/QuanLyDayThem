@@ -1949,7 +1949,8 @@ elif choice == "💳 Quản lý học phí":
 
         for idx, row in df_tuition_final.iterrows():
             c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8])
-            c1.write(f"**{row['Họ Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
+            # Sửa lỗi KeyError bằng cách dùng đúng tên cột 'Họ và Tên'
+            c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
             c2.write(f"{row['Số Ca Có Mặt']} ca")
             c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
             
@@ -1986,7 +1987,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row['sub_components']
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
