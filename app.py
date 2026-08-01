@@ -1701,7 +1701,7 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
                 st.info("ℹ️ Không tìm thấy thời khóa biểu nào phù hợp đối với lựa chọn này.")
             else:
                 st.write("📋 Xem trước danh sách lịch học:")
-                st.dataframe(df_export_list, use_container_width=True, hide_index=True)
+                st.dataframe(df_export_list, use_container_width=True)
                 
                 if HAS_MATPLOTLIB:
                     col_ex1, col_ex2 = st.columns(2)
@@ -1911,16 +1911,21 @@ elif choice == "💳 Quản lý học phí":
     if df_tuition_final.empty:
         st.info("ℹ️ Không có học sinh nào phát sinh học phí trong khoảng thời gian quét.")
     else:
-        # --- THANH TÌM KIẾM & CHỌN HỌC SINH ---
-        student_options = ["--- Tất cả học sinh ---"] + sorted(df_tuition_final['Họ và Tên'].unique().tolist())
-        selected_student_filter = st.selectbox(
-            "🔍 Tìm kiếm và chọn học sinh cần xem học phí:", 
-            student_options, 
+        # --- THANH CHỌN HỌC SINH GIỐNG PHẦN THÔNG TIN HỌC SINH ---
+        student_options_dict = {"--- Tất cả học sinh ---": None}
+        for _, row in df_tuition_final.iterrows():
+            label = f"{row['Họ và Tên']} [{row['Lớp']}] - ID:{row['hoc_sinh_id']}"
+            student_options_dict[label] = row['hoc_sinh_id']
+
+        selected_student_label = st.selectbox(
+            "Chọn học sinh:", 
+            list(student_options_dict.keys()), 
             key="select_tuition_student_filter"
         )
         
-        if selected_student_filter != "--- Tất cả học sinh ---":
-            df_tuition_final = df_tuition_final[df_tuition_final['Họ và Tên'] == selected_student_filter]
+        if selected_student_label != "--- Tất cả học sinh ---":
+            selected_id = student_options_dict[selected_student_label]
+            df_tuition_final = df_tuition_final[df_tuition_final['hoc_sinh_id'] == selected_id]
 
         if df_tuition_final.empty:
             st.warning("⚠️ Không tìm thấy học sinh phù hợp.")
@@ -2217,7 +2222,7 @@ elif choice == "📋 Thông tin học sinh":
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
-            confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
+            confirm_check = st.checkbox("I want to confirm deleting this student", value=False) # or "Tôi xác nhận muốn xóa học sinh này"
             
             if st.button("❌ XÓA HỌC SINH NÀY", type="primary") and confirm_check:
                 with engine.begin() as conn:
