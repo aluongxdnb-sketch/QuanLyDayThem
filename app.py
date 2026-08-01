@@ -98,7 +98,7 @@ SUC_KHOE_LIST = [
     "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
-    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
+    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nhau, giờ là lúc thả lỏng và yêu chiều bản thân.",
     "🤸‍♀️ Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
     "🍵 Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
     "😊 Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
@@ -1701,6 +1701,163 @@ elif choice == "💳 Quản lý học phí":
 
         st.markdown("---")
 
+        # --- CHUẨN BỊ DỮ LIỆU GIA ĐÌNH & THANH TOÁN CHO PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT ---
+        family_groups_summary = {}
+        for _, hs_r in df_hs_all.iterrows():
+            hs_id = hs_r['id']
+            base_n = get_base_name(hs_r['ho_ten'])
+            phone = str(hs_r['thong_tin_phu_huynh']).strip()
+            if phone and phone.lower() not in ['none', 'nan', '']:
+                f_key = (base_n.lower(), phone)
+            else:
+                f_key = (base_n.lower(), f"id_{hs_id}")
+                
+            if f_key not in family_groups_summary:
+                family_groups_summary[f_key] = {
+                    'family_name': base_n,
+                    'lop': hs_r['lop_hoc'],
+                    'phone': phone if phone and phone.lower() not in ['none', 'nan', ''] else 'Chưa có',
+                    'student_ids': []
+                }
+            family_groups_summary[f_key]['student_ids'].append(hs_id)
+
+        df_all_pay = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
+        pay_dict_all = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_all_pay.iterrows()}
+
+        # --- ĐƯA PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT LÊN NGAY DƯỚI PHẦN TỔNG HỢP THỐNG KÊ ---
+        st.markdown("#### 📦 Tải Hoá đơn đồng loạt")
+        
+        curr_date_z = date.today()
+        if curr_date_z.month == 1:
+            prev_m_z = 12
+            prev_y_z = curr_date_z.year - 1
+        else:
+            prev_m_z = curr_date_z.month - 1
+            prev_y_z = curr_date_z.year
+
+        st.caption(f"• Học sinh **nợ học phí**: Hệ thống tự động tổng hợp toàn bộ số ca và học phí các tháng chưa đóng trong 1 năm qua tính đến hết tháng liền trước ({prev_m_z:02d}/{prev_y_z}).\n• Học sinh **không nợ phí**: Hệ thống tự động xuất hóa đơn cho tháng liền trước ({prev_m_z:02d}/{prev_y_z}).")
+            
+        if HAS_MATPLOTLIB:
+            if st.button("🖼️ Tải Hoá đơn đồng loạt", type="primary", key="btn_download_zip_invoices"):
+                zip_buffer_invoices = io.BytesIO()
+                count_inv_added = 0
+                
+                curr_m_start_z = date(curr_date_z.year, curr_date_z.month, 1)
+                debt_win_end_z = curr_m_start_z - timedelta(days=1)
+                debt_win_start_z = debt_win_end_z - timedelta(days=365)
+                
+                with zipfile.ZipFile(zip_buffer_invoices, "w", zipfile.ZIP_DEFLATED) as zf_inv:
+                    for f_key, f_info in family_groups_summary.items():
+                        s_ids = f_info['student_ids']
+                        s_ids_str_f = ",".join(map(str, s_ids))
+                        family_name = f_info['family_name']
+                        lop_val = f_info['lop']
+                        
+                        df_debt_f = pd.read_sql_query(text(f'''
+                            SELECT hoc_sinh_id, ngay, TO_CHAR(ngay, 'MM/YYYY') AS thang_nam
+                            FROM diem_danh
+                            WHERE hoc_sinh_id IN ({s_ids_str_f}) 
+                              AND trang_thai = 'Có mặt'
+                              AND ngay >= '{debt_win_start_z.strftime("%Y-%m-%d")}'
+                              AND ngay <= '{debt_win_end_z.strftime("%Y-%m-%d")}'
+                        '''), engine)
+                        
+                        unpaid_month_set = set()
+                        for _, att_r in df_debt_f.iterrows():
+                            fid = att_r['hoc_sinh_id']
+                            th_k = att_r['thang_nam']
+                            p_st = pay_dict_all.get((fid, th_k), 'Chưa đóng')
+                            if p_st != 'Đã đóng':
+                                unpaid_month_set.add(th_k)
+                                
+                        target_month_keys_set = set()
+                        if unpaid_month_set:
+                            target_month_keys_set.update(unpaid_month_set)
+                        else:
+                            target_month_keys_set.add(f"{prev_m_z:02d}/{prev_y_z}")
+                                
+                        total_ca_f = 0
+                        total_tien_f = 0
+                        sub_comps_f_dict = {}
+                        
+                        sorted_target_months = sorted(list(target_month_keys_set), key=lambda x: (x.split('/')[1], x.split('/')[0]))
+                        
+                        for th_k_str in sorted_target_months:
+                            m_part, y_part = th_k_str.split('/')
+                            m_int, y_int = int(m_part), int(y_part)
+                            m_start_f = f"{y_int}-{m_int:02d}-01"
+                            m_end_f = f"{y_int + 1}-01-01" if m_int == 12 else f"{y_int}-{m_int + 1:02d}-01"
+                            
+                            for fid in s_ids:
+                                f_meta = df_hs_all[df_hs_all['id'] == fid].iloc[0]
+                                df_att_f = pd.read_sql_query(text(f'''
+                                    SELECT COUNT(*) AS cnt FROM diem_danh
+                                    WHERE hoc_sinh_id = {fid} AND trang_thai = 'Có mặt'
+                                      AND ngay >= '{m_start_f}' AND ngay < '{m_end_f}'
+                                '''), engine)
+                                cnt_c = int(df_att_f.iloc[0]['cnt']) if not df_att_f.empty else 0
+                                if cnt_c > 0:
+                                    total_ca_f += cnt_c
+                                    total_tien_f += cnt_c * f_meta['hoc_phi_buoi']
+                                    n_key = f_meta["ho_ten"]
+                                    sub_comps_f_dict[n_key] = sub_comps_f_dict.get(n_key, 0) + cnt_c
+                                    
+                        if total_ca_f > 0:
+                            sub_comps_f = [{'ten': k, 'so_ca': v} for k, v in sub_comps_f_dict.items()]
+                            
+                            all_p_f = True
+                            for fid in s_ids:
+                                for th_k_str in sorted_target_months:
+                                    p_match = pay_dict_all.get((fid, th_k_str), 'Chưa đóng')
+                                    if p_match != 'Đã đóng':
+                                        all_p_f = False
+                                        break
+                                if not all_p_f:
+                                    break
+                            stt_f_str = 'Đã đóng' if all_p_f else 'Chưa đóng'
+                            
+                            # Định dạng thời gian theo mẫu: tháng 06,07 năm 2026
+                            year_to_months = {}
+                            for th_k_str in sorted_target_months:
+                                m_part, y_part = th_k_str.split('/')
+                                year_to_months.setdefault(y_part, []).append(m_part)
+                            
+                            time_str_parts = []
+                            for y_p, m_list in year_to_months.items():
+                                m_str = ",".join(m_list)
+                                time_str_parts.append(f"tháng {m_str} năm {y_p}")
+                            time_str_f = ", ".join(time_str_parts)
+                            
+                            img_inv_bytes = create_tuition_slip_image(
+                                student_name=family_name,
+                                lop_hoc=lop_val,
+                                subject='Toán',
+                                time_str=time_str_f,
+                                total_lessons=total_ca_f,
+                                total_fee=total_tien_f,
+                                status=stt_f_str,
+                                sub_components=sub_comps_f
+                            )
+                            safe_f_name = re.sub(r'[\\/*?:"<>|]', "", f"{family_name}_{lop_val}".replace(" ", "_"))
+                            zf_inv.writestr(f"HoaDon_{safe_f_name}.png", img_inv_bytes.getvalue())
+                            count_inv_added += 1
+                            
+                zip_buffer_invoices.seek(0)
+                if count_inv_added > 0:
+                    st.download_button(
+                        label=f"📦 Bấm Tải Xuống ZIP Hóa Đơn ({count_inv_added} học sinh/gia đình)",
+                        data=zip_buffer_invoices,
+                        file_name=f"Tat_Ca_HoaDon_{datetime.now().strftime('%Y%m%d')}.zip",
+                        mime="application/zip",
+                        type="primary",
+                        key="download_zip_invoices_button_final"
+                    )
+                    st.success(f"✅ Đã tạo file ZIP thành công với {count_inv_added} hóa đơn!")
+                else:
+                    st.warning("⚠️ Không có học sinh nào có buổi học trong các tháng hoặc khoản nợ để tạo hóa đơn.")
+
+        st.markdown("---")
+
         c_cust1, c_cust2 = st.columns([2, 1])
         with c_cust1:
             hs_dict_custom = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_all.iterrows()}
@@ -1879,34 +2036,12 @@ elif choice == "💳 Quản lý học phí":
             st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
             st.caption("• Học phí chưa đóng: Quét trong 1 năm qua (trừ tháng hiện tại)\n• Học phí tính cả tháng này: Bao gồm cả tháng hiện tại\n• Học sinh đã hoàn thành thanh toán được **in đậm và bôi xanh**.")
 
-            family_groups_summary = {}
-            for _, hs_r in df_hs_all.iterrows():
-                hs_id = hs_r['id']
-                base_n = get_base_name(hs_r['ho_ten'])
-                phone = str(hs_r['thong_tin_phu_huynh']).strip()
-                if phone and phone.lower() not in ['none', 'nan', '']:
-                    f_key = (base_n.lower(), phone)
-                else:
-                    f_key = (base_n.lower(), f"id_{hs_id}")
-                    
-                if f_key not in family_groups_summary:
-                    family_groups_summary[f_key] = {
-                        'family_name': base_n,
-                        'lop': hs_r['lop_hoc'],
-                        'phone': phone if phone and phone.lower() not in ['none', 'nan', ''] else 'Chưa có',
-                        'student_ids': []
-                    }
-                family_groups_summary[f_key]['student_ids'].append(hs_id)
-
             curr_date = date.today()
             curr_m_start = date(curr_date.year, curr_date.month, 1)
             debt_win_end = curr_m_start - timedelta(days=1)
             debt_win_start = debt_win_end - timedelta(days=365)
             
             curr_month_str = f"{curr_date.year}-{curr_date.month:02d}"
-
-            df_all_pay = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
-            pay_dict_all = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_all_pay.iterrows()}
 
             summary_list_data = []
             for f_key, f_info in family_groups_summary.items():
@@ -1997,8 +2132,9 @@ elif choice == "💳 Quản lý học phí":
                     debt_1yr_str = f"{r['Chưa đóng (1 năm trừ tháng này)']:,.0f} đ"
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
+                    # Đã sửa lỗi KeyError bằng cách đổi chính xác thành 'Họ và Tên'
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ und Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
@@ -2007,141 +2143,6 @@ elif choice == "💳 Quản lý học phí":
                 html_table += "</table></div>"
                 
                 st.markdown(html_table, unsafe_allow_html=True)
-
-            # --- TÍNH NĂNG: TẢI HOÁ ĐƠN ĐỒNG LOẠT ---
-            st.markdown("---")
-            st.markdown("#### 📦 Tải Hoá đơn đồng loạt")
-            
-            curr_date_z = date.today()
-            if curr_date_z.month == 1:
-                prev_m_z = 12
-                prev_y_z = curr_date_z.year - 1
-            else:
-                prev_m_z = curr_date_z.month - 1
-                prev_y_z = curr_date_z.year
-
-            st.caption(f"• Học sinh **nợ học phí**: Hệ thống tự động tổng hợp toàn bộ số ca và học phí các tháng chưa đóng trong 1 năm qua tính đến hết tháng liền trước ({prev_m_z:02d}/{prev_y_z}).\n• Học sinh **không nợ phí**: Hệ thống tự động xuất hóa đơn cho tháng liền trước ({prev_m_z:02d}/{prev_y_z}).")
-                
-            if HAS_MATPLOTLIB:
-                if st.button("🖼️ Tải Hoá đơn đồng loạt", type="primary", key="btn_download_zip_invoices"):
-                    zip_buffer_invoices = io.BytesIO()
-                    count_inv_added = 0
-                    
-                    curr_m_start_z = date(curr_date_z.year, curr_date_z.month, 1)
-                    debt_win_end_z = curr_m_start_z - timedelta(days=1)
-                    debt_win_start_z = debt_win_end_z - timedelta(days=365)
-                    
-                    with zipfile.ZipFile(zip_buffer_invoices, "w", zipfile.ZIP_DEFLATED) as zf_inv:
-                        for f_key, f_info in family_groups_summary.items():
-                            s_ids = f_info['student_ids']
-                            s_ids_str_f = ",".join(map(str, s_ids))
-                            family_name = f_info['family_name']
-                            lop_val = f_info['lop']
-                            
-                            # 1. Quét nợ 1 năm tính đến hết tháng liền trước
-                            df_debt_f = pd.read_sql_query(text(f'''
-                                SELECT hoc_sinh_id, ngay, TO_CHAR(ngay, 'MM/YYYY') AS thang_nam
-                                FROM diem_danh
-                                WHERE hoc_sinh_id IN ({s_ids_str_f}) 
-                                  AND trang_thai = 'Có mặt'
-                                  AND ngay >= '{debt_win_start_z.strftime("%Y-%m-%d")}'
-                                  AND ngay <= '{debt_win_end_z.strftime("%Y-%m-%d")}'
-                            '''), engine)
-                            
-                            unpaid_month_set = set()
-                            for _, att_r in df_debt_f.iterrows():
-                                fid = att_r['hoc_sinh_id']
-                                th_k = att_r['thang_nam']
-                                p_st = pay_dict_all.get((fid, th_k), 'Chưa đóng')
-                                if p_st != 'Đã đóng':
-                                    unpaid_month_set.add(th_k)
-                                    
-                            # 2. Xác định các tháng đưa vào hóa đơn (Nợ -> gộp nợ 1 năm; Không nợ -> tháng liền trước)
-                            target_month_keys_set = set()
-                            if unpaid_month_set:
-                                target_month_keys_set.update(unpaid_month_set)
-                            else:
-                                target_month_keys_set.add(f"{prev_m_z:02d}/{prev_y_z}")
-                                    
-                            total_ca_f = 0
-                            total_tien_f = 0
-                            sub_comps_f_dict = {}
-                            
-                            sorted_target_months = sorted(list(target_month_keys_set), key=lambda x: (x.split('/')[1], x.split('/')[0]))
-                            
-                            for th_k_str in sorted_target_months:
-                                m_part, y_part = th_k_str.split('/')
-                                m_int, y_int = int(m_part), int(y_part)
-                                m_start_f = f"{y_int}-{m_int:02d}-01"
-                                m_end_f = f"{y_int + 1}-01-01" if m_int == 12 else f"{y_int}-{m_int + 1:02d}-01"
-                                
-                                for fid in s_ids:
-                                    f_meta = df_hs_all[df_hs_all['id'] == fid].iloc[0]
-                                    df_att_f = pd.read_sql_query(text(f'''
-                                        SELECT COUNT(*) AS cnt FROM diem_danh
-                                        WHERE hoc_sinh_id = {fid} AND trang_thai = 'Có mặt'
-                                          AND ngay >= '{m_start_f}' AND ngay < '{m_end_f}'
-                                    '''), engine)
-                                    cnt_c = int(df_att_f.iloc[0]['cnt']) if not df_att_f.empty else 0
-                                    if cnt_c > 0:
-                                        total_ca_f += cnt_c
-                                        total_tien_f += cnt_c * f_meta['hoc_phi_buoi']
-                                        n_key = f_meta["ho_ten"]
-                                        sub_comps_f_dict[n_key] = sub_comps_f_dict.get(n_key, 0) + cnt_c
-                                        
-                            if total_ca_f > 0:
-                                sub_comps_f = [{'ten': k, 'so_ca': v} for k, v in sub_comps_f_dict.items()]
-                                
-                                all_p_f = True
-                                for fid in s_ids:
-                                    for th_k_str in sorted_target_months:
-                                        p_match = pay_dict_all.get((fid, th_k_str), 'Chưa đóng')
-                                        if p_match != 'Đã đóng':
-                                            all_p_f = False
-                                            break
-                                    if not all_p_f:
-                                        break
-                                stt_f_str = 'Đã đóng' if all_p_f else 'Chưa đóng'
-                                
-                                # Định dạng thời gian theo mẫu: tháng 06,07 năm 2026
-                                year_to_months = {}
-                                for th_k_str in sorted_target_months:
-                                    m_part, y_part = th_k_str.split('/')
-                                    year_to_months.setdefault(y_part, []).append(m_part)
-                                
-                                time_str_parts = []
-                                for y_p, m_list in year_to_months.items():
-                                    m_str = ",".join(m_list)
-                                    time_str_parts.append(f"tháng {m_str} năm {y_p}")
-                                time_str_f = ", ".join(time_str_parts)
-                                
-                                img_inv_bytes = create_tuition_slip_image(
-                                    student_name=family_name,
-                                    lop_hoc=lop_val,
-                                    subject='Toán',
-                                    time_str=time_str_f,
-                                    total_lessons=total_ca_f,
-                                    total_fee=total_tien_f,
-                                    status=stt_f_str,
-                                    sub_components=sub_comps_f
-                                )
-                                safe_f_name = re.sub(r'[\\/*?:"<>|]', "", f"{family_name}_{lop_val}".replace(" ", "_"))
-                                zf_inv.writestr(f"HoaDon_{safe_f_name}.png", img_inv_bytes.getvalue())
-                                count_inv_added += 1
-                                
-                    zip_buffer_invoices.seek(0)
-                    if count_inv_added > 0:
-                        st.download_button(
-                            label=f"📦 Bấm Tải Xuống ZIP Hóa Đơn ({count_inv_added} học sinh/gia đình)",
-                            data=zip_buffer_invoices,
-                            file_name=f"Tat_Ca_HoaDon_{datetime.now().strftime('%Y%m%d')}.zip",
-                            mime="application/zip",
-                            type="primary",
-                            key="download_zip_invoices_button_final"
-                        )
-                        st.success(f"✅ Đã tạo file ZIP thành công với {count_inv_added} hóa đơn!")
-                    else:
-                        st.warning("⚠️ Không có học sinh nào có buổi học trong các tháng hoặc khoản nợ để tạo hóa đơn.")
 
 # =========================================================
 # --- THÔNG TIN HỌC SINH ---
