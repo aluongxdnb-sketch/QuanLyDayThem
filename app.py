@@ -497,29 +497,45 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
     ax.axis('off')
     
-    ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ DẠY THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=12, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    # Tiêu đề phiếu
+    ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    
+    # Thời gian (màu khác, không in đậm)
+    ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#047857', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.81
-    ax.text(0.1, y_pos, f"Họ và tên học sinh: {student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.045
-    ax.text(0.1, y_pos, f"Lớp / Nhóm học: {lop_hoc}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.045
-    ax.text(0.1, y_pos, f"Môn học: {subject}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    
+    # Học sinh (Nhãn thường, tên in đậm)
+    ax.text(0.1, y_pos, "Học sinh: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    ax.text(0.24, y_pos, f"{student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.05
+    
+    # Lớp học (Nhãn thường, tên lớp in đậm)
+    ax.text(0.1, y_pos, "Lớp học: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    ax.text(0.22, y_pos, f"{lop_hoc}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
     y_pos -= 0.05
     
     if has_multiple_components:
         for sc in sub_components:
-            line_sc = f"• {sc['ten']}: {sc['so_ca']} ca"
+            line_sc = f"• {sc['ten']}: {sc['so_ca']} buổi"
             ax.text(0.12, y_pos, line_sc, fontsize=11, fontweight='normal', color='#1E293B', transform=ax.transAxes)
             y_pos -= 0.04
         y_pos -= 0.01
         
-    ax.text(0.1, y_pos, f"Tổng số ca học: {total_lessons} ca", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
-    y_pos -= 0.055
-    ax.text(0.1, y_pos, f"TỔNG CỘNG HỌC PHÍ: {total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#B91C1C', transform=ax.transAxes)
-    y_pos -= 0.055
-    ax.text(0.1, y_pos, f"Trạng thái thanh toán: {status}", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    # Tổng số buổi học (Nhãn thường, số buổi in đậm)
+    ax.text(0.1, y_pos, "Tổng số buổi học: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    ax.text(0.31, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.06
+    
+    # Tổng cộng học phí (Viết thường, không in đậm, số tiền in đậm màu chữ thường #1E293B)
+    ax.text(0.1, y_pos, "Tổng cộng học phí: ", fontsize=12.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    ax.text(0.36, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
+    y_pos -= 0.06
+    
+    # Trạng thái (Nhãn thường, trạng thái in đậm)
+    display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
+    ax.text(0.1, y_pos, "Trạng thái: ", fontsize=11.5, fontweight='normal', color='#1E293B', transform=ax.transAxes)
+    ax.text(0.23, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', transform=ax.transAxes)
     
     ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', transform=ax.transAxes)
     
@@ -1755,7 +1771,6 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 elif choice == "💳 Quản lý học phí":
     st.subheader("💳 Quản lý học phí & Xuất Hóa Đơn")
     
-    # Chỉ để chế độ chọn tháng, mặc định là tháng liền trước tháng hiện tại
     today_dt = date.today()
     prev_m_dt = today_dt.replace(day=1) - timedelta(days=1)
     
@@ -1765,7 +1780,6 @@ elif choice == "💳 Quản lý học phí":
     with c_m_hp:
         sel_month_hp = st.selectbox("Chọn Tháng Mốc Quét", list(range(1, 13)), index=prev_m_dt.month - 1, format_func=lambda x: f"Tháng {x}")
 
-    # Xây dựng phạm vi quét 1 năm về trước tính đến tháng được chọn
     end_target_date = date(sel_year_hp, sel_month_hp, 1)
     start_window_dt = end_target_date - timedelta(days=365)
     start_window_str = start_window_dt.strftime("%Y-%m-%d")
@@ -1776,10 +1790,8 @@ elif choice == "💳 Quản lý học phí":
         next_month_dt = date(sel_year_hp, sel_month_hp + 1, 1)
     end_window_str = (next_month_dt - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # Lấy toàn bộ học sinh
     df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh"), engine)
     
-    # Quét tất cả bản ghi điểm danh 'Có mặt' trong cửa sổ 1 năm
     df_att_window = pd.read_sql_query(text(f'''
         SELECT d.hoc_sinh_id, d.ngay, TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam
         FROM diem_danh d
@@ -1937,7 +1949,7 @@ elif choice == "💳 Quản lý học phí":
 
         for idx, row in df_tuition_final.iterrows():
             c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8])
-            c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
+            c1.write(f"**{row['Họ Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
             c2.write(f"{row['Số Ca Có Mặt']} ca")
             c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
             
@@ -1974,7 +1986,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row['sub_components']
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
