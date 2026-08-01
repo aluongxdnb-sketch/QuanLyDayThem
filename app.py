@@ -94,7 +94,7 @@ SUC_KHOE_LIST = [
     "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
-    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
+    "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
     "🤸‍♀️ Lời nhắc sức khỏe: Thực hiện vài động tác xoay cổ tay, cổ chân và vươn thở sâu để xua tan mọi căng thẳng cơ bắp.",
     "🍵 Lời nhắc sức khỏe: Buổi tối ngâm chân nước ấm với chút gừng muối sẽ giúp cô có giấc ngủ sâu và ngon hơn rất nhiều.",
     "😊 Lời nhắc sức khỏe: Nụ cười của cô là năng lượng của lớp học, nhưng đừng quên chăm sóc bản thân thật chu đáo cô nhé!",
@@ -491,7 +491,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (ĐÃ GIỎNG CỘT THẲNG HÀNG & CHỐNG ĐÈ CHỮ) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (ĐÃ CĂN GIỮA THỜI GIAN, MÀU ĐEN, CĂN TRÁI THẲNG HÀNG 2 CỘT) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
@@ -500,21 +500,20 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     # Tiêu đề phiếu
     ax.text(0.5, 0.93, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
-    # Thời gian: Chữ "Thời gian: " căn phải tại 0.5, giá trị thời gian in đậm căn trái tại 0.5 (đối xứng hoàn hảo ngay dưới tiêu đề)
-    ax.text(0.5, 0.87, "Thời gian: ", fontsize=12, fontweight='normal', color='#047857', ha='right', va='center', transform=ax.transAxes)
-    ax.text(0.5, 0.87, f"{time_str}", fontsize=12, fontweight='bold', color='#047857', ha='left', va='center', transform=ax.transAxes)
+    # Thời gian: Căn giữa hoàn toàn, màu đen
+    ax.text(0.5, 0.87, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.78
-    x_label = 0.28  # Cố định vị trí lề phải của các nhãn để chúng thẳng hàng dọc tuyệt đối
-    x_val = 0.30    # Cố định vị trí lề trái của các giá trị in đậm để chúng thẳng hàng dọc tuyệt đối
+    x_label = 0.22  # Lề trái cố định cho phần nhãn (không in đậm)
+    x_val = 0.42    # Lề trái cố định cho phần giá trị (in đậm)
     
     # 1. Học sinh
-    ax.text(x_label, y_pos, "Học sinh: ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
     
     # 2. Lớp học
-    ax.text(x_label, y_pos, "Lớp học: ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Lớp học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
     
@@ -526,18 +525,18 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
         y_pos -= 0.015
         
     # 3. Tổng số buổi học
-    ax.text(x_label, y_pos, "Tổng số buổi học: ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Tổng số buổi học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
     # 4. Tổng cộng học phí
-    ax.text(x_label, y_pos, "Tổng cộng học phí: ", fontsize=12.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.065
     
     # 5. Trạng thái
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
-    ax.text(x_label, y_pos, "Trạng thái: ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='right', va='center', transform=ax.transAxes)
+    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     
     ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
