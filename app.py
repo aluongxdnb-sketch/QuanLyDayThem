@@ -491,7 +491,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CHỐNG ĐÈ CHỮ, CĂN TRÁI CẢ HAI, DÙNG TỔNG CỘNG HỌC PHÍ LÀM CHUẨN ĐỂ ĐẨY TRỤC PHẦN IN ĐẬM LUI VỀ PHẢI) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CĂN TRÁI CẢ HAI, NHÃN TRÙNG KHỚP CHỮ "PHIẾU", GIÁ TRỊ IN ĐẬM ĐẶT AN TOÀN SAU DÒNG DÀI NHẤT) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
@@ -504,8 +504,8 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
     ax.text(0.5, 0.87, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.78
-    x_label = 0.27  # Trục căn lề trái cho phần nhãn chữ thường (cố định, lùi về phía bên trái)
-    x_val = 0.49    # Trục căn lề trái cho phần giá trị in đậm, lấy dòng "Tổng cộng học phí:" dài nhất làm chuẩn để lùi về bên phải
+    x_label = 0.25  # Trục căn lề trái phần nhãn, đặt trùng khớp với điểm bắt đầu chữ "Phiếu" của tiêu đề
+    x_val = 0.54    # Trục căn lề trái phần giá trị in đậm, nằm an toàn sau dòng "Tổng cộng học phí:" dài nhất để tuyệt đối không bị đè chữ
     
     # 1. Học sinh
     ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
