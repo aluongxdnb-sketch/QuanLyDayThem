@@ -1765,7 +1765,6 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 elif choice == "💳 Quản lý học phí":
     st.subheader("💳 Quản lý học phí & Xuất Hóa Đơn")
     
-    # Chọn tính năng học phí theo yêu cầu: "khi tôi chọn tính năng nào thì dùng tính năng đó"
     fee_feature_mode = st.radio(
         "📌 Chọn tính năng quản lý học phí:",
         [
@@ -1779,8 +1778,9 @@ elif choice == "💳 Quản lý học phí":
     st.markdown("---")
     
     if fee_feature_mode.startswith("1."):
-        # --- TÍNH NĂNG 1: QUẢN LÝ NỢ TỰ ĐỘNG 1 NĂM (GIỮ NGUYÊN) ---
+        # --- TÍNH NĂNG 1: QUẢN LÝ NỢ TỰ ĐỘNG 1 NĂM (QUÉT NỢ CHUẨN) ---
         today_dt = date.today()
+        today_str = today_dt.strftime("%Y-%m-%d")
         prev_m_dt = today_dt.replace(day=1) - timedelta(days=1)
         
         c_y_hp, c_m_hp = st.columns([1, 2])
@@ -1807,8 +1807,7 @@ elif choice == "💳 Quản lý học phí":
             WHERE d.trang_thai = 'Có mặt' AND d.ngay >= '{start_window_str}' AND d.ngay <= '{end_window_str}'
         '''), engine)
         
-        df_pay_all = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
-        pay_dict = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_pay_all.iterrows()}
+        df_pay_all = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai, ngay_thu FROM thanh_toan"), engine)
         
         meta_dict = {row['id']: {'ho_ten': row['ho_ten'], 'lop': row['lop_hoc'], 'mon': row['mon_hoc'], 'hp': row['hoc_phi_buoi'], 'phone': str(row['thong_tin_phu_huynh']).strip()} for _, row in df_hs_all.iterrows()}
         
@@ -1835,70 +1834,64 @@ elif choice == "💳 Quản lý học phí":
         for f_key, f_info in family_groups.items():
             s_ids = f_info['student_ids']
             
-            unpaid_months_set = set()
-            paid_all = True
+            family_att = df_att_window[df_att_window['hoc_sinh_id'].isin(s_ids)]
+            if family_att.empty:
+                continue
+                
+            all_att_months = sorted(family_att['thang_nam'].unique().tolist(), key=lambda m: (int(m.split('/')[1]), int(m.split('/')[0])))
+            
+            target_months_pool = []
+            for m_str in all_att_months:
+                m_month, m_year = map(int, m_str.split('/'))
+                if datetime(m_year, m_month, 1) <= datetime(end_target_date.year, end_target_date.month, 1):
+                    target_months_pool.append(m_str)
+                    
+            if not target_months_pool:
+                continue
+                
+            unpaid_months = []
+            
+            for m_str in target_months_pool:
+                month_fully_paid = True
+                has_att_in_month = False
+                
+                for hs_id in s_ids:
+                    hs_att_m = family_att[(family_att['hoc_sinh_id'] == hs_id) & (family_att['thang_nam'] == m_str)]
+                    if not hs_att_m.empty:
+                        has_att_in_month = True
+                        pay_row = df_pay_all[(df_pay_all['hoc_sinh_id'] == hs_id) & (df_pay_all['thang_nam'] == m_str)]
+                        if pay_row.empty or pay_row.iloc[0]['trang_thai'] != 'Đã đóng':
+                            month_fully_paid = False
+                                
+                if has_att_in_month and not month_fully_paid:
+                    unpaid_months.append(m_str)
+
+            if not unpaid_months:
+                continue
+                
+            time_str = f"{unpaid_months[0]} - {unpaid_months[-1]}" if len(unpaid_months) > 1 else unpaid_months[0]
+            status_str = 'Chưa đóng'
+                
             total_ca_group = 0
             total_tien_group = 0
+            sub_comps_dict = {}
             
             for hs_id in s_ids:
                 hs_meta = meta_dict[hs_id]
-                df_hs_att = df_att_window[df_att_window['hoc_sinh_id'] == hs_id]
-                if df_hs_att.empty:
-                    continue
+                hs_att_filtered = family_att[(family_att['hoc_sinh_id'] == hs_id) & (family_att['thang_nam'].isin(unpaid_months))]
+                so_ca_hs = len(hs_att_filtered)
+                if so_ca_hs > 0:
+                    total_ca_group += so_ca_hs
+                    total_tien_group += so_ca_hs * hs_meta['hp']
+                    sub_comps_dict[hs_meta['ho_ten']] = sub_comps_dict.get(hs_meta['ho_ten'], 0) + so_ca_hs
                     
-                for thang_key, group_th in df_hs_att.groupby('thang_nam'):
-                    so_ca_th = len(group_th)
-                    pay_st = pay_dict.get((hs_id, thang_key), 'Chưa đóng')
-                    if pay_st != 'Đã đóng':
-                        unpaid_months_set.add(thang_key)
-                        paid_all = False
-            
-            if not unpaid_months_set:
-                time_str = end_target_date.strftime("%m/%Y")
-                total_ca_group = 0
-                total_tien_group = 0
-                sub_comps_dict = {}
-                for hs_id in s_ids:
-                    hs_meta = meta_dict[hs_id]
-                    df_hs_m = df_att_window[(df_att_window['hoc_sinh_id'] == hs_id) & (df_att_window['thang_nam'] == time_str)]
-                    so_ca_m = len(df_hs_m)
-                    if so_ca_m > 0:
-                        total_ca_group += so_ca_m
-                        total_tien_group += so_ca_m * hs_meta['hp']
-                        sub_comps_dict[hs_meta['ho_ten']] = so_ca_m
-                if total_ca_group == 0:
-                    continue
-                sub_comps = [{'ten': k, 'so_ca': v} for k, v in sub_comps_dict.items()]
-                status_str = 'Đã đóng'
-            else:
-                def parse_m_y(m_str):
-                    m, y = m_str.split('/')
-                    return int(y), int(m)
-                sorted_unpaid = sorted(list(unpaid_months_set), key=parse_m_y)
-                if len(sorted_unpaid) == 1:
-                    time_str = sorted_unpaid[0]
-                else:
-                    time_str = f"{sorted_unpaid[0]} - {sorted_unpaid[-1]}"
+            if total_ca_group == 0:
+                continue
                 
-                total_ca_group = 0
-                total_tien_group = 0
-                sub_comps_dict = {}
-                
-                for hs_id in s_ids:
-                    hs_meta = meta_dict[hs_id]
-                    df_hs_att = df_att_window[(df_att_window['hoc_sinh_id'] == hs_id) & (df_att_window['thang_nam'].isin(unpaid_months_set))]
-                    so_ca_hs = len(df_hs_att)
-                    if so_ca_hs > 0:
-                        total_ca_group += so_ca_hs
-                        total_tien_group += so_ca_hs * hs_meta['hp']
-                        sub_comps_dict[hs_meta['ho_ten']] = so_ca_hs
-                
-                sub_comps = [{'ten': k, 'so_ca': v} for k, v in sub_comps_dict.items()]
-                status_str = 'Đã đóng' if paid_all else 'Chưa đóng'
-
+            sub_comps = [{'ten': k, 'so_ca': v} for k, v in sub_comps_dict.items()]
             rep_hs_id = s_ids[0]
             rep_meta = meta_dict[rep_hs_id]
-            
+
             table_rows.append({
                 'hoc_sinh_id': rep_hs_id,
                 'family_ids': s_ids,
@@ -1910,13 +1903,13 @@ elif choice == "💳 Quản lý học phí":
                 'Tổng Tiền (VNĐ)': total_tien_group,
                 'Trạng Thái': status_str,
                 'sub_components': sub_comps,
-                'unpaid_months': list(unpaid_months_set) if unpaid_months_set else [end_target_date.strftime("%m/%Y")]
+                'unpaid_months': unpaid_months
             })
 
         df_tuition_final = pd.DataFrame(table_rows)
         
         if df_tuition_final.empty:
-            st.info("ℹ️ Không có học sinh nào phát sinh học phí trong khoảng thời gian quét.")
+            st.info("ℹ️ Không có học sinh nào còn nợ học phí trong khoảng thời gian quét.")
         else:
             student_options_dict = {"--- Tất cả học sinh ---": None}
             for _, row in df_tuition_final.iterrows():
@@ -1986,7 +1979,7 @@ elif choice == "💳 Quản lý học phí":
                     
                     if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
                         new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
-                        t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
+                        t_str = today_str if new_stt == 'Đã đóng' else ""
                         months_to_update = row['unpaid_months']
                         
                         with engine.begin() as conn:
@@ -2086,7 +2079,7 @@ elif choice == "💳 Quản lý học phí":
                         if cnt_ca > 0:
                             total_ca_cust += cnt_ca
                             total_tien_cust += cnt_ca * f_meta['hoc_phi_buoi']
-                            name_key = f_meta["ho_ten"]  # Đã sửa lỗi biến f thành f_meta
+                            name_key = f_meta["ho_ten"]
                             sub_comps_cust_dict[name_key] = sub_comps_cust_dict.get(name_key, 0) + cnt_ca
 
                 sub_comps_cust = [{'ten': k, 'so_ca': v} for k, v in sub_comps_cust_dict.items()]
@@ -2370,7 +2363,7 @@ elif choice == "📋 Thông tin học sinh":
         if not df_hs_del.empty:
             hs_del_dict = {f"{row['ho_ten']} [{row['lop_hoc']}] - ID:{row['id']}": row['id'] for _, row in df_hs_del.iterrows()}
             selected_del_id = hs_del_dict[st.selectbox("Chọn học sinh cần xóa:", list(hs_del_dict.keys()), key="select_del_hs")]
-            confirm_check = st.checkbox("Tôi xác nhận muốn xóa học sinh này")
+            confirm_check = st.checkbox("I want to delete this student")
             
             if st.button("❌ XÓA HỌC SINH NÀY", type="primary") and confirm_check:
                 with engine.begin() as conn:
