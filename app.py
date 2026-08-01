@@ -828,7 +828,6 @@ st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và
 # --- ĐIỂM DANH & NHẬN XÉT ---
 # =========================================================
 if choice == "📝 Điểm danh & Nhận xét":
-    # Góc truyền cảm hứng và sức khỏe đặt ngay dưới tiêu đề phần mềm
     quote_today = random.choice(THONG_DIEP_LIST)
     health_today = random.choice(SUC_KHOE_LIST)
     
@@ -836,7 +835,6 @@ if choice == "📝 Điểm danh & Nhận xét":
     st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
     st.markdown("---")
 
-    # Cảnh báo vắng nhiều (Bấm vào mới hiện)
     with st.expander("🚨 Cảnh Báo Vắng Nhiều Trong Tháng (Từ 3 buổi trở lên)"):
         today_obj_exp = date.today()
         current_month_q_exp = f"{today_obj_exp.year}-{today_obj_exp.month:02d}"
@@ -856,7 +854,6 @@ if choice == "📝 Điểm danh & Nhận xét":
         else:
             st.dataframe(df_absent_alert, use_container_width=True, hide_index=True)
 
-    # Top 5 học sinh học ít ca nhất (Bấm vào mới hiện)
     with st.expander("📉 Top 5 Học Sinh Học Ít Ca Nhất Trong Tháng"):
         today_obj_exp2 = date.today()
         current_month_q_exp2 = f"{today_obj_exp2.year}-{today_obj_exp2.month:02d}"
@@ -1278,7 +1275,6 @@ if choice == "📝 Điểm danh & Nhận xét":
     with tab_dd_lich_su:
         st.subheader("🖼️ Xem Lịch Sử Điểm Danh & Xuất Ảnh")
         
-        # Đặt tùy chọn Lớp lên trước, đặt index=0 để mặc định chọn theo lớp
         export_mode_type = st.radio("📌 Chọn phạm vi xuất lịch sử điểm danh:", ["🏫 Theo Cả Lớp học (Tổng hợp các ca)", "👤 Theo từng học sinh riêng lẻ"], horizontal=True, key="export_mode_type_radio", index=0)
         
         df_hs_ls = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc FROM hoc_sinh ORDER BY id DESC"), engine)
@@ -1292,7 +1288,6 @@ if choice == "📝 Điểm danh & Nhận xét":
                     st.warning("⚠️ Không có lớp học nào trong hệ thống.")
                 else:
                     sel_lop_exp_cls = st.selectbox("Chọn Lớp học cần xuất:", all_lops_export, key="sel_lop_exp_cls_key")
-                    # Khoảng thời gian mặc định là "1 tuần" (index=1)
                     option_time_cls = st.radio("Chọn khoảng thời gian xuất:", ["1 ngày", "1 tuần", "1 tháng"], horizontal=True, key="option_time_cls_radio", index=1)
                     
                     df_cls_history_final = pd.DataFrame()
@@ -1674,7 +1669,6 @@ elif choice == "💳 Quản lý học phí":
             else:
                 curr_end = f"{curr_y_val}-{curr_m_val + 1:02d}-01"
 
-            # Tổng hợp toàn bộ học sinh - Tháng trước
             df_all_prev = pd.read_sql_query(text(f'''
                 SELECT SUM(h.hoc_phi_buoi) AS tong_tien, COUNT(d.id) AS tong_ca
                 FROM diem_danh d
@@ -1685,7 +1679,6 @@ elif choice == "💳 Quản lý học phí":
             total_ca_prev_all = int(df_all_prev.iloc[0]['tong_ca']) if not df_all_prev.empty and pd.notna(df_all_prev.iloc[0]['tong_ca']) else 0
             total_tien_prev_all = float(df_all_prev.iloc[0]['tong_tien']) if not df_all_prev.empty and pd.notna(df_all_prev.iloc[0]['tong_tien']) else 0
 
-            # Tổng hợp toàn bộ học sinh - Tháng này
             df_all_curr = pd.read_sql_query(text(f'''
                 SELECT SUM(h.hoc_phi_buoi) AS tong_tien, COUNT(d.id) AS tong_ca
                 FROM diem_danh d
@@ -1721,7 +1714,6 @@ elif choice == "💳 Quản lý học phí":
         
         selected_hs_meta = df_hs_all[df_hs_all['id'] == selected_cust_hs_id].iloc[0]
         
-        # --- TỰ ĐỘNG ĐIỀN CÁC THÁNG NỢ HỌC PHÍ (QUÉT 1 NĂM TRỪ THÁNG HIỆN TẠI) ---
         today = date.today()
         curr_m_start = date(today.year, today.month, 1)
         debt_window_end = curr_m_start - timedelta(days=1)
@@ -1775,7 +1767,6 @@ elif choice == "💳 Quản lý học phí":
         else:
             sorted_months = sorted(selected_months_list)
             
-            # --- ĐỊNH DẠNG THỜI GIAN GỘP: Tháng 06, 07 năm 2026 ---
             months_formatted = ", ".join([f"{m:02d}" for m in sorted_months])
             time_str_custom = f"Tháng {months_formatted} năm {cust_year}"
             
@@ -1883,7 +1874,7 @@ elif choice == "💳 Quản lý học phí":
                         key="btn_download_custom_invoice_img"
                     )
 
-            # --- DANH SÁCH TỔNG HỢP HỌC SINH DƯỚI PHẦN XUẤT ẢNH ---
+            # --- DANH SÁCH TỔNG HỢP HỌC SINH ---
             st.markdown("---")
             st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
             st.caption("• Học phí chưa đóng: Quét trong 1 năm qua (trừ tháng hiện tại)\n• Học phí tính cả tháng này: Bao gồm cả tháng hiện tại\n• Học sinh đã hoàn thành thanh toán được **in đậm và bôi xanh**.")
@@ -1961,7 +1952,6 @@ elif choice == "💳 Quản lý học phí":
                         
                 total_with_curr = debt_1yr_amount + curr_month_amount
                 
-                # Kiểm tra xem học sinh đã hoàn thành thanh toán tất cả các tháng đi học chưa
                 df_all_attended_months = pd.read_sql_query(text(f'''
                     SELECT DISTINCT TO_CHAR(ngay, 'MM/YYYY') AS thang_nam
                     FROM diem_danh
@@ -2017,6 +2007,95 @@ elif choice == "💳 Quản lý học phí":
                 html_table += "</table></div>"
                 
                 st.markdown(html_table, unsafe_allow_html=True)
+
+            # --- TÍNH NĂNG MỚI: TẢI ZIP HÓA ĐƠN ĐỒNG LOẠT ---
+            st.markdown("---")
+            st.markdown("#### 📦 Tải ZIP Hóa Đơn Đồng Loạt Cho Tất Cả Học Sinh / Gia Đình")
+            c_zip_y, c_zip_m = st.columns(2)
+            with c_zip_y:
+                zip_inv_year = st.number_input("Chọn Năm xuất hóa đơn", min_value=2020, max_value=2035, value=datetime.now().year, key="zip_inv_year_input")
+            with c_zip_m:
+                zip_inv_months = st.multiselect("Chọn tháng xuất hóa đơn đồng loạt:", options=list(range(1, 13)), default=[datetime.now().month], format_func=lambda x: f"Tháng {x}", key="zip_inv_months_multiselect")
+                
+            if HAS_MATPLOTLIB and zip_inv_months:
+                if st.button("🖼️ Tạo & Tải ZIP Hóa Đơn Tất Cả Học Sinh", type="primary", key="btn_download_zip_invoices"):
+                    zip_buffer_invoices = io.BytesIO()
+                    count_inv_added = 0
+                    with zipfile.ZipFile(zip_buffer_invoices, "w", zipfile.ZIP_DEFLATED) as zf_inv:
+                        for f_key, f_info in family_groups_summary.items():
+                            s_ids = f_info['student_ids']
+                            family_name = f_info['family_name']
+                            lop_val = f_info['lop']
+                            
+                            total_ca_f = 0
+                            total_tien_f = 0
+                            sub_comps_f_dict = {}
+                            month_keys_f = []
+                            
+                            for m_val in sorted(zip_inv_months):
+                                m_str_k = f"{m_val:02d}/{zip_inv_year}"
+                                month_keys_f.append(m_str_k)
+                                m_start_f = f"{zip_inv_year}-{m_val:02d}-01"
+                                m_end_f = f"{zip_inv_year + 1}-01-01" if m_val == 12 else f"{zip_inv_year}-{m_val + 1:02d}-01"
+                                
+                                for fid in s_ids:
+                                    f_meta = df_hs_all[df_hs_all['id'] == fid].iloc[0]
+                                    df_att_f = pd.read_sql_query(text(f'''
+                                        SELECT COUNT(*) AS cnt FROM diem_danh
+                                        WHERE hoc_sinh_id = {fid} AND trang_thai = 'Có mặt'
+                                          AND ngay >= '{m_start_f}' AND ngay < '{m_end_f}'
+                                    '''), engine)
+                                    cnt_c = int(df_att_f.iloc[0]['cnt']) if not df_att_f.empty else 0
+                                    if cnt_c > 0:
+                                        total_ca_f += cnt_c
+                                        total_tien_f += cnt_c * f_meta['hoc_phi_buoi']
+                                        n_key = f_meta["ho_ten"]
+                                        sub_comps_f_dict[n_key] = sub_comps_f_dict.get(n_key, 0) + cnt_c
+                            
+                            if total_ca_f > 0:
+                                sub_comps_f = [{'ten': k, 'so_ca': v} for k, v in sub_comps_f_dict.items()]
+                                
+                                all_p_f = True
+                                for fid in s_ids:
+                                    for ms_k in month_keys_f:
+                                        p_match = df_all_pay[(df_all_pay['hoc_sinh_id'] == fid) & (df_all_pay['thang_nam'] == ms_k)]
+                                        if p_match.empty or p_match.iloc[0]['trang_thai'] != 'Đã đóng':
+                                            all_p_f = False
+                                            break
+                                    if not all_p_f:
+                                        break
+                                stt_f_str = 'Đã đóng' if all_p_f else 'Chưa đóng'
+                                
+                                months_fmt_f = ", ".join([f"{m:02d}" for m in sorted(zip_inv_months)])
+                                time_str_f = f"Tháng {months_fmt_f} năm {zip_inv_year}"
+                                
+                                img_inv_bytes = create_tuition_slip_image(
+                                    student_name=family_name,
+                                    lop_hoc=lop_val,
+                                    subject='Toán',
+                                    time_str=time_str_f,
+                                    total_lessons=total_ca_f,
+                                    total_fee=total_tien_f,
+                                    status=stt_f_str,
+                                    sub_components=sub_comps_f
+                                )
+                                safe_f_name = re.sub(r'[\\/*?:"<>|]', "", f"{family_name}_{lop_val}".replace(" ", "_"))
+                                zf_inv.writestr(f"HoaDon_{safe_f_name}_Thang_{months_fmt_f}_{zip_inv_year}.png", img_inv_bytes.getvalue())
+                                count_inv_added += 1
+                                
+                    zip_buffer_invoices.seek(0)
+                    if count_inv_added > 0:
+                        st.download_button(
+                            label=f"📦 Bấm Tải Xuống ZIP Hóa Đơn ({count_inv_added} học sinh/gia đình)",
+                            data=zip_buffer_invoices,
+                            file_name=f"Tat_Ca_HoaDon_Thang_{datetime.now().strftime('%Y%m%d')}.zip",
+                            mime="application/zip",
+                            type="primary",
+                            key="download_zip_invoices_button_final"
+                        )
+                        st.success(f"✅ Đã tạo file ZIP thành công với {count_inv_added} hóa đơn!")
+                    else:
+                        st.warning("⚠️ Không có học sinh nào có buổi học trong các tháng đã chọn để tạo hóa đơn.")
 
 # =========================================================
 # --- THÔNG TIN HỌC SINH ---
