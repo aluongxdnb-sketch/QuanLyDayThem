@@ -873,7 +873,7 @@ if choice == "🏠 Trang chủ":
     with col1:
         total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
         total_hs_today = len(df_today) if not df_today.empty else 0
-        st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
+        st.metric("🏫 Ca dạy hôm hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
         st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
     with col3:
@@ -1765,7 +1765,6 @@ elif choice == "📅 Quản lý Thời khoá Biểu":
 elif choice == "💳 Quản lý học phí":
     st.subheader("💳 Quản lý học phí & Xuất Hóa Đơn")
     
-    # Chọn tính năng học phí theo yêu cầu: "khi tôi chọn tính năng nào thì dùng tính năng đó"
     fee_feature_mode = st.radio(
         "📌 Chọn tính năng quản lý học phí:",
         [
@@ -1779,7 +1778,6 @@ elif choice == "💳 Quản lý học phí":
     st.markdown("---")
     
     if fee_feature_mode.startswith("1."):
-        # --- TÍNH NĂNG 1: QUẢN LÝ NỢ TỰ ĐỘNG 1 NĂM (GIỮ NGUYÊN) ---
         today_dt = date.today()
         prev_m_dt = today_dt.replace(day=1) - timedelta(days=1)
         
@@ -1936,13 +1934,23 @@ elif choice == "💳 Quản lý học phí":
             if df_tuition_final.empty:
                 st.warning("⚠️ Không tìm thấy học sinh phù hợp.")
             else:
-                total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
-                total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
-                
-                with st.expander("📊 Bấm vào đây để xem Tổng Hợp Thống Kê Chung", expanded=False):
+                # Tính tổng số ca và tổng tiền chỉ tính riêng cho tháng được chọn (sel_month_hp, sel_year_hp)
+                current_month_str = f"{sel_month_hp:02d}/{sel_year_hp}"
+                total_ca_month = 0
+                total_tien_month = 0
+                for _, row_f in df_tuition_final.iterrows():
+                    f_ids = row_f['family_ids']
+                    for fid in f_ids:
+                        f_meta = meta_dict[fid]
+                        df_m_att = df_att_window[(df_att_window['hoc_sinh_id'] == fid) & (df_att_window['thang_nam'] == current_month_str)]
+                        ca_cnt = len(df_m_att)
+                        total_ca_month += ca_cnt
+                        total_tien_month += ca_cnt * f_meta['hp']
+
+                with st.expander(f"📊 Bấm vào đây để xem Tổng Hợp Thống Kê Tháng {sel_month_hp}/{sel_year_hp}", expanded=False):
                     c_sum1, c_sum2 = st.columns(2)
-                    c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
-                    c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
+                    c_sum1.metric(f"📚 Tổng số ca học (Tháng {sel_month_hp}/{sel_year_hp})", f"{int(total_ca_month)} ca")
+                    c_sum2.metric(f"💰 Tổng tiền học phí (Tháng {sel_month_hp}/{sel_year_hp})", f"{total_tien_month:,.0f} đ")
                 st.markdown("---")
 
                 if HAS_MATPLOTLIB:
@@ -2023,9 +2031,6 @@ elif choice == "💳 Quản lý học phí":
                             )
                     st.divider()
     else:
-        # --- TÍNH NĂNG 2: TÙY CHỌN GỘP HÓA ĐƠN THEO CÁC THÁNG CHỈ ĐỊNH ---
-        st.markdown("##### ⚙️ Tùy chọn gộp hóa đơn theo các tháng chỉ định (Ví dụ: Chọn Tháng 6 và Tháng 7)")
-        
         df_hs_all = pd.read_sql_query(text("SELECT id, ho_ten, lop_hoc, mon_hoc, hoc_phi_buoi, thong_tin_phu_huynh FROM hoc_sinh ORDER BY id DESC"), engine)
         
         if df_hs_all.empty:
@@ -2086,7 +2091,7 @@ elif choice == "💳 Quản lý học phí":
                         if cnt_ca > 0:
                             total_ca_cust += cnt_ca
                             total_tien_cust += cnt_ca * f_meta['hoc_phi_buoi']
-                            name_key = f_meta["ho_ten"]  # Đã sửa lỗi biến f thành f_meta
+                            name_key = f_meta["ho_ten"]
                             sub_comps_cust_dict[name_key] = sub_comps_cust_dict.get(name_key, 0) + cnt_ca
 
                 sub_comps_cust = [{'ten': k, 'so_ca': v} for k, v in sub_comps_cust_dict.items()]
