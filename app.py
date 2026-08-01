@@ -2086,7 +2086,7 @@ elif choice == "💳 Quản lý học phí":
                         if cnt_ca > 0:
                             total_ca_cust += cnt_ca
                             total_tien_cust += cnt_ca * f_meta['hoc_phi_buoi']
-                            name_key = f["ho_ten"]
+                            name_key = f_meta["ho_ten"]  # Đã sửa lỗi biến f thành f_meta
                             sub_comps_cust_dict[name_key] = sub_comps_cust_dict.get(name_key, 0) + cnt_ca
 
                 sub_comps_cust = [{'ten': k, 'so_ca': v} for k, v in sub_comps_cust_dict.items()]
