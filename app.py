@@ -24,8 +24,12 @@ except ImportError:
 st.set_page_config(page_title="Phần Mềm Quản Lý Dạy Thêm", layout="wide", page_icon="📚")
 
 # --- KẾT NỐI SUPABASE (POSTGRESQL) QUA DATABASE_URL TRONG SECRETS ---
-db_url = st.secrets["DATABASE_URL"]
-engine = create_engine(db_url)
+try:
+    db_url = st.secrets["DATABASE_URL"]
+    engine = create_engine(db_url)
+except Exception as e:
+    st.error(f"⚠️ Lỗi đọc cấu hình `DATABASE_URL` trong Streamlit Secrets: {e}")
+    st.stop()
 
 # --- DANH SÁCH CA HỌC MẪU TOÀN HỆ THỐNG ---
 DANH_SACH_CA_MAU = [
@@ -703,55 +707,59 @@ def create_class_attendance_history_image(class_name, time_label, df_history):
     buffer.seek(0)
     return buffer
 
-# --- KHỞI TẠO BẢNG TRÊN SUPABASE ---
-with engine.begin() as conn:
-    conn.execute(text('''
-        CREATE TABLE IF NOT EXISTS hoc_sinh (
-            id SERIAL PRIMARY KEY,
-            ho_ten TEXT NOT NULL,
-            lop_hoc TEXT DEFAULT 'Lớp chung',
-            mon_hoc TEXT,
-            hoc_phi_buoi REAL NOT NULL,
-            thong_tin_phu_huynh TEXT
-        )
-    '''))
-    conn.execute(text('''
-        CREATE TABLE IF NOT EXISTS diem_danh (
-            id SERIAL PRIMARY KEY,
-            hoc_sinh_id INTEGER,
-            ngay DATE,
-            ca_hoc TEXT DEFAULT '7h00 - 9h00',
-            trang_thai TEXT DEFAULT 'Có mặt',
-            nhan_xet TEXT
-        )
-    '''))
-    conn.execute(text('''
-        CREATE TABLE IF NOT EXISTS thanh_toan (
-            id SERIAL PRIMARY KEY,
-            hoc_sinh_id INTEGER,
-            thang_nam TEXT,
-            trang_thai TEXT DEFAULT 'Chưa đóng',
-            ngay_thu TEXT,
-            UNIQUE(hoc_sinh_id, thang_nam)
-        )
-    '''))
-    conn.execute(text('''
-        CREATE TABLE IF NOT EXISTS lich_hoc_tuan (
-            id SERIAL PRIMARY KEY,
-            hoc_sinh_id INTEGER,
-            thu TEXT,
-            ca_hoc TEXT,
-            UNIQUE(hoc_sinh_id, thu, ca_hoc)
-        )
-    '''))
-    try:
-        conn.execute(text("ALTER TABLE hoc_sinh RENAME COLUMN sdt_phu_huynh TO thong_tin_phu_huynh"))
-    except Exception:
-        pass
-    try:
-        conn.execute(text("ALTER TABLE hoc_sinh ADD COLUMN IF NOT EXISTS thong_tin_phu_huynh TEXT"))
-    except Exception:
-        pass
+# --- KHỞI TẠO BẢNG TRÊN SUPABASE (AN TOÀN) ---
+try:
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS hoc_sinh (
+                id SERIAL PRIMARY KEY,
+                ho_ten TEXT NOT NULL,
+                lop_hoc TEXT DEFAULT 'Lớp chung',
+                mon_hoc TEXT,
+                hoc_phi_buoi REAL NOT NULL,
+                thong_tin_phu_huynh TEXT
+            )
+        '''))
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS diem_danh (
+                id SERIAL PRIMARY KEY,
+                hoc_sinh_id INTEGER,
+                ngay DATE,
+                ca_hoc TEXT DEFAULT '7h00 - 9h00',
+                trang_thai TEXT DEFAULT 'Có mặt',
+                nhan_xet TEXT
+            )
+        '''))
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS thanh_toan (
+                id SERIAL PRIMARY KEY,
+                hoc_sinh_id INTEGER,
+                thang_nam TEXT,
+                trang_thai TEXT DEFAULT 'Chưa đóng',
+                ngay_thu TEXT,
+                UNIQUE(hoc_sinh_id, thang_nam)
+            )
+        '''))
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS lich_hoc_tuan (
+                id SERIAL PRIMARY KEY,
+                hoc_sinh_id INTEGER,
+                thu TEXT,
+                ca_hoc TEXT,
+                UNIQUE(hoc_sinh_id, thu, ca_hoc)
+            )
+        '''))
+        try:
+            conn.execute(text("ALTER TABLE hoc_sinh RENAME COLUMN sdt_phu_huynh TO thong_tin_phu_huynh"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE hoc_sinh ADD COLUMN IF NOT EXISTS thong_tin_phu_huynh TEXT"))
+        except Exception:
+            pass
+except Exception as e:
+    st.error(f"❌ Không thể kết nối tới cơ sở dữ liệu Supabase. Vui lòng kiểm tra lại cấu hình `DATABASE_URL` trên Streamlit Cloud hoặc trạng thái dự án trên Supabase. Chi tiết lỗi: {e}")
+    st.stop()
 
 # =========================================================
 # --- HỆ THỐNG ĐĂNG NHẬP BẢO VỆ ADMIN ---
@@ -2200,7 +2208,7 @@ elif choice == "💳 Quản lý học phí":
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ dan Tên'] if 'Họ dan Tên' in r else r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
