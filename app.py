@@ -803,7 +803,6 @@ if col_logout1.button("🚪 Đăng xuất", type="secondary", use_container_widt
     st.rerun()
 
 menu = [
-    "🏠 Trang chủ",
     "📝 Điểm danh & Nhận xét", 
     "📅 Quản lý Thời khoá Biểu",
     "💳 Quản lý học phí", 
@@ -826,84 +825,27 @@ st.sidebar.markdown("---")
 st.sidebar.info("☁️ Dữ liệu đang được kết nối trực tiếp và lưu trữ vĩnh viễn trên **Supabase Cloud**.")
 
 # =========================================================
-# --- TRANG CHỦ ---
+# --- ĐIỂM DANH & NHẬN XÉT ---
 # =========================================================
-if choice == "🏠 Trang chủ":
-    tab_trangchu_tongquan, tab_trangchu_doanhthu = st.tabs([
-        "🏠 Tổng quan trong ngày",
-        "📊 Doanh thu"
-    ])
+if choice == "📝 Điểm danh & Nhận xét":
+    # Góc truyền cảm hứng và sức khỏe đặt ngay dưới tiêu đề phần mềm
+    quote_today = random.choice(THONG_DIEP_LIST)
+    health_today = random.choice(SUC_KHOE_LIST)
     
-    with tab_trangchu_tongquan:
-        st.subheader("🏠 Tổng Quan Trong Ngày")
-        
-        quote_today = random.choice(THONG_DIEP_LIST)
-        health_today = random.choice(SUC_KHOE_LIST)
-        
-        st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
-        st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
-        st.markdown("---")
+    st.info(f"💡 **Góc truyền cảm hứng hôm nay:**\n\n{quote_today}")
+    st.success(f"💖 **Góc sức khỏe yêu thương:**\n\n{health_today}")
+    st.markdown("---")
 
-        today = date.today()
-        thu_hom_nay = get_vietnamese_weekday(today)
-        st.info(f"🗓️ Hôm nay: **{today.strftime('%d/%m/%Y')} ({thu_hom_nay})**")
-        
-        df_today = get_active_schedule_for_date(engine, today)
-        
-        curr_y, curr_m = today.year, today.month
-        past_y, past_m = curr_y - 1, curr_m
-        start_date_str = f"{past_y}-{past_m:02d}-01"
-        end_date_str = f"{curr_y}-{curr_m:02d}-01"
-        
-        query_unpaid_details = text(f'''
-            SELECT h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi,
-                   TO_CHAR(d.ngay, 'MM/YYYY') AS thang_nam,
-                   COUNT(d.id) AS so_ca
-            FROM hoc_sinh h
-            JOIN diem_danh d ON h.id = d.hoc_sinh_id
-            WHERE d.trang_thai = 'Có mặt'
-              AND d.ngay >= '{start_date_str}' 
-              AND d.ngay < '{end_date_str}'
-              AND NOT EXISTS (
-                  SELECT 1 FROM thanh_toan t 
-                  WHERE t.hoc_sinh_id = h.id 
-                    AND t.thang_nam = TO_CHAR(d.ngay, 'MM/YYYY') 
-                    AND t.trang_thai = 'Đã đóng'
-              )
-            GROUP BY h.id, h.ho_ten, h.lop_hoc, h.hoc_phi_buoi, TO_CHAR(d.ngay, 'MM/YYYY')
-            ORDER BY thang_nam DESC, h.ho_ten ASC
-        ''')
-        df_unpaid_details = pd.read_sql_query(query_unpaid_details, engine)
-        
-        if not df_unpaid_details.empty:
-            df_unpaid_details['tien_no'] = df_unpaid_details['so_ca'] * df_unpaid_details['hoc_phi_buoi']
-            total_debt_amount = df_unpaid_details['tien_no'].sum()
-            unique_unpaid_students = df_unpaid_details['id'].nunique()
-        else:
-            total_debt_amount = 0
-            unique_unpaid_students = 0
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
-            total_hs_today = len(df_today) if not df_today.empty else 0
-            st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
-        with col2:
-            st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
-        with col3:
-            st.metric("💰 Tổng tiền còn cần thu", f"{total_debt_amount:,.0f} đ", f"Các tháng trước")
-
-        st.markdown("---")
-        
-        st.markdown("#### 🚨 Cảnh Báo Vắng Nhiều Trong Tháng (Từ 3 buổi trở lên):")
-        current_month_q = f"{today.year}-{today.month:02d}"
-        
+    # Cảnh báo vắng nhiều (Bấm vào mới hiện)
+    with st.expander("🚨 Cảnh Báo Vắng Nhiều Trong Tháng (Từ 3 buổi trở lên)"):
+        today_obj_exp = date.today()
+        current_month_q_exp = f"{today_obj_exp.year}-{today_obj_exp.month:02d}"
         df_absent_alert = pd.read_sql_query(text(f'''
             SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
                    (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) AS "Tổng số ca vắng"
             FROM diem_danh d
             JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-            WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}' AND d.trang_thai IN ('Vắng có phép', 'Vắng không phép')
+            WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q_exp}' AND d.trang_thai IN ('Vắng có phép', 'Vắng không phép')
             GROUP BY h.id, h.ho_ten, h.lop_hoc
             HAVING (SUM(CASE WHEN d.trang_thai = 'Vắng có phép' THEN 1 ELSE 0 END) + SUM(CASE WHEN d.trang_thai = 'Vắng không phép' THEN 1 ELSE 0 END)) >= 3
             ORDER BY "Tổng số ca vắng" DESC
@@ -914,13 +856,15 @@ if choice == "🏠 Trang chủ":
         else:
             st.dataframe(df_absent_alert, use_container_width=True, hide_index=True)
 
-        st.markdown("---")
-        st.markdown("#### 📉 Top 5 Học Sinh Học Ít Ca Nhất Trong Tháng:")
+    # Top 5 học sinh học ít ca nhất (Bấm vào mới hiện)
+    with st.expander("📉 Top 5 Học Sinh Học Ít Ca Nhất Trong Tháng"):
+        today_obj_exp2 = date.today()
+        current_month_q_exp2 = f"{today_obj_exp2.year}-{today_obj_exp2.month:02d}"
         df_fewest_sessions = pd.read_sql_query(text(f'''
             SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", 
                    COALESCE(SUM(CASE WHEN d.trang_thai = 'Có mặt' THEN 1 ELSE 0 END), 0) AS "Tổng số ca học"
             FROM hoc_sinh h
-            LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q}'
+            LEFT JOIN diem_danh d ON h.id = d.hoc_sinh_id AND TO_CHAR(d.ngay, 'YYYY-MM') = '{current_month_q_exp2}'
             WHERE LOWER(h.ho_ten) NOT LIKE '%học thêm%'
             GROUP BY h.id, h.ho_ten, h.lop_hoc
             ORDER BY "Tổng số ca học" ASC
@@ -932,99 +876,7 @@ if choice == "🏠 Trang chủ":
         else:
             st.dataframe(df_fewest_sessions, use_container_width=True, hide_index=True)
 
-        st.markdown("---")
-        st.markdown("#### 📋 Chi Tiết Danh Sách Học Sinh Chưa Đóng Học Phí (1 Năm Qua, Trừ Tháng Này):")
-        if df_unpaid_details.empty:
-            st.success("✅ Tuyệt vời! Tất cả học sinh trong 1 năm qua (trừ tháng này) đã hoàn thành học phí.")
-        else:
-            display_debt_df = df_unpaid_details[['ho_ten', 'lop_hoc', 'thang_nam', 'so_ca', 'tien_no']].copy()
-            display_debt_df.columns = ['Họ và Tên', 'Lớp', 'Tháng Chưa Đóng', 'Số Ca Học', 'Số Tiền Cần Thu (VNĐ)']
-            display_debt_df['Số Tiền Cần Thu (VNĐ)'] = display_debt_df['Số Tiền Cần Thu (VNĐ)'].map('{:,.0f} đ'.format)
-            st.dataframe(display_debt_df, use_container_width=True, hide_index=True)
-            
-        st.markdown("---")
-        st.markdown("#### 🏫 Chi Tiết Thời Khóa Biểu & Học Sinh Hôm Nay (Sắp xếp từ sớm đến muộn):")
-        if df_today.empty:
-            st.info("💡 Hôm nay không có ca dạy nào được lên lịch.")
-        else:
-            sorted_cas_today = sorted(df_today['ca_hoc'].unique().tolist(), key=ca_hoc_sort_key)
-            for ca in sorted_cas_today:
-                group_ca = df_today[df_today['ca_hoc'] == ca]
-                with st.expander(f"⏰ Ca: {ca} ({len(group_ca)} học sinh)", expanded=True):
-                    for lop, g_lop in group_ca.groupby('lop_hoc'):
-                        ds_names = ", ".join(g_lop['ho_ten'].tolist())
-                        st.write(f"• **Lớp {lop}:** {ds_names}")
-
-    with tab_trangchu_doanhthu:
-        st.subheader("📊 Thống Kê Doanh Thu Thực Tế")
-        
-        mode_dt = st.radio("📌 Chọn phạm vi xem doanh thu:", ["📅 Doanh thu ngày hôm nay", "📅 Chọn tháng tùy chỉnh"], horizontal=True, key="mode_dt_selection")
-        
-        if mode_dt == "📅 Doanh thu ngày hôm nay":
-            sel_date_dt = date.today()
-            st.caption(f"Đang hiển thị doanh thu ngày: **{sel_date_dt.strftime('%d/%m/%Y')}**")
-            date_str_dt = sel_date_dt.strftime("%Y-%m-%d")
-            
-            df_rev = pd.read_sql_query(text(f'''
-                SELECT h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", d.ca_hoc AS "Ca học", h.hoc_phi_buoi AS "Học phí (VNĐ)"
-                FROM diem_danh d
-                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-                WHERE d.ngay = '{date_str_dt}' AND d.trang_thai = 'Có mặt'
-                ORDER BY d.id DESC
-            '''), engine)
-            
-            if df_rev.empty:
-                st.info(f"ℹ️ Không có học sinh nào đi học (Có mặt) trong ngày {sel_date_dt.strftime('%d/%m/%Y')}.")
-            else:
-                total_ca_rev = len(df_rev)
-                total_money_rev = df_rev['Học phí (VNĐ)'].sum()
-                
-                c_r1, c_r2 = st.columns(2)
-                c_r1.metric("📚 Tổng ca học (Có mặt)", f"{total_ca_rev} ca")
-                c_r2.metric("💰 Tổng doanh thu", f"{total_money_rev:,.0f} đ")
-                
-                st.markdown("---")
-                st.markdown("##### 📋 Chi tiết danh sách đi học:")
-                df_rev['Học phí (VNĐ)'] = df_rev['Học phí (VNĐ)'].map('{:,.0f} đ'.format)
-                st.dataframe(df_rev, use_container_width=True, hide_index=True)
-                
-        else:
-            c_y_dt, c_m_dt = st.columns(2)
-            with c_y_dt:
-                sel_year_dt = st.number_input("Chọn Năm", min_value=2020, max_value=2035, value=datetime.now().year, key="sel_year_dt_input")
-            with c_m_dt:
-                sel_month_dt = st.selectbox("Chọn Tháng", list(range(1, 13)), index=datetime.now().month - 1, format_func=lambda x: f"Tháng {x}", key="sel_month_dt_select")
-                
-            month_q_dt = f"{sel_year_dt}-{sel_month_dt:02d}"
-            st.caption(f"Đang hiển thị doanh thu Tháng **{sel_month_dt:02d}/{sel_year_dt}**")
-            
-            df_rev_m = pd.read_sql_query(text(f'''
-                SELECT TO_CHAR(d.ngay, 'DD/MM/YYYY') AS "Ngày", d.ca_hoc AS "Ca học", h.ho_ten AS "Họ và Tên", h.lop_hoc AS "Lớp", h.hoc_phi_buoi AS "Học phí (VNĐ)"
-                FROM diem_danh d
-                JOIN hoc_sinh h ON d.hoc_sinh_id = h.id
-                WHERE TO_CHAR(d.ngay, 'YYYY-MM') = '{month_q_dt}' AND d.trang_thai = 'Có mặt'
-                ORDER BY d.ngay ASC, d.id ASC
-            '''), engine)
-            
-            if df_rev_m.empty:
-                st.info(f"ℹ️ Không có dữ liệu điểm danh (Có mặt) trong Tháng {sel_month_dt}/{sel_year_dt}.")
-            else:
-                total_ca_rev_m = len(df_rev_m)
-                total_money_rev_m = df_rev_m['Học phí (VNĐ)'].sum()
-                
-                c_rm1, c_rm2 = st.columns(2)
-                c_rm1.metric("📚 Tổng ca học trong tháng", f"{total_ca_rev_m} ca")
-                c_rm2.metric("💰 Tổng doanh thu trong tháng", f"{total_money_rev_m:,.0f} đ")
-                
-                st.markdown("---")
-                st.markdown("##### 📋 Chi tiết danh sách điểm danh theo tháng:")
-                df_rev_m['Học phí (VNĐ)'] = df_rev_m['Học phí (VNĐ)'].map('{:,.0f} đ'.format)
-                st.dataframe(df_rev_m, use_container_width=True, hide_index=True)
-
-# =========================================================
-# --- ĐIỂM DANH & NHẬN XÉT ---
-# =========================================================
-elif choice == "📝 Điểm danh & Nhận xét":
+    st.markdown("---")
     st.subheader("📝 Điểm Danh & Nhận Xét Buổi Học")
     
     tab_dd_moi, tab_dd_quanly, tab_dd_lich_su = st.tabs([
