@@ -91,7 +91,7 @@ SUC_KHOE_LIST = [
     "📴 Lời nhắc sức khỏe: Hãy dành ra 10 phút hoàn toàn tĩnh lặng, rời xa màn hình để tâm trí được nghỉ ngơi tuyệt đối cô nhé.",
     "✍️ Lời nhắc sức khỏe: Rửa tay sạch sẽ và thả lỏng cơ cổ tay sau những giờ viết bảng liên tục cô nha.",
     "💤 Lời nhắc sức khỏe: Giấc ngủ trưa ngắn dù chỉ 15 phút cũng giúp tinh thần cô sảng khoái và minh mẫn hơn rất nhiều.",
-    "☀️ Lời nhắc sức khỏe: Đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
+    "☀️ Lời nhắc sức khỏe: Đ đón một chút ánh nắng ban mai nhẹ nhàng sẽ giúp cô nạp thêm năng lượng tích cực cho cả ngày dài.",
     "🥜 Lời nhắc sức khỏe: Mang theo vài hạt dinh dưỡng hoặc thanh ngũ cốc để ăn nhẹ giữa giờ dạy giữ vững năng lượng cô nhé.",
     "🪟 Lời nhắc sức khỏe: Mở cửa sổ thoáng một chút để hít thở không khí trong lành, tái tạo không gian làm việc tươi mới cô ạ.",
     "💖 Lời nhắc sức khỏe: Hãy tự nhắc bản thân rằng cô đã làm rất tốt ngày hôm nay, giờ là lúc thả lỏng và yêu chiều bản thân.",
@@ -2104,22 +2104,63 @@ elif choice == "💳 Quản lý học phí":
             
             selected_hs_meta = df_hs_all[df_hs_all['id'] == selected_cust_hs_id].iloc[0]
             
+            # --- TỰ ĐỘNG ĐIỀN CÁC THÁNG NỢ HỌC PHÍ (QUÉT 1 NĂM TRỪ THÁNG HIỆN TẠI) ---
+            today = date.today()
+            curr_m_start = date(today.year, today.month, 1)
+            debt_window_end = curr_m_start - timedelta(days=1)
+            debt_window_start = debt_window_end - timedelta(days=365)
+            
+            df_att_unpaid_check = pd.read_sql_query(text(f'''
+                SELECT DISTINCT TO_CHAR(ngay, 'MM') AS thang, TO_CHAR(ngay, 'YYYY') AS nam
+                FROM diem_danh
+                WHERE hoc_sinh_id IN ({family_ids_cust_str}) 
+                  AND trang_thai = 'Có mặt'
+                  AND ngay >= '{debt_window_start.strftime("%Y-%m-%d")}'
+                  AND ngay <= '{debt_window_end.strftime("%Y-%m-%d")}'
+            '''), engine)
+            
+            default_months = []
+            if not df_att_unpaid_check.empty:
+                df_pay_check = pd.read_sql_query(text(f'''
+                    SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan
+                    WHERE hoc_sinh_id IN ({family_ids_cust_str})
+                '''), engine)
+                pay_status_dict = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_pay_check.iterrows()}
+                
+                unpaid_set = set()
+                for _, r in df_att_unpaid_check.iterrows():
+                    m_int = int(r['thang'])
+                    y_int = int(r['nam'])
+                    if y_int == cust_year:
+                        th_k = f"{m_int:02d}/{cust_year}"
+                        all_paid_m = True
+                        for fid in family_ids_cust:
+                            if pay_status_dict.get((fid, th_k), 'Chưa đóng') != 'Đã đóng':
+                                all_paid_m = False
+                                break
+                        if not all_paid_m:
+                            unpaid_set.add(m_int)
+                default_months = sorted(list(unpaid_set))
+            
+            if not default_months:
+                default_months = [today.month] if today.year == cust_year else [1]
+
             selected_months_list = st.multiselect(
                 "Chọn các tháng cần gộp hóa đơn:",
                 options=list(range(1, 13)),
-                default=[6, 7] if datetime.now().month >= 7 else [datetime.now().month],
+                default=default_months,
                 format_func=lambda x: f"Tháng {x}",
-                key="sel_custom_invoice_months"
+                key=f"sel_custom_invoice_months_{selected_cust_hs_id}"
             )
             
             if not selected_months_list:
                 st.info("ℹ️ Vui lòng chọn ít nhất một tháng để xem và gộp hóa đơn.")
             else:
                 sorted_months = sorted(selected_months_list)
-                if len(sorted_months) == 1:
-                    time_str_custom = f"{sorted_months[0]:02d}/{cust_year}"
-                else:
-                    time_str_custom = f"Tháng {sorted_months[0]:02d}/{cust_year} - Tháng {sorted_months[-1]:02d}/{cust_year}"
+                
+                # --- ĐỊNH DẠNG THỜI GIAN GỘP: Tháng 06, 07 năm 2026 ---
+                months_formatted = ", ".join([f"{m:02d}" for m in sorted_months])
+                time_str_custom = f"Tháng {months_formatted} năm {cust_year}"
                 
                 total_ca_cust = 0
                 total_tien_cust = 0
@@ -2224,6 +2265,119 @@ elif choice == "💳 Quản lý học phí":
                             use_container_width=True,
                             key="btn_download_custom_invoice_img"
                         )
+
+                # --- DANH SÁCH TỔNG HỢP HỌC SINH DƯỚI PHẦN XUẤT ẢNH ---
+                st.markdown("---")
+                st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
+                st.caption("• Học phí chưa đóng: Quét trong 1 năm qua (trừ tháng hiện tại)\n• Học phí tính cả tháng này: Bao gồm cả tháng hiện tại\n• Học sinh đã hoàn thành thanh toán được **in đậm và bôi xanh**.")
+
+                family_groups_summary = {}
+                for _, hs_r in df_hs_all.iterrows():
+                    hs_id = hs_r['id']
+                    base_n = get_base_name(hs_r['ho_ten'])
+                    phone = str(hs_r['thong_tin_phu_huynh']).strip()
+                    if phone and phone.lower() not in ['none', 'nan', '']:
+                        f_key = (base_n.lower(), phone)
+                    else:
+                        f_key = (base_n.lower(), f"id_{hs_id}")
+                        
+                    if f_key not in family_groups_summary:
+                        family_groups_summary[f_key] = {
+                            'family_name': base_n,
+                            'lop': hs_r['lop_hoc'],
+                            'phone': phone if phone and phone.lower() not in ['none', 'nan', ''] else 'Chưa có',
+                            'student_ids': []
+                        }
+                    family_groups_summary[f_key]['student_ids'].append(hs_id)
+
+                curr_date = date.today()
+                curr_m_start = date(curr_date.year, curr_date.month, 1)
+                debt_win_end = curr_m_start - timedelta(days=1)
+                debt_win_start = debt_win_end - timedelta(days=365)
+                
+                curr_month_str = f"{curr_date.year}-{curr_date.month:02d}"
+
+                df_all_pay = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
+                pay_dict_all = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_all_pay.iterrows()}
+
+                summary_list_data = []
+                for f_key, f_info in family_groups_summary.items():
+                    s_ids = f_info['student_ids']
+                    s_ids_str = ",".join(map(str, s_ids))
+                    
+                    df_debt_1yr = pd.read_sql_query(text(f'''
+                        SELECT hoc_sinh_id, ngay, TO_CHAR(ngay, 'MM/YYYY') AS thang_nam
+                        FROM diem_danh
+                        WHERE hoc_sinh_id IN ({s_ids_str}) 
+                          AND trang_thai = 'Có mặt'
+                          AND ngay >= '{debt_win_start.strftime("%Y-%m-%d")}'
+                          AND ngay <= '{debt_win_end.strftime("%Y-%m-%d")}'
+                    '''), engine)
+                    
+                    debt_1yr_amount = 0
+                    has_debt_1yr = False
+                    for _, att_r in df_debt_1yr.iterrows():
+                        fid = att_r['hoc_sinh_id']
+                        th_k = att_r['thang_nam']
+                        p_st = pay_dict_all.get((fid, th_k), 'Chưa đóng')
+                        if p_st != 'Đã đóng':
+                            has_debt_1yr = True
+                            hp_b = df_hs_all[df_hs_all['id'] == fid].iloc[0]['hoc_phi_buoi']
+                            debt_1yr_amount += hp_b
+
+                    df_att_curr = pd.read_sql_query(text(f'''
+                        SELECT hoc_sinh_id, ngay, TO_CHAR(ngay, 'MM/YYYY') AS thang_nam
+                        FROM diem_danh
+                        WHERE hoc_sinh_id IN ({s_ids_str}) 
+                          AND trang_thai = 'Có mặt'
+                          AND TO_CHAR(ngay, 'YYYY-MM') = '{curr_month_str}'
+                    '''), engine)
+                    
+                    curr_month_amount = 0
+                    for _, att_r in df_att_curr.iterrows():
+                        fid = att_r['hoc_sinh_id']
+                        th_k = att_r['thang_nam']
+                        p_st = pay_dict_all.get((fid, th_k), 'Chưa đóng')
+                        if p_st != 'Đã đóng':
+                            hp_b = df_hs_all[df_hs_all['id'] == fid].iloc[0]['hoc_phi_buoi']
+                            curr_month_amount += hp_b
+                            
+                    total_with_curr = debt_1yr_amount + curr_month_amount
+                    is_fully_paid = (debt_1yr_amount == 0 and not has_debt_1yr)
+                    
+                    summary_list_data.append({
+                        'Họ và Tên': f_info['family_name'],
+                        'Lớp': f_info['lop'],
+                        'SĐT Phụ huynh': f_info['phone'],
+                        'Chưa đóng (1 năm trừ tháng này)': debt_1yr_amount,
+                        'Tính cả tháng này': total_with_curr,
+                        'Đã thanh toán': is_fully_paid
+                    })
+
+                df_summary_render = pd.DataFrame(summary_list_data)
+                if df_summary_render.empty:
+                    st.info("ℹ️ Không có dữ liệu học sinh.")
+                else:
+                    html_table = "<div style='overflow-x: auto;'><table style='width:100%; border-collapse: collapse; font-size: 14px;'>"
+                    html_table += "<tr style='background-color: #1E3A8A; color: white; text-align: left;'><th style='padding: 10px; border: 1px solid #CBD5E1;'>Họ và Tên</th><th style='padding: 10px; border: 1px solid #CBD5E1;'>Lớp</th><th style='padding: 10px; border: 1px solid #CBD5E1;'>SĐT Phụ huynh</th><th style='padding: 10px; border: 1px solid #CBD5E1;'>Học phí chưa đóng (1 năm trừ tháng này)</th><th style='padding: 10px; border: 1px solid #CBD5E1;'>Học phí tính cả tháng này</th></tr>"
+                    
+                    for _, r in df_summary_render.iterrows():
+                        is_paid = r['Đã thanh toán']
+                        row_style = "background-color: #d1fae5; font-weight: bold; color: #065f46;" if is_paid else "background-color: white; color: #1e293b;"
+                        
+                        debt_1yr_str = f"{r['Chưa đóng (1 năm trừ tháng này)']:,.0f} đ"
+                        total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
+                        
+                        html_table += f"<tr style='{row_style}'>"
+                        html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                        html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
+                        html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
+                        html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
+                        html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{total_curr_str}</td>"
+                        html_table += "</tr>"
+                    html_table += "</table></div>"
+                    
+                    st.markdown(html_table, unsafe_allow_html=True)
 
 # =========================================================
 # --- THÔNG TIN HỌC SINH ---
