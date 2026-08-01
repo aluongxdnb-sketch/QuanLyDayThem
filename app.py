@@ -881,7 +881,7 @@ if choice == "🏠 Trang chủ":
     with col1:
         total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
         total_hs_today = len(df_today) if not df_today.empty else 0
-        st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
+        st.metric("🏫 Ca dạy hôm hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
         st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
     with col3:
@@ -1911,92 +1911,101 @@ elif choice == "💳 Quản lý học phí":
     if df_tuition_final.empty:
         st.info("ℹ️ Không có học sinh nào phát sinh học phí trong khoảng thời gian quét.")
     else:
-        total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
-        total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
-        
-        with st.expander("📊 Bấm vào đây để xem Tổng Hợp Thống Kê Chung", expanded=False):
-            c_sum1, c_sum2 = st.columns(2)
-            c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
-            c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
-        st.markdown("---")
+        # --- BỔ SUNG THANH TÌM KIẾM HỌC SINH ---
+        search_query = st.text_input("🔍 Tìm kiếm học sinh (Nhập tên học sinh hoặc số điện thoại phụ huynh):", value="", key="search_tuition_student_input")
+        if search_query.strip():
+            q_lower = search_query.strip().lower()
+            df_tuition_final = df_tuition_final[df_tuition_final['Họ và Tên'].str.lower().str.contains(q_lower, na=False)]
 
-        if HAS_MATPLOTLIB:
-            if st.button("🖼️ Xuất ZIP Hàng Loạt Hóa Đơn Học Phí", type="primary"):
-                zip_buffer_f = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
-                    for _, row_fee in df_tuition_final.iterrows():
-                        img_fee_b = create_tuition_slip_image(
-                            student_name=row_fee['Họ và Tên'],
-                            lop_hoc=row_fee['Lớp'],
-                            subject=row_fee['Môn Học'] or 'Toán',
-                            time_str=row_fee['Thời gian'],
-                            total_lessons=row_fee['Số Ca Có Mặt'],
-                            total_fee=row_fee['Tổng Tiền (VNĐ)'],
-                            status=row_fee['Trạng Thái'],
-                            sub_components=row_fee['sub_components']
-                        )
-                        safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
-                        zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
-                zip_buffer_f.seek(0)
-                st.download_button(
-                    label="🖼️ Bấm Tải Xuống File ZIP Hóa Đơn",
-                    data=zip_buffer_f,
-                    file_name=f"Tong_Hop_Thong_Ke_Hoc_Phi_{datetime.now().strftime('%Y%m%d')}.zip",
-                    mime="application/zip",
-                    type="primary",
-                    key="btn_download_zip_fee"
-                )
-            st.divider()
-
-        for idx, row in df_tuition_final.iterrows():
-            c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8], vertical_alignment="center")
-            c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
-            c2.write(f"{row['Số Ca Có Mặt']} ca")
-            c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
+        if df_tuition_final.empty:
+            st.warning("⚠️ Không tìm thấy học sinh phù hợp với từ khóa tìm kiếm.")
+        else:
+            total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
+            total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
             
-            is_paid = (row['Trạng Thái'] == 'Đã đóng')
-            c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
-            btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
-            
-            if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
-                new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
-                t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
-                months_to_update = row['unpaid_months']
-                
-                with engine.begin() as conn:
-                    for fid in row['family_ids']:
-                        for m_str in months_to_update:
-                            conn.execute(text('''
-                                INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
-                                VALUES (:hs_id, :thang, :stt, :ngay)
-                                ON CONFLICT (hoc_sinh_id, thang_nam) 
-                                DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
-                            '''), {"hs_id": fid, "thang": m_str, "stt": new_stt, "ngay": t_str})
-                st.rerun()
+            with st.expander("📊 Bấm vào đây để xem Tổng Hợp Thống Kê Chung", expanded=False):
+                c_sum1, c_sum2 = st.columns(2)
+                c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
+                c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
+            st.markdown("---")
 
-            with c6:
-                if HAS_MATPLOTLIB:
-                    img_bytes = create_tuition_slip_image(
-                        student_name=row['Họ và Tên'],
-                        lop_hoc=row['Lớp'],
-                        subject=row['Môn Học'] or 'Toán',
-                        time_str=row['Thời gian'],
-                        total_lessons=row['Số Ca Có Mặt'],
-                        total_fee=row['Tổng Tiền (VNĐ)'],
-                        status=row['Trạng Thái'],
-                        sub_components=row['sub_components']
-                    )
-                    safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+            if HAS_MATPLOTLIB:
+                if st.button("🖼️ Xuất ZIP Hàng Loạt Hóa Đơn Học Phí", type="primary"):
+                    zip_buffer_f = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer_f, "w", zipfile.ZIP_DEFLATED) as zf_fee:
+                        for _, row_fee in df_tuition_final.iterrows():
+                            img_fee_b = create_tuition_slip_image(
+                                student_name=row_fee['Họ và Tên'],
+                                lop_hoc=row_fee['Lớp'],
+                                subject=row_fee['Môn Học'] or 'Toán',
+                                time_str=row_fee['Thời gian'],
+                                total_lessons=row_fee['Số Ca Có Mặt'],
+                                total_fee=row_fee['Tổng Tiền (VNĐ)'],
+                                status=row_fee['Trạng Thái'],
+                                sub_components=row_fee['sub_components']
+                            )
+                            safe_filename_time = str(row_fee['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
+                            safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row_fee['Họ và Tên']}_{row_fee['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                            zf_fee.writestr(f"Phieu_{safe_n_fee}.png", img_fee_b.getvalue())
+                    zip_buffer_f.seek(0)
                     st.download_button(
-                        label="🖼️ Tải Ảnh Phiếu",
-                        data=img_bytes,
-                        file_name=f"Phieu_{safe_n_fee}.png",
-                        mime="application/png",
-                        key=f"img_fee_{row['hoc_sinh_id']}_{idx}"
+                        label="🖼️ Bấm Tải Xuống File ZIP Hóa Đơn",
+                        data=zip_buffer_f,
+                        file_name=f"Tong_Hop_Thong_Ke_Hoc_Phi_{datetime.now().strftime('%Y%m%d')}.zip",
+                        mime="application/zip",
+                        type="primary",
+                        key="btn_download_zip_fee"
                     )
-            st.divider()
+                st.divider()
+
+            for idx, row in df_tuition_final.iterrows():
+                c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8], vertical_alignment="center")
+                c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
+                c2.write(f"{row['Số Ca Có Mặt']} ca")
+                c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
+                
+                is_paid = (row['Trạng Thái'] == 'Đã đóng')
+                c4.write("🟢 Đã đóng" if is_paid else "🔴 Chưa đóng")
+                btn_lbl = "Chuyển Chưa đóng" if is_paid else "Xác nhận Đã đóng"
+                
+                if c5.button(btn_lbl, key=f"btn_pay_{row['hoc_sinh_id']}_{idx}"):
+                    new_stt = 'Chưa đóng' if is_paid else 'Đã đóng'
+                    t_str = date.today().strftime("%Y-%m-%d") if new_stt == 'Đã đóng' else ""
+                    months_to_update = row['unpaid_months']
+                    
+                    with engine.begin() as conn:
+                        for fid in row['family_ids']:
+                            for m_str in months_to_update:
+                                conn.execute(text('''
+                                    INSERT INTO thanh_toan (hoc_sinh_id, thang_nam, trang_thai, ngay_thu)
+                                    VALUES (:hs_id, :thang, :stt, :ngay)
+                                    ON CONFLICT (hoc_sinh_id, thang_nam) 
+                                    DO UPDATE SET trang_thai = EXCLUDED.trang_thai, ngay_thu = EXCLUDED.ngay_thu
+                                '''), {"hs_id": fid, "thang": m_str, "stt": new_stt, "ngay": t_str})
+                    st.rerun()
+
+                with c6:
+                    if HAS_MATPLOTLIB:
+                        img_bytes = create_tuition_slip_image(
+                            student_name=row['Họ và Tên'],
+                            lop_hoc=row['Lớp'],
+                            subject=row['Môn Học'] or 'Toán',
+                            time_str=row['Thời gian'],
+                            total_lessons=row['Số Ca Có Mặt'],
+                            total_fee=row['Tổng Tiền (VNĐ)'],
+                            status=row['Trạng Thái'],
+                            sub_components=row['sub_components']
+                        )
+                        safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
+                        safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                        st.download_button(
+                            label="🖼️ Tải Ảnh Phiếu",
+                            data=img_bytes,
+                            file_name=f"Phieu_{safe_n_fee}.png",
+                            mime="application/png",
+                            key=f"img_fee_{row['hoc_sinh_id']}_{idx}"
+                        )
+                st.divider()
 
 # =========================================================
 # --- THÔNG TIN HỌC SINH ---
