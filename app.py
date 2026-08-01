@@ -881,7 +881,7 @@ if choice == "🏠 Trang chủ":
     with col1:
         total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
         total_hs_today = len(df_today) if not df_today.empty else 0
-        st.metric("🏫 Ca dạy hôm hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
+        st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
         st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
     with col3:
@@ -1911,14 +1911,19 @@ elif choice == "💳 Quản lý học phí":
     if df_tuition_final.empty:
         st.info("ℹ️ Không có học sinh nào phát sinh học phí trong khoảng thời gian quét.")
     else:
-        # --- BỔ SUNG THANH TÌM KIẾM HỌC SINH ---
-        search_query = st.text_input("🔍 Tìm kiếm học sinh (Nhập tên học sinh hoặc số điện thoại phụ huynh):", value="", key="search_tuition_student_input")
-        if search_query.strip():
-            q_lower = search_query.strip().lower()
-            df_tuition_final = df_tuition_final[df_tuition_final['Họ và Tên'].str.lower().str.contains(q_lower, na=False)]
+        # --- THANH TÌM KIẾM & CHỌN HỌC SINH ---
+        student_options = ["--- Tất cả học sinh ---"] + sorted(df_tuition_final['Họ và Tên'].unique().tolist())
+        selected_student_filter = st.selectbox(
+            "🔍 Tìm kiếm và chọn học sinh cần xem học phí:", 
+            student_options, 
+            key="select_tuition_student_filter"
+        )
+        
+        if selected_student_filter != "--- Tất cả học sinh ---":
+            df_tuition_final = df_tuition_final[df_tuition_final['Họ và Tên'] == selected_student_filter]
 
         if df_tuition_final.empty:
-            st.warning("⚠️ Không tìm thấy học sinh phù hợp với từ khóa tìm kiếm.")
+            st.warning("⚠️ Không tìm thấy học sinh phù hợp.")
         else:
             total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
             total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
