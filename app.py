@@ -491,7 +491,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (ĐÃ FIX CHỮ ĐÈ & TÁCH IN ĐẬM THỜI GIAN) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
@@ -1950,7 +1950,8 @@ elif choice == "💳 Quản lý học phí":
             st.divider()
 
         for idx, row in df_tuition_final.iterrows():
-            c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8])
+            # Thêm vertical_alignment="center" để căn chỉnh các cột thẳng hàng theo chiều dọc
+            c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.2, 1.5, 1.8, 1.8, 1.8], vertical_alignment="center")
             c1.write(f"**{row['Họ và Tên']}**\n\n*Lớp: {row['Lớp']} ({row['Thời gian']})*")
             c2.write(f"{row['Số Ca Có Mặt']} ca")
             c3.write(f"**{row['Tổng Tiền (VNĐ)']:,.0f} đ**")
@@ -1988,7 +1989,7 @@ elif choice == "💳 Quản lý học phí":
                         sub_components=row['sub_components']
                     )
                     safe_filename_time = str(row['Thời gian']).replace('/', '_').replace(' - ', '_').replace(' ', '_')
-                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
+                    safe_n_fee = re.sub(r'[\\/*?:"<>|]', "", f"{row['Họ và Tên']}_{row['Lớp']}_{safe_filename_time}".replace(" ", "_"))
                     st.download_button(
                         label="🖼️ Tải Ảnh Phiếu",
                         data=img_bytes,
