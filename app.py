@@ -873,7 +873,7 @@ if choice == "🏠 Trang chủ":
     with col1:
         total_ca = df_today['ca_hoc'].nunique() if not df_today.empty else 0
         total_hs_today = len(df_today) if not df_today.empty else 0
-        st.metric("🏫 Ca dạy hôm hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
+        st.metric("🏫 Ca dạy hôm nay", f"{total_ca} ca", f"{total_hs_today} lượt học sinh")
     with col2:
         st.metric("💳 Học sinh chưa đóng phí", f"{unique_unpaid_students} em", f"Trong 1 năm qua (trừ tháng này)")
     with col3:
@@ -1934,23 +1934,13 @@ elif choice == "💳 Quản lý học phí":
             if df_tuition_final.empty:
                 st.warning("⚠️ Không tìm thấy học sinh phù hợp.")
             else:
-                # Tính tổng số ca và tổng tiền chỉ tính riêng cho tháng được chọn (sel_month_hp, sel_year_hp)
-                current_month_str = f"{sel_month_hp:02d}/{sel_year_hp}"
-                total_ca_month = 0
-                total_tien_month = 0
-                for _, row_f in df_tuition_final.iterrows():
-                    f_ids = row_f['family_ids']
-                    for fid in f_ids:
-                        f_meta = meta_dict[fid]
-                        df_m_att = df_att_window[(df_att_window['hoc_sinh_id'] == fid) & (df_att_window['thang_nam'] == current_month_str)]
-                        ca_cnt = len(df_m_att)
-                        total_ca_month += ca_cnt
-                        total_tien_month += ca_cnt * f_meta['hp']
-
-                with st.expander(f"📊 Bấm vào đây để xem Tổng Hợp Thống Kê Tháng {sel_month_hp}/{sel_year_hp}", expanded=False):
+                total_ca_all = df_tuition_final['Số Ca Có Mặt'].sum()
+                total_tien_all = df_tuition_final['Tổng Tiền (VNĐ)'].sum()
+                
+                with st.expander("📊 Bấm vào đây để xem Tổng Hợp Thống Kê Chung", expanded=False):
                     c_sum1, c_sum2 = st.columns(2)
-                    c_sum1.metric(f"📚 Tổng số ca học (Tháng {sel_month_hp}/{sel_year_hp})", f"{int(total_ca_month)} ca")
-                    c_sum2.metric(f"💰 Tổng tiền học phí (Tháng {sel_month_hp}/{sel_year_hp})", f"{total_tien_month:,.0f} đ")
+                    c_sum1.metric("📚 Tổng số ca học", f"{int(total_ca_all)} ca")
+                    c_sum2.metric("💰 Tổng tiền học phí", f"{total_tien_all:,.0f} đ")
                 st.markdown("---")
 
                 if HAS_MATPLOTLIB:
