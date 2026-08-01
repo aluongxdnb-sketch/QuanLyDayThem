@@ -1768,7 +1768,7 @@ elif choice == "💳 Quản lý học phí":
             sorted_months = sorted(selected_months_list)
             
             months_formatted = ", ".join([f"{m:02d}" for m in sorted_months])
-            time_str_custom = f"Tháng {months_formatted} năm {cust_year}"
+            time_str_custom = f"tháng {months_formatted} năm {cust_year}"
             
             total_ca_cust = 0
             total_tien_cust = 0
@@ -1998,7 +1998,7 @@ elif choice == "💳 Quản lý học phí":
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ und Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
@@ -2008,9 +2008,9 @@ elif choice == "💳 Quản lý học phí":
                 
                 st.markdown(html_table, unsafe_allow_html=True)
 
-            # --- TÍNH NĂNG: TẢI ZIP HÓA ĐƠN ĐỒNG LOẠT (TỰ ĐỘNG GỘP NỢ 1 NĂM TÍNH ĐẾN HẾT THÁNG LIỀN TRƯỚC) ---
+            # --- TÍNH NĂNG: TẢI HOÁ ĐƠN ĐỒNG LOẠT ---
             st.markdown("---")
-            st.markdown("#### 📦 Tải ZIP Hóa Đơn Đồng Loạt Cho Tất Cả Học Sinh / Gia Đình")
+            st.markdown("#### 📦 Tải Hoá đơn đồng loạt")
             
             curr_date_z = date.today()
             if curr_date_z.month == 1:
@@ -2023,7 +2023,7 @@ elif choice == "💳 Quản lý học phí":
             st.caption(f"• Học sinh **nợ học phí**: Hệ thống tự động tổng hợp toàn bộ số ca và học phí các tháng chưa đóng trong 1 năm qua tính đến hết tháng liền trước ({prev_m_z:02d}/{prev_y_z}).\n• Học sinh **không nợ phí**: Hệ thống tự động xuất hóa đơn cho tháng liền trước ({prev_m_z:02d}/{prev_y_z}).")
                 
             if HAS_MATPLOTLIB:
-                if st.button("🖼️ Tạo & Tải ZIP Hóa Đơn Tất Cả Học Sinh", type="primary", key="btn_download_zip_invoices"):
+                if st.button("🖼️ Tải Hoá đơn đồng loạt", type="primary", key="btn_download_zip_invoices"):
                     zip_buffer_invoices = io.BytesIO()
                     count_inv_added = 0
                     
@@ -2103,7 +2103,17 @@ elif choice == "💳 Quản lý học phí":
                                         break
                                 stt_f_str = 'Đã đóng' if all_p_f else 'Chưa đóng'
                                 
-                                time_str_f = f"Các tháng: {', '.join(sorted_target_months)}" if len(sorted_target_months) > 1 else f"Tháng {sorted_target_months[0]}"
+                                # Định dạng thời gian theo mẫu: tháng 06,07 năm 2026
+                                year_to_months = {}
+                                for th_k_str in sorted_target_months:
+                                    m_part, y_part = th_k_str.split('/')
+                                    year_to_months.setdefault(y_part, []).append(m_part)
+                                
+                                time_str_parts = []
+                                for y_p, m_list in year_to_months.items():
+                                    m_str = ",".join(m_list)
+                                    time_str_parts.append(f"tháng {m_str} năm {y_p}")
+                                time_str_f = ", ".join(time_str_parts)
                                 
                                 img_inv_bytes = create_tuition_slip_image(
                                     student_name=family_name,
@@ -2129,7 +2139,7 @@ elif choice == "💳 Quản lý học phí":
                             type="primary",
                             key="download_zip_invoices_button_final"
                         )
-                        st.success(f"✅ Đã tạo file ZIP thành công với {count_inv_added} hóa đơn (Học sinh nợ được tự động tổng hợp các tháng nợ trong 1 năm qua tính đến hết tháng liền trước)!")
+                        st.success(f"✅ Đã tạo file ZIP thành công với {count_inv_added} hóa đơn!")
                     else:
                         st.warning("⚠️ Không có học sinh nào có buổi học trong các tháng hoặc khoản nợ để tạo hóa đơn.")
 
