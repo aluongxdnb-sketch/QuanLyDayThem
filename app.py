@@ -223,7 +223,7 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_th
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM ĐỒNG BỘ THỦ CÔNG ---
+# --- HÀM ĐỒNG BỘ THỦ CÔNG (ĐÃ SỬA QUÉT TRỌN VẸN CẢ TUẦN) ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -275,10 +275,10 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
             "19h30 - 21h30": ("19:30:00", "21:30:00")
         }
 
-        delta_days = (end_sunday - ref_date).days + 1
-        for i in range(delta_days):
-            current_date = ref_date + timedelta(days=i)
-            df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=True)
+        # Quét trọn vẹn 7 ngày trong tuần từ Thứ Hai đến Chủ Nhật
+        for i in range(7):
+            current_date = start_monday + timedelta(days=i)
+            df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=False)
 
             if df_day.empty:
                 continue
@@ -307,7 +307,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ trong tuần này và đồng bộ mới từ {ref_date.strftime('%d/%m')} đến hết tuần ({count_events} sự kiện)!"
+        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ và đồng bộ mới từ **{start_monday.strftime('%d/%m')}** đến hết tuần ({count_events} sự kiện)!"
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
@@ -1816,7 +1816,6 @@ elif choice == "💳 Quản lý học phí":
                                     break
                             stt_f_str = 'Đã đóng' if all_p_f else 'Chưa đóng'
                             
-                            # Định dạng thời gian theo mẫu: tháng 06,07 năm 2026
                             year_to_months = {}
                             for th_k_str in sorted_target_months:
                                 m_part, y_part = th_k_str.split('/')
@@ -2132,7 +2131,6 @@ elif choice == "💳 Quản lý học phí":
                     debt_1yr_str = f"{r['Chưa đóng (1 năm trừ tháng này)']:,.0f} đ"
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
-                    # Đã sửa lỗi KeyError bằng cách đổi chính xác thành 'Họ và Tên'
                     html_table += f"<tr style='{row_style}'>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
