@@ -230,15 +230,12 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         
     start_date = ref_date
     
-    # Kiểm tra xem hôm nay có phải là ngày cuối tháng hiện tại không
     _, last_day_curr = calendar.monthrange(ref_date.year, ref_date.month)
     is_last_day = (ref_date.day == last_day_curr)
     
     if not is_last_day:
-        # Bình thường: đồng bộ đến hết tháng hiện tại
         end_date = date(ref_date.year, ref_date.month, last_day_curr)
     else:
-        # Ngày cuối tháng: đồng bộ đến hết tháng tiếp theo
         if ref_date.month == 12:
             next_year = ref_date.year + 1
             next_month = 1
@@ -260,11 +257,9 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        # PHẠM VI XÓA LỊCH CŨ: Tháng liền trước, tháng hiện tại và tháng kế tiếp
         curr_y = ref_date.year
         curr_m = ref_date.month
         
-        # 1. Tháng liền trước
         if curr_m == 1:
             prev_m = 12
             prev_y = curr_y - 1
@@ -273,7 +268,6 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
             prev_y = curr_y
         clean_start = date(prev_y, prev_m, 1)
 
-        # 2. Tháng kế tiếp (tính từ tháng hiện tại)
         if curr_m == 12:
             next_m = 1
             next_y = curr_y + 1
@@ -535,26 +529,30 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (ĐÃ CẬP NHẬT CĂN LỀ & KHÔNG IN ĐẬM THÔNG TIN) ---
 def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_lessons, total_fee, status, sub_components=None):
     has_multiple_components = sub_components and len(sub_components) > 1
     fig, ax = plt.subplots(figsize=(8, 11 if has_multiple_components else 10))
     ax.axis('off')
     
+    # Tiêu đề chính (Giữ in đậm)
     ax.text(0.5, 0.93, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.87, f"Thời gian: {time_str}", fontsize=12, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     
     y_pos = 0.78
-    x_label = 0.22 
-    x_val = 0.51    
+    x_label_left = 0.20  # Lề trái cho nhãn thông tin
+    x_colon = 0.48       # Dấu hai chấm thẳng hàng dọc
+    x_val = 0.50         # Nội dung giá trị (chữ thường, không in đậm)
     
-    ax.text(x_label, y_pos, "Học sinh:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{student_name}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    y_pos -= 0.055
-    
-    ax.text(x_label, y_pos, "Lớp học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    y_pos -= 0.055
+    def add_row(label_text, val_text, font_size=11.5):
+        nonlocal y_pos
+        ax.text(x_label_left, y_pos, label_text, fontsize=font_size, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+        ax.text(x_colon, y_pos, ":", fontsize=font_size, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+        ax.text(x_val, y_pos, val_text, fontsize=font_size, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+        y_pos -= 0.055
+
+    add_row("Học sinh", f"{student_name}")
+    add_row("Lớp học", f"{lop_hoc}")
     
     if has_multiple_components:
         for sc in sub_components:
@@ -563,19 +561,14 @@ def create_tuition_slip_image(student_name, lop_hoc, subject, time_str, total_le
             y_pos -= 0.045
         y_pos -= 0.015
         
-    ax.text(x_label, y_pos, "Tổng số buổi học:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    y_pos -= 0.065
-    
-    ax.text(x_label, y_pos, "Tổng cộng học phí:", fontsize=12.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=12.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    y_pos -= 0.065
+    add_row("Tổng số buổi học", f"{total_lessons} buổi")
+    add_row("Tổng cộng học phí", f"{total_fee:,.0f} VNĐ", font_size=12.5)
+    y_pos -= 0.01
     
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
-    ax.text(x_label, y_pos, "Trạng thái:", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{display_status}", fontsize=11.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    add_row("Trạng thái", f"{display_status}")
     
-    ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.08, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=11, style='italic', fontweight='normal', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
@@ -1686,7 +1679,6 @@ elif choice == "💳 Quản lý học phí":
     if df_hs_all.empty:
         st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
     else:
-        # --- KHUNG EXPANDER THỐNG KÊ TOÀN BỘ HỌC SINH (THÁNG TRƯỚC & THÁNG NÀY) ---
         with st.expander("📊 Xem tổng hợp thống kê học phí Tháng trước & Tháng này của TOÀN BỘ HỌC SINH (Không liên quan đến trạng thái thanh toán)"):
             today_obj = date.today()
             curr_y_val, curr_m_val = today_obj.year, today_obj.month
@@ -1698,16 +1690,10 @@ elif choice == "💳 Quản lý học phí":
                 prev_y_val = curr_y_val
 
             prev_start = f"{prev_y_val}-{prev_m_val:02d}-01"
-            if prev_m_val == 12:
-                prev_end = f"{prev_y_val + 1}-01-01"
-            else:
-                prev_end = f"{prev_y_val}-{prev_m_val + 1:02d}-01"
+            prev_end = f"{prev_y_val + 1}-01-01" if prev_m_val == 12 else f"{prev_y_val}-{prev_m_val + 1:02d}-01"
 
             curr_start = f"{curr_y_val}-{curr_m_val:02d}-01"
-            if curr_m_val == 12:
-                curr_end = f"{curr_y_val + 1}-01-01"
-            else:
-                curr_end = f"{curr_y_val}-{curr_m_val + 1:02d}-01"
+            curr_end = f"{curr_y_val + 1}-01-01" if curr_m_val == 12 else f"{curr_y_val}-{curr_m_val + 1:02d}-01"
 
             df_all_prev = pd.read_sql_query(text(f'''
                 SELECT SUM(h.hoc_phi_buoi) AS tong_tien, COUNT(d.id) AS tong_ca
@@ -1741,7 +1727,6 @@ elif choice == "💳 Quản lý học phí":
 
         st.markdown("---")
 
-        # --- CHUẨN BỊ DỮ LIỆU GIA ĐÌNH & THANH TOÁN CHO PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT ---
         family_groups_summary = {}
         for _, hs_r in df_hs_all.iterrows():
             hs_id = hs_r['id']
@@ -1764,7 +1749,6 @@ elif choice == "💳 Quản lý học phí":
         df_all_pay = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
         pay_dict_all = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_all_pay.iterrows()}
 
-        # --- ĐƯA PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT LÊN NGAY DƯỚI PHẦN TỔNG HỢP THỐNG KÊ ---
         st.markdown("#### 📦 Tải Hoá đơn đồng loạt")
         
         curr_date_z = date.today()
@@ -1975,11 +1959,8 @@ elif choice == "💳 Quản lý học phí":
                 m_str_key = f"{m:02d}/{cust_year}"
                 month_strs_keys.append(m_str_key)
                 m_start = f"{cust_year}-{m:02d}-01"
-                if m == 12:
-                    m_end = f"{cust_year + 1}-01-01"
-                else:
-                    m_end = f"{cust_year}-{m + 1:02d}-01"
-                    
+                m_end = f"{cust_year}-{m + 1:02d}-01" if m < 12 else f"{cust_year + 1}-01-01"
+                
                 for fid in family_ids_cust:
                     f_meta = df_hs_all[df_hs_all['id'] == fid].iloc[0]
                     df_att_m = pd.read_sql_query(text(f'''
@@ -2070,7 +2051,6 @@ elif choice == "💳 Quản lý học phí":
                         key="btn_download_custom_invoice_img"
                     )
 
-            # --- DANH SÁCH TỔNG HỢP HỌC SINH ---
             st.markdown("---")
             st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
             st.caption("• Học phí chưa đóng: Quét trong 1 năm qua (trừ tháng hiện tại)\n• Học phí tính cả tháng này: Bao gồm cả tháng hiện tại\n• Học sinh đã hoàn thành thanh toán được **in đậm và bôi xanh**.")
@@ -2172,7 +2152,7 @@ elif choice == "💳 Quản lý học phí":
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ dan Tên'] if 'Họ dan Tên' in r else r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
