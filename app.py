@@ -235,7 +235,6 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         
     start_date = ref_date
     
-    # Kiểm tra xem hôm nay có phải là ngày cuối tháng hiện tại không
     _, last_day_curr = calendar.monthrange(ref_date.year, ref_date.month)
     is_last_day = (ref_date.day == last_day_curr)
     
@@ -535,66 +534,73 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ CHUẨN MẪU (CĂN THẲNG HÀNG, KHÔNG HIỂN THỊ ĐƠN GIÁ) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CĂN CHỈNH GẦN, KHÔNG IN ĐẬM NGOẠI TRỪ TIÊU ĐỀ) ---
 def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, total_fee, status, detail_lines):
     num_lines = len(detail_lines)
     fig_height = max(9.0, 6.0 + num_lines * 0.45)
     fig, ax = plt.subplots(figsize=(8, fig_height))
     ax.axis('off')
 
+    # Tiêu đề duy nhất được in đậm
     ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
 
     y_pos = 0.82
-    x_label = 0.15
-    x_val = 0.45
+    x_label = 0.20
+    x_colon = 0.33
+    x_val = 0.36
 
+    # Học sinh
     ax.text(x_label, y_pos, "Học sinh", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{student_name}", fontsize=11, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{student_name}", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
+    # Lớp học
     ax.text(x_label, y_pos, "Lớp học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
 
-    ax.text(x_label, y_pos, "Chi tiết buổi học", fontsize=11, fontweight='bold', color='#1E3A8A', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    # Chi tiết buổi học (Màu đen, không in đậm)
+    ax.text(x_label, y_pos, "Chi tiết buổi học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    for line_text, is_bold in detail_lines:
+    for line_text in detail_lines:
         if line_text.endswith(":"):
-            ax.text(0.18, y_pos, line_text, fontsize=10.5, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+            ax.text(0.22, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
         else:
             if ":" in line_text:
                 parts = line_text.split(":", 1)
                 lbl = parts[0].strip()
                 val = parts[1].strip()
-                ax.text(0.22, y_pos, lbl, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.25, y_pos, lbl, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
                 ax.text(0.55, y_pos, ":", fontsize=10, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-                ax.text(0.58, y_pos, val, fontsize=10, fontweight='bold' if is_bold else 'normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.58, y_pos, val, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
             else:
-                ax.text(0.18, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.22, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
         y_pos -= 0.040
 
     y_pos -= 0.015
+    # Tổng số buổi học
     ax.text(x_label, y_pos, "Tổng số buổi học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11, fontweight='bold', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
+    # Tổng học phí
     ax.text(x_label, y_pos, "Tổng học phí", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=11.5, fontweight='bold', color='#B91C1C', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_colon, y_pos, ":", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=11.5, fontweight='normal', color='#B91C1C', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
+    # Trạng thái
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
     ax.text(x_label, y_pos, "Trạng thái", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
-    ax.text(0.38, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{display_status}", fontsize=11, fontweight='bold', color='#047857' if status == 'Đã đóng' else '#DC2626', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{display_status}", fontsize=11, fontweight='normal', color='#047857' if status == 'Đã đóng' else '#DC2626', ha='left', va='center', transform=ax.transAxes)
 
-    ax.text(0.5, 0.06, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
+    ax.text(0.5, 0.06, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='normal', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
 
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.03, 0.03), 0.94, 0.94, transform=fig.transFigure,
@@ -636,8 +642,8 @@ def get_student_detail_lines(engine, family_ids, start_date_str, end_date_str, d
             else:
                 buoi_khac += 1
         
-        detail_lines.append((f"• Buổi học thường : {buoi_thuong} buổi", False))
-        detail_lines.append((f"• Buổi học khác   : {buoi_khac} buổi", False))
+        detail_lines.append(f"• Buổi học thường : {buoi_thuong} buổi")
+        detail_lines.append(f"• Buổi học khác   : {buoi_khac} buổi")
     else:
         for fid in family_ids:
             h_row = df_hs_all[df_hs_all['id'] == fid].iloc[0]
@@ -652,10 +658,10 @@ def get_student_detail_lines(engine, family_ids, start_date_str, end_date_str, d
             
             is_this_hoc_them = 'học thêm' in h_name.lower()
             
-            detail_lines.append((f"• {h_name}:", True))
+            detail_lines.append(f"• {h_name}:")
             if is_this_hoc_them:
                 total_s = len(df_att)
-                detail_lines.append((f"  - Buổi học thêm : {total_s} buổi", False))
+                detail_lines.append(f"  - Buổi học thêm : {total_s} buổi")
             else:
                 buoi_thuong = 0
                 buoi_khac = 0
@@ -665,8 +671,8 @@ def get_student_detail_lines(engine, family_ids, start_date_str, end_date_str, d
                         buoi_thuong += 1
                     else:
                         buoi_khac += 1
-                detail_lines.append((f"  - Buổi học thường : {buoi_thuong} buổi", False))
-                detail_lines.append((f"  - Buổi học khác   : {buoi_khac} buổi", False))
+                detail_lines.append(f"  - Buổi học thường : {buoi_thuong} buổi")
+                detail_lines.append(f"  - Buổi học khác   : {buoi_khac} buổi")
                 
     return detail_lines
 
@@ -1057,7 +1063,7 @@ if choice == "📝 Điểm danh & Nhận xét":
                     target_students = df_hs_filtered
 
             if target_students.empty:
-                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm hôm nay.")
+                st.info("ℹ️ Chưa có đối tượng nào được chọn hoặc không có học sinh trong danh sách thời khóa biểu hôm nay.")
             else:
                 st.markdown(f"#### 📋 Bảng Điểm Danh ({len(target_students)} lượt học ca)")
 
@@ -1684,7 +1690,6 @@ elif choice == "💳 Quản lý học phí":
     if df_hs_all.empty:
         st.warning("⚠️ Chưa có học sinh nào trong hệ thống.")
     else:
-        # --- KHUNG EXPANDER THỐNG KÊ TOÀN BỘ HỌC SINH (THÁNG TRƯỚC & THÁNG NÀY) ---
         with st.expander("📊 Xem tổng hợp thống kê học phí Tháng trước & Tháng này của TOÀN BỘ HỌC SINH (Tính theo đơn giá thực tế buổi học)"):
             today_obj = date.today()
             curr_y_val, curr_m_val = today_obj.year, today_obj.month
@@ -1745,7 +1750,6 @@ elif choice == "💳 Quản lý học phí":
 
         st.markdown("---")
 
-        # --- CHUẨN BỊ DỮ LIỆU GIA ĐÌNH & THANH TOÁN CHO PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT ---
         family_groups_summary = {}
         for _, hs_r in df_hs_all.iterrows():
             hs_id = hs_r['id']
@@ -1768,7 +1772,6 @@ elif choice == "💳 Quản lý học phí":
         df_all_pay = pd.read_sql_query(text("SELECT hoc_sinh_id, thang_nam, trang_thai FROM thanh_toan"), engine)
         pay_dict_all = {(r['hoc_sinh_id'], r['thang_nam']): r['trang_thai'] for _, r in df_all_pay.iterrows()}
 
-        # --- ĐƯA PHẦN TẢI HOÁ ĐƠN ĐỒNG LOẠT LÊN NGAY DƯỚI PHẦN TỔNG HỢP THỐNG KÊ ---
         st.markdown("#### 📦 Tải Hoá đơn đồng loạt")
         
         curr_date_z = date.today()
@@ -2066,7 +2069,6 @@ elif choice == "💳 Quản lý học phí":
                         key="btn_download_custom_invoice_img"
                     )
 
-            # --- DANH SÁCH TỔNG HỢP HỌC SINH ---
             st.markdown("---")
             st.markdown("#### 📋 Danh Sách Học Sinh & Tổng Hợp Học Phí")
             st.caption("• Học phí chưa đóng: Quét trong 1 năm qua (trừ tháng hiện tại)\n• Học phí tính cả tháng này: Bao gồm cả tháng hiện tại\n• Học sinh đã hoàn thành thanh toán được **in đậm và bôi xanh**.")
