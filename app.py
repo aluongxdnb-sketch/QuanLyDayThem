@@ -534,7 +534,7 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (CĂN CHỈNH GẦN, KHÔNG IN ĐẬM NGOẠI TRỪ TIÊU ĐỀ) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (SỬA LỖI ĐÈ CHỮ VÀ KHÔNG BÔI MÀU) ---
 def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, total_fee, status, detail_lines):
     num_lines = len(detail_lines)
     fig_height = max(9.0, 6.0 + num_lines * 0.45)
@@ -546,9 +546,9 @@ def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, to
     ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
 
     y_pos = 0.82
-    x_label = 0.20
-    x_colon = 0.33
-    x_val = 0.36
+    x_label = 0.15
+    x_colon = 0.38
+    x_val = 0.41
 
     # Học sinh
     ax.text(x_label, y_pos, "Học sinh", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
@@ -568,17 +568,17 @@ def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, to
 
     for line_text in detail_lines:
         if line_text.endswith(":"):
-            ax.text(0.22, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+            ax.text(0.18, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
         else:
             if ":" in line_text:
                 parts = line_text.split(":", 1)
                 lbl = parts[0].strip()
                 val = parts[1].strip()
-                ax.text(0.25, y_pos, lbl, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.22, y_pos, lbl, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
                 ax.text(0.55, y_pos, ":", fontsize=10, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
                 ax.text(0.58, y_pos, val, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
             else:
-                ax.text(0.22, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.18, y_pos, line_text, fontsize=10, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
         y_pos -= 0.040
 
     y_pos -= 0.015
@@ -588,17 +588,17 @@ def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, to
     ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    # Tổng học phí
+    # Tổng học phí (Không bôi màu, dùng màu chuẩn #1E293B)
     ax.text(x_label, y_pos, "Tổng học phí", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=11.5, fontweight='normal', color='#B91C1C', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    # Trạng thái
+    # Trạng thái (Không bôi màu, dùng màu chuẩn #1E293B)
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
     ax.text(x_label, y_pos, "Trạng thái", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
-    ax.text(x_val, y_pos, f"{display_status}", fontsize=11, fontweight='normal', color='#047857' if status == 'Đã đóng' else '#DC2626', ha='left', va='center', transform=ax.transAxes)
+    ax.text(x_val, y_pos, f"{display_status}", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
 
     ax.text(0.5, 0.06, "Trân trọng cảm ơn sự đồng hành của Quý phụ huynh!", fontsize=10.5, style='italic', fontweight='normal', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
 
