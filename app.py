@@ -223,13 +223,30 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_th
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM ĐỒNG BỘ THỦ CÔNG (ĐÃ SỬA QUÉT TRỌN VẸN CẢ TUẦN) ---
+# --- HÀM ĐỒNG BỘ THỦ CÔNG (LOGIC MỚI: TỪ HÔM NAY ĐẾN HẾT THÁNG HOẶC HẾT THÁNG SAU NẾU LÀ NGÀY CUỐI THÁNG) ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
         
-    start_monday = ref_date - timedelta(days=ref_date.weekday())
-    end_sunday = start_monday + timedelta(days=6)
+    start_date = ref_date
+    
+    # Kiểm tra xem hôm nay có phải là ngày cuối tháng hiện tại không
+    _, last_day_curr = calendar.monthrange(ref_date.year, ref_date.month)
+    is_last_day = (ref_date.day == last_day_curr)
+    
+    if not is_last_day:
+        # Bình thường: đồng bộ đến hết tháng hiện tại
+        end_date = date(ref_date.year, ref_date.month, last_day_curr)
+    else:
+        # Ngày cuối tháng: đồng bộ đến hết tháng tiếp theo
+        if ref_date.month == 12:
+            next_year = ref_date.year + 1
+            next_month = 1
+        else:
+            next_year = ref_date.year
+            next_month = ref_date.month + 1
+        _, last_day_next = calendar.monthrange(next_year, next_month)
+        end_date = date(next_year, next_month, last_day_next)
 
     try:
         from google.oauth2.service_account import Credentials
@@ -243,8 +260,8 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        time_clean_min = f"{start_monday.strftime('%Y-%m-%d')}T00:00:00Z"
-        time_clean_max = f"{end_sunday.strftime('%Y-%m-%d')}T23:59:59Z"
+        time_clean_min = f"{start_date.strftime('%Y-%m-%d')}T00:00:00Z"
+        time_clean_max = f"{end_date.strftime('%Y-%m-%d')}T23:59:59Z"
 
         events_result = service.events().list(
             calendarId=calendar_id, 
@@ -275,9 +292,9 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
             "19h30 - 21h30": ("19:30:00", "21:30:00")
         }
 
-        # Quét trọn vẹn 7 ngày trong tuần từ Thứ Hai đến Chủ Nhật
-        for i in range(7):
-            current_date = start_monday + timedelta(days=i)
+        delta_days = (end_date - start_date).days + 1
+        for i in range(delta_days):
+            current_date = start_date + timedelta(days=i)
             df_day = get_active_schedule_for_date(engine, current_date, exclude_hoc_them=False)
 
             if df_day.empty:
@@ -307,7 +324,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ và đồng bộ mới từ **{start_monday.strftime('%d/%m')}** đến hết tuần ({count_events} sự kiện)!"
+        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ và đồng bộ mới từ **{start_date.strftime('%d/%m/%Y')}** đến **{end_date.strftime('%d/%m/%Y')}** ({count_events} sự kiện)!"
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
@@ -813,8 +830,8 @@ choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Đồng bộ thời khóa biểu tới iPhone")
 user_gmail_sidebar = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
-if st.sidebar.button("🔄 Đồng bộ (Dọn sạch tuần hiện tại & Cập nhật)", type="primary", use_container_width=True):
-    with st.spinner("⏳ Đang dọn sạch lịch tuần hiện tại và đồng bộ lịch học mới..."):
+if st.sidebar.button("🔄 Đồng bộ (Từ hôm nay đến hết tháng)", type="primary", use_container_width=True):
+    with st.spinner("⏳ Đang dọn sạch lịch cũ và đồng bộ lịch học mới..."):
         success_sync, msg_sync = sync_from_today_to_end_of_week(calendar_id=user_gmail_sidebar.strip(), ref_date=date.today())
         if success_sync:
             st.sidebar.success(msg_sync)
