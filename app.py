@@ -223,7 +223,7 @@ def get_active_schedule_for_date(engine, check_date, hs_ids=None, exclude_hoc_th
     cols = ['hoc_sinh_id', 'ho_ten', 'lop_hoc', 'mon_hoc', 'ca_hoc', 'nguon']
     return df_base[cols] if not df_base.empty else pd.DataFrame(columns=cols)
 
-# --- HÀM ĐỒNG BỘ THỦ CÔNG (LOGIC MỚI: TỪ HÔM NAY ĐẾN HẾT THÁNG HOẶC HẾT THÁNG SAU NẾU LÀ NGÀY CUỐI THÁNG) ---
+# --- HÀM ĐỒNG BỘ THỦ CÔNG (XOÁ THÁNG TRƯỚC, THÁNG NÀY, THÁNG SAU & ĐỒNG BỘ MỚI) ---
 def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date=None):
     if ref_date is None:
         ref_date = date.today()
@@ -260,8 +260,31 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
         creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build('calendar', 'v3', credentials=creds)
 
-        time_clean_min = f"{start_date.strftime('%Y-%m-%d')}T00:00:00Z"
-        time_clean_max = f"{end_date.strftime('%Y-%m-%d')}T23:59:59Z"
+        # PHẠM VI XÓA LỊCH CŨ: Tháng liền trước, tháng hiện tại và tháng kế tiếp
+        curr_y = ref_date.year
+        curr_m = ref_date.month
+        
+        # 1. Tháng liền trước
+        if curr_m == 1:
+            prev_m = 12
+            prev_y = curr_y - 1
+        else:
+            prev_m = curr_m - 1
+            prev_y = curr_y
+        clean_start = date(prev_y, prev_m, 1)
+
+        # 2. Tháng kế tiếp (tính từ tháng hiện tại)
+        if curr_m == 12:
+            next_m = 1
+            next_y = curr_y + 1
+        else:
+            next_m = curr_m + 1
+            next_y = curr_y
+        _, last_d_next = calendar.monthrange(next_y, next_m)
+        clean_end = date(next_y, next_m, last_d_next)
+
+        time_clean_min = f"{clean_start.strftime('%Y-%m-%d')}T00:00:00Z"
+        time_clean_max = f"{clean_end.strftime('%Y-%m-%d')}T23:59:59Z"
 
         events_result = service.events().list(
             calendarId=calendar_id, 
@@ -324,7 +347,7 @@ def sync_from_today_to_end_of_week(calendar_id='a.luongxdnb@gmail.com', ref_date
                     service.events().insert(calendarId=calendar_id, body=event).execute()
                     count_events += 1
 
-        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ và đồng bộ mới từ **{start_date.strftime('%d/%m/%Y')}** đến **{end_date.strftime('%d/%m/%Y')}** ({count_events} sự kiện)!"
+        return True, f"✅ Đã dọn sạch {deleted_count} lịch cũ (từ {clean_start.strftime('%d/%m/%Y')} đến {clean_end.strftime('%d/%m/%Y')}) và đồng bộ mới từ **{start_date.strftime('%d/%m/%Y')}** đến **{end_date.strftime('%d/%m/%Y')}** ({count_events} sự kiện)!"
     except Exception as e:
         return False, f"❌ Lỗi khi đồng bộ: {str(e)}"
 
@@ -830,7 +853,7 @@ choice = st.sidebar.selectbox("📋 Danh mục chức năng", menu)
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Đồng bộ thời khóa biểu tới iPhone")
 user_gmail_sidebar = st.sidebar.text_input("Địa chỉ Gmail trên iPhone:", value="a.luongxdnb@gmail.com")
-if st.sidebar.button("🔄 Đồng bộ (Từ hôm nay đến hết tháng)", type="primary", use_container_width=True):
+if st.sidebar.button("🔄 Đồng bộ (Dọn sạch 3 tháng & Cập nhật)", type="primary", use_container_width=True):
     with st.spinner("⏳ Đang dọn sạch lịch cũ và đồng bộ lịch học mới..."):
         success_sync, msg_sync = sync_from_today_to_end_of_week(calendar_id=user_gmail_sidebar.strip(), ref_date=date.today())
         if success_sync:
@@ -2149,7 +2172,7 @@ elif choice == "💳 Quản lý học phí":
                     total_curr_str = f"{r['Tính cả tháng này']:,.0f} đ"
                     
                     html_table += f"<tr style='{row_style}'>"
-                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
+                    html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Họ dan Tên'] if 'Họ dan Tên' in r else r['Họ và Tên']} {'(✅ Đã đóng)' if is_paid else ''}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['Lớp']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{r['SĐT Phụ huynh']}</td>"
                     html_table += f"<td style='padding: 8px; border: 1px solid #CBD5E1;'>{debt_1yr_str}</td>"
