@@ -534,14 +534,13 @@ def create_list_schedule_image(title_target, df_list, prefix="Học sinh / Lớp
     buffer.seek(0)
     return buffer
 
-# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ (SỬA LỖI ĐÈ CHỮ VÀ KHÔNG BÔI MÀU) ---
+# --- HÀM TẠO FILE ẢNH HÓA ĐƠN HỌC PHÍ ---
 def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, total_fee, status, detail_lines):
     num_lines = len(detail_lines)
     fig_height = max(9.0, 6.0 + num_lines * 0.45)
     fig, ax = plt.subplots(figsize=(8, fig_height))
     ax.axis('off')
 
-    # Tiêu đề duy nhất được in đậm
     ax.text(0.5, 0.94, "PHIẾU BÁO HỌC PHÍ HỌC THÊM", fontsize=16, fontweight='bold', color='#1E3A8A', ha='center', va='center', transform=ax.transAxes)
     ax.text(0.5, 0.89, f"Thời gian: {time_str}", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
 
@@ -550,19 +549,16 @@ def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, to
     x_colon = 0.38
     x_val = 0.41
 
-    # Học sinh
     ax.text(x_label, y_pos, "Học sinh", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{student_name}", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    # Lớp học
     ax.text(x_label, y_pos, "Lớp học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{lop_hoc}", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.055
 
-    # Chi tiết buổi học (Màu đen, không in đậm)
     ax.text(x_label, y_pos, "Chi tiết buổi học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
@@ -582,19 +578,16 @@ def create_tuition_slip_image(student_name, lop_hoc, time_str, total_lessons, to
         y_pos -= 0.040
 
     y_pos -= 0.015
-    # Tổng số buổi học
     ax.text(x_label, y_pos, "Tổng số buổi học", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_lessons} buổi", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    # Tổng học phí (Không bôi màu, dùng màu chuẩn #1E293B)
     ax.text(x_label, y_pos, "Tổng học phí", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11.5, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
     ax.text(x_val, y_pos, f"{total_fee:,.0f} VNĐ", fontsize=11.5, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     y_pos -= 0.045
 
-    # Trạng thái (Không bôi màu, dùng màu chuẩn #1E293B)
     display_status = "Đã thanh toán" if status == "Đã đóng" else "Chưa thanh toán"
     ax.text(x_label, y_pos, "Trạng thái", fontsize=11, fontweight='normal', color='#1E293B', ha='left', va='center', transform=ax.transAxes)
     ax.text(x_colon, y_pos, ":", fontsize=11, fontweight='normal', color='#1E293B', ha='center', va='center', transform=ax.transAxes)
@@ -890,7 +883,7 @@ try:
         except Exception:
             pass
 except Exception as e:
-    st.error(f"❌ Không thể kết nối tới cơ sở dữ liệu Supabase. Vui lòng kiểm tra lại cấu hình `DATABASE_URL` trên Streamlit Cloud hoặc trạng thái dự án trên Supabase. Chi tiết lỗi: {e}")
+    st.error(f"❌ Không thể kết nối tới cơ sở dữ liệu Supabase. Chi tiết lỗi: {e}")
     st.stop()
 
 # =========================================================
